@@ -222,67 +222,8 @@ int main()
 
 	Dengine::Texture *containerTex = assetManager.getTexture("container");
 	Dengine::Shader *shader = assetManager.getShader("default");
-	//if (!containerTex) return -1;
 
 	/* Create OGL Vertex objects */
-	GLfloat vertices[] = {
-		-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-		 0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-		 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-		 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-		-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-		-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-
-		-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-		 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-		 0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-		 0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-		-0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-		-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-
-		-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-		-0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-		-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-		-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-		-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-		-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-		 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-		 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-		 0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-		 0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-		 0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-		 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-		-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-		 0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-		 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-		 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-		-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-		-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-
-		-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-		 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-		 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-		 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-		-0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-		-0.5f,  0.5f, -0.5f,  0.0f, 1.0f
-	};
-
-	glm::vec3 cubePositions[] = {
-		glm::vec3( 0.0f,  0.0f,  0.0f),
-		glm::vec3( 2.0f,  5.0f, -15.0f),
-		glm::vec3(-1.5f, -2.2f, -2.5f),
-		glm::vec3(-3.8f, -2.0f, -12.3f),
-		glm::vec3( 2.4f, -0.4f, -3.5f),
-		glm::vec3(-1.7f,  3.0f, -7.5f),
-		glm::vec3( 1.3f, -2.0f, -2.5f),
-		glm::vec3( 1.5f,  2.0f, -2.5f),
-		glm::vec3( 1.5f,  0.2f, -1.5f),
-		glm::vec3(-1.3f,  1.0f, -1.5f)
-	};
-
-#if 0
 	GLfloat vertices[] = {
 		// Positions          Colors             Texture Coords
 		+0.5f, +0.5f, +0.0f,  1.0f, 0.0f, 0.0f,  1.0f, 1.0f, // Top Right
@@ -290,20 +231,17 @@ int main()
 		-0.5f, -0.5f, +0.0f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f, // Bottom left
 		-0.5f, +0.5f, +0.0f,  1.0f, 1.0f, 0.0f,  0.0f, 1.0f, // Top left
 	};
+
 	GLuint indices[] = {
 	    0, 1, 3, // First triangle
 	    1, 2, 3, // First triangle
 	};
-#endif
-
 
 	GLuint vbo, vao;
 	glGenVertexArrays(1, &vao);
 	glGenBuffers(1, &vbo);
-#if 0
 	GLuint ebo;
 	glGenBuffers(1, &ebo);
-#endif
 
 	// 1. Bind vertex array object
 	glBindVertexArray(vao);
@@ -312,7 +250,6 @@ int main()
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-#if 0
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
@@ -336,15 +273,6 @@ int main()
 	glVertexAttribPointer(2, numTexCoord, GL_FLOAT, GL_FALSE, vertexSize,
 	                      (GLvoid *)texCoordByteOffset);
 	glEnableVertexAttribArray(2);
-#endif
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat),
-	                      (GLvoid *)0);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat),
-	                      (GLvoid *)(3 * sizeof(GLfloat)));
-	glEnableVertexAttribArray(2);
-		
 
 	// 4. Unbind to prevent mistakes
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -376,6 +304,7 @@ int main()
 		shader->use();
 
 		/* Camera/View transformation */
+		glm::mat4 model;
 		glm::mat4 view;
 		// NOTE(doyle): Lookat generates the matrix for camera coordinate axis
 		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
@@ -388,27 +317,17 @@ int main()
 
 		/* Get shader uniform locations */
 		GLuint modelLoc = glGetUniformLocation(shader->mProgram, "model");
-		GLuint viewLoc = glGetUniformLocation(shader->mProgram, "view");
-		GLuint projectionLoc = glGetUniformLocation(shader->mProgram, "projection");
+		GLuint viewLoc  = glGetUniformLocation(shader->mProgram, "view");
+		GLuint projectionLoc =
+		    glGetUniformLocation(shader->mProgram, "projection");
 
 		/* Pass matrices to the shader */
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 		glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
 		glBindVertexArray(vao);
-		// glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-		for (GLuint i = 0; i < 10; i++)
-		{
-			/* Calculate model matrix for each object and pass it to shader */
-			glm::mat4 model;
-			model = glm::translate(model, cubePositions[i]);
-
-			GLfloat angle = glm::radians(20.0f * i);
-			model = glm::rotate(model, angle, glm::vec3(1.0f, 0.3f, 0.5f));
-
-			glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-			glDrawArrays(GL_TRIANGLES, 0, 36);
-		}
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 
 		/* Swap the buffers */
