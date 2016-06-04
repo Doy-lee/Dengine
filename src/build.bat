@@ -18,8 +18,9 @@ set includeFlags=/I ..\src\include /I %GLEW%\include /I %GLFW%\include /I %STB%\
 
 REM Link libraries
 set linkLibraries=/link opengl32.lib %GLFW%\lib-vc2015\glfw3.lib %GLEW%\lib\Release\Win32\glew32s.lib gdi32.lib user32.lib shell32.lib
+set ignoreLibraries=/NODEFAULTLIB:"libc.lib" /NODEFAULTLIB:"libcmt.lib" /NODEFAULTLIB:"libcd.lib" /NODEFAULTLIB:"libcmtd.lib" /NODEFAULTLIB:"msvcrtd.lib"
 
-cl %compileFlags%  ..\src\*.cpp %includeFlags% %linkLibraries%
+cl %compileFlags%  ..\src\*.cpp %includeFlags% %linkLibraries% %ignoreLibraries% /OUT:"Dengine.exe"
 REM /SUBSYSTEM:CONSOLE
 
 popd

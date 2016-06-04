@@ -1,10 +1,8 @@
 #include <Dengine/OpenGL.h>
 #include <Dengine/Common.h>
 #include <Dengine/Shader.h>
+#include <Dengine/AssetManager.h>
 
-#define STBI_FAILURE_USERMSG
-#define STB_IMAGE_IMPLEMENTATION
-#include <STB/stb_image.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -130,6 +128,42 @@ void scroll_callback(GLFWwindow *window, double xOffset, double yOffset)
 		fov = 45.0f;
 }
 
+GLenum glCheckError_(const char *file, int line)
+{
+	GLenum errorCode;
+	while ((errorCode = glGetError()) != GL_NO_ERROR)
+	{
+		std::string error;
+		switch (errorCode)
+		{
+		case GL_INVALID_ENUM:
+			error = "INVALID_ENUM";
+			break;
+		case GL_INVALID_VALUE:
+			error = "INVALID_VALUE";
+			break;
+		case GL_INVALID_OPERATION:
+			error = "INVALID_OPERATION";
+			break;
+		case GL_STACK_OVERFLOW:
+			error = "STACK_OVERFLOW";
+			break;
+		case GL_STACK_UNDERFLOW:
+			error = "STACK_UNDERFLOW";
+			break;
+		case GL_OUT_OF_MEMORY:
+			error = "OUT_OF_MEMORY";
+			break;
+		case GL_INVALID_FRAMEBUFFER_OPERATION:
+			error = "INVALID_FRAMEBUFFER_OPERATION";
+			break;
+		}
+		std::cout << error << " | " << file << " (" << line << ")" << std::endl;
+	}
+	return errorCode;
+}
+#define glCheckError() glCheckError_(__FILE__, __LINE__)
+
 int main()
 {
 	glfwInit();
@@ -173,41 +207,22 @@ int main()
 	glEnable(GL_DEPTH_TEST);
 
 	/* Initialise shaders */
-	Dengine::Shader shader = Dengine::Shader("data/shaders/default.vert.glsl",
-	                                         "data/shaders/default.frag.glsl");
-	GLuint texture;
-	glGenTextures(1, &texture);
-	glBindTexture(GL_TEXTURE_2D, texture);
+	Dengine::AssetManager assetManager;
+	i32 result = 0;
 
-	// Set texture wrapping parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-	//  Set texture filtering parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	result = assetManager.loadShaderFiles("data/shaders/default.vert.glsl",
+	                                      "data/shaders/default.frag.glsl",
+	                                      "default");
+	if (result) return result;
 
 	/* Load a texture */
-	i32 imgWidth, imgHeight, bytesPerPixel;
-	stbi_set_flip_vertically_on_load(TRUE);
-	u8 *image = stbi_load("data/textures/container.jpg", &imgWidth, &imgHeight,
-	                      &bytesPerPixel, 0);
+	result = assetManager.loadTextureImage("data/textures/container.jpg",
+	                                       "container");
+	if (result) return result;
 
-	if (!image)
-	{
-		std::cerr << "stdbi_load() failed: " << stbi_failure_reason()
-		          << std::endl;
-	}
-
-	glTexImage2D(GL_TEXTURE_2D, 0,
-	             getGLFormat((BytesPerPixel)bytesPerPixel, FALSE), imgWidth,
-	             imgHeight, 0, getGLFormat((BytesPerPixel)bytesPerPixel, FALSE),
-	             GL_UNSIGNED_BYTE, image);
-	glGenerateMipmap(GL_TEXTURE_2D);
-
-	// Unbind texture
-	glBindTexture(GL_TEXTURE_2D, 0);
-	stbi_image_free(image);
+	Dengine::Texture *containerTex = assetManager.getTexture("container");
+	Dengine::Shader *shader = assetManager.getShader("default");
+	//if (!containerTex) return -1;
 
 	/* Create OGL Vertex objects */
 	GLfloat vertices[] = {
@@ -275,11 +290,11 @@ int main()
 		-0.5f, -0.5f, +0.0f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f, // Bottom left
 		-0.5f, +0.5f, +0.0f,  1.0f, 1.0f, 0.0f,  0.0f, 1.0f, // Top left
 	};
-#endif
 	GLuint indices[] = {
 	    0, 1, 3, // First triangle
 	    1, 2, 3, // First triangle
 	};
+#endif
 
 
 	GLuint vbo, vao;
@@ -355,10 +370,10 @@ int main()
 
 		/* Bind textures */
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, texture);
-		glUniform1i(glGetUniformLocation(shader.mProgram, "ourTexture"), 0);
+		glBindTexture(GL_TEXTURE_2D, containerTex->mId);
+		glUniform1i(glGetUniformLocation(shader->mProgram, "ourTexture"), 0);
 
-		shader.use();
+		shader->use();
 
 		/* Camera/View transformation */
 		glm::mat4 view;
@@ -372,9 +387,9 @@ int main()
 		                              0.1f, 100.0f);
 
 		/* Get shader uniform locations */
-		GLuint modelLoc = glGetUniformLocation(shader.mProgram, "model");
-		GLuint viewLoc = glGetUniformLocation(shader.mProgram, "view");
-		GLuint projectionLoc = glGetUniformLocation(shader.mProgram, "projection");
+		GLuint modelLoc = glGetUniformLocation(shader->mProgram, "model");
+		GLuint viewLoc = glGetUniformLocation(shader->mProgram, "view");
+		GLuint projectionLoc = glGetUniformLocation(shader->mProgram, "projection");
 
 		/* Pass matrices to the shader */
 		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));

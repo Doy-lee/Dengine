@@ -7,17 +7,18 @@
 
 namespace Dengine
 {
-	class Shader
-	{
-	public:
-		GLuint mProgram;
+class Shader
+{
+public:
+	GLuint mProgram;
 
-		Shader(std::string vertexPath, std::string fragmentPath);
-		~Shader();
+	Shader();
+	~Shader();
 
-		void use();
+	i32 loadProgram(GLuint vertexShader, GLuint fragmentShader);
 
-	};
+	void use();
+};
 }
 
 #endif
