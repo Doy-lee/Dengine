@@ -22,6 +22,7 @@ f32 lastX = 400;
 f32 lastY = 300;
 f32 yaw   = -90.0f;
 f32 pitch = 0.0f;
+f32 fov   = 45.0f;
 b32 firstMouse;
 
 b32 keys[1024];
@@ -119,6 +120,16 @@ void mouse_callback(GLFWwindow *window, double xPos, double yPos)
 	cameraFront = glm::normalize(front);
 }
 
+void scroll_callback(GLFWwindow *window, double xOffset, double yOffset)
+{
+	if (fov >= 1.0f && fov <= 45.0f)
+		fov -= (f32)yOffset;
+	else if (fov <= 1.0f)
+		fov = 1.0f;
+	else // fov >= 45.0f
+		fov = 45.0f;
+}
+
 int main()
 {
 	glfwInit();
@@ -153,8 +164,10 @@ int main()
 	glViewport(0, 0, screenWidth, screenHeight);
 
 	glfwSetKeyCallback(window, key_callback);
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetScrollCallback(window, scroll_callback);
+
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	firstMouse = TRUE;
 
 	glEnable(GL_DEPTH_TEST);
@@ -354,7 +367,7 @@ int main()
 
 		/* Projection */
 		glm::mat4 projection;
-		projection = glm::perspective(glm::radians(45.0f),
+		projection = glm::perspective(fov,
 		                              ((f32)screenWidth / (f32)screenHeight),
 		                              0.1f, 100.0f);
 
