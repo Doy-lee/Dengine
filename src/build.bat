@@ -11,7 +11,7 @@ set GLM=..\extern\glm-0.9.7.5
 REM EHsc enables exception handling
 REM MD uses dynamic runtime library
 REM Zi enables debug data
-set compileFlags=/EHsc /MD /Zi
+set compileFlags=/EHsc /MD /Zi /W3
 
 REM Include directories
 set includeFlags=/I ..\src\include /I %GLEW%\include /I %GLFW%\include /I %STB%\include /I %GLM%\include

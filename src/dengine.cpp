@@ -14,6 +14,18 @@
 #include <fstream>
 #include <string>
 
+glm::vec3 cameraPos   = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f, 0.0f);
+
+f32 lastX = 400;
+f32 lastY = 300;
+f32 yaw   = -90.0f;
+f32 pitch = 0.0f;
+b32 firstMouse;
+
+b32 keys[1024];
+
 enum BytesPerPixel
 {
 	Greyscale      = 1,
@@ -42,12 +54,69 @@ INTERNAL GLint getGLFormat(BytesPerPixel bytesPerPixel, b32 srgb)
 	}
 }
 
-void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode)
+void doMovement(f32 deltaTime)
+{
+	f32 cameraSpeed = 5.00f * deltaTime;
+	if (keys[GLFW_KEY_W])
+		cameraPos += (cameraSpeed * cameraFront);
+	if (keys[GLFW_KEY_S])
+		cameraPos -= (cameraSpeed * cameraFront);
+	if (keys[GLFW_KEY_A])
+		cameraPos -=
+		    glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+	if (keys[GLFW_KEY_D])
+		cameraPos +=
+		    glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+}
+
+void key_callback(GLFWwindow *window, int key, int scancode, int action,
+                  int mode)
 {
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 	{
 		glfwSetWindowShouldClose(window, GL_TRUE);
 	}
+
+	if (key >= 0 && key < 1024)
+	{
+		if (action == GLFW_PRESS)
+			keys[key] = TRUE;
+		else if (action == GLFW_RELEASE)
+			keys[key] = FALSE;
+	}
+}
+
+void mouse_callback(GLFWwindow *window, double xPos, double yPos)
+{
+	if (firstMouse)
+	{
+		lastX = (f32)xPos;
+		lastY = (f32)yPos;
+		firstMouse = false;
+	}
+
+	f32 xOffset = (f32)xPos - lastX;
+	f32 yOffset = lastY - (f32)yPos;
+	lastX = (f32)xPos;
+	lastY = (f32)yPos;
+
+	f32 sensitivity = 0.05f;
+	xOffset *= sensitivity;
+	yOffset *= sensitivity;
+
+	yaw   += xOffset;
+	pitch += yOffset;
+
+	if (pitch > 89.0f)
+		pitch = 89.0f;
+	else if (pitch < -89.0f)
+		pitch = -89.0f;
+
+	glm::vec3 front;
+	front.x     = cos(glm::radians(pitch)) * cos(glm::radians(yaw));
+	front.y     = sin(glm::radians(pitch));
+	front.z     = cos(glm::radians(pitch)) * sin(glm::radians(yaw));
+	cameraFront = glm::normalize(front);
 }
 
 int main()
@@ -84,6 +153,9 @@ int main()
 	glViewport(0, 0, screenWidth, screenHeight);
 
 	glfwSetKeyCallback(window, key_callback);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	glfwSetCursorPosCallback(window, mouse_callback);
+	firstMouse = TRUE;
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -105,7 +177,8 @@ int main()
 	/* Load a texture */
 	i32 imgWidth, imgHeight, bytesPerPixel;
 	stbi_set_flip_vertically_on_load(TRUE);
-	u8 *image = stbi_load("data/textures/container.jpg", &imgWidth, &imgHeight, &bytesPerPixel, 0);
+	u8 *image = stbi_load("data/textures/container.jpg", &imgWidth, &imgHeight,
+	                      &bytesPerPixel, 0);
 
 	if (!image)
 	{
@@ -249,59 +322,56 @@ int main()
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
-	glm::vec3 cameraPos       = glm::vec3(0.0f, 0.0f, 3.0f);
-	glm::vec3 cameraTarget    = glm::vec3(0.0f, 0.0f, 0.0f);
-	glm::vec3 cameraDirection = glm::normalize(cameraPos - cameraTarget);
-
-	glm::vec3 upVec       = glm::vec3(0.0f, 1.0f, 0.0f);
-	glm::vec3 cameraRight = glm::normalize(glm::cross(upVec, cameraPos));
-	glm::vec3 cameraUp    = glm::cross(cameraDirection, cameraRight);
-
-	glm::mat4 view;
-	// NOTE(doyle): Lookat generates the matrix for camera coordinate axis
-	view = glm::lookAt(cameraPos, cameraTarget, upVec);
+	f32 deltaTime = 0.0f; // Time between current frame and last frame
+	f32 lastFrame = 0.0f; // Time of last frame
 
 	/* Main game loop */
 	while (!glfwWindowShouldClose(window))
 	{
+		f32 currentFrame = (f32)glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
+
 		/* Check and call events */
 		glfwPollEvents();
+		doMovement(deltaTime);
 
 		/* Rendering commands here*/
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		shader.use();
-
-		/* Camera */
-		GLfloat radius = 10.0f;
-		GLfloat camX   = sin(glfwGetTime()) * radius;
-		GLfloat camZ   = cos(glfwGetTime()) * radius;
-		view = glm::lookAt(glm::vec3(camX, 0.0, camZ), cameraTarget, upVec);
-
-		/* Math */
-		view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-
-		glm::mat4 projection;
-		projection =
-		    glm::perspective(glm::radians(45.0f), ((f32)screenWidth / (f32)screenHeight), 0.1f, 100.0f);
-
-		
-		GLuint modelLoc = glGetUniformLocation(shader.mProgram, "model");
-		GLuint viewLoc = glGetUniformLocation(shader.mProgram, "view");
-		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-
-		GLuint projectionLoc = glGetUniformLocation(shader.mProgram, "projection");
-		glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
+		/* Bind textures */
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture);
 		glUniform1i(glGetUniformLocation(shader.mProgram, "ourTexture"), 0);
+
+		shader.use();
+
+		/* Camera/View transformation */
+		glm::mat4 view;
+		// NOTE(doyle): Lookat generates the matrix for camera coordinate axis
+		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+
+		/* Projection */
+		glm::mat4 projection;
+		projection = glm::perspective(glm::radians(45.0f),
+		                              ((f32)screenWidth / (f32)screenHeight),
+		                              0.1f, 100.0f);
+
+		/* Get shader uniform locations */
+		GLuint modelLoc = glGetUniformLocation(shader.mProgram, "model");
+		GLuint viewLoc = glGetUniformLocation(shader.mProgram, "view");
+		GLuint projectionLoc = glGetUniformLocation(shader.mProgram, "projection");
+
+		/* Pass matrices to the shader */
+		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+		glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
 		glBindVertexArray(vao);
 		// glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		for (GLuint i = 0; i < 10; i++)
 		{
+			/* Calculate model matrix for each object and pass it to shader */
 			glm::mat4 model;
 			model = glm::translate(model, cubePositions[i]);
 
