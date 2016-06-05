@@ -1,7 +1,10 @@
+#if 1
 #include <Dengine/OpenGL.h>
 #include <Dengine/Common.h>
 #include <Dengine/Shader.h>
 #include <Dengine/AssetManager.h>
+
+#include <Breakout/Game.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -12,120 +15,32 @@
 #include <fstream>
 #include <string>
 
-glm::vec3 cameraPos   = glm::vec3(0.0f, 0.0f, 3.0f);
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
-glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f, 0.0f);
-
-f32 lastX = 400;
-f32 lastY = 300;
-f32 yaw   = -90.0f;
-f32 pitch = 0.0f;
-f32 fov   = 45.0f;
-b32 firstMouse;
-
-b32 keys[1024];
-
-enum BytesPerPixel
-{
-	Greyscale      = 1,
-	GreyscaleAlpha = 2,
-	RGB            = 3,
-	RGBA           = 4,
-};
-
-INTERNAL GLint getGLFormat(BytesPerPixel bytesPerPixel, b32 srgb)
-{
-	switch (bytesPerPixel)
-	{
-		case Greyscale:
-			return GL_LUMINANCE;
-		case GreyscaleAlpha:
-			return GL_LUMINANCE_ALPHA;
-		case RGB:
-			return (srgb ? GL_SRGB : GL_RGB);
-		case RGBA:
-			return (srgb ? GL_SRGB_ALPHA : GL_RGBA);
-		default:
-			// TODO(doyle): Invalid
-		    std::cout << "getGLFormat() invalid bytesPerPixel: "
-		              << bytesPerPixel << std::endl;
-		    return GL_LUMINANCE;
-	}
-}
-
-void doMovement(f32 deltaTime)
-{
-	f32 cameraSpeed = 5.00f * deltaTime;
-	if (keys[GLFW_KEY_W])
-		cameraPos += (cameraSpeed * cameraFront);
-	if (keys[GLFW_KEY_S])
-		cameraPos -= (cameraSpeed * cameraFront);
-	if (keys[GLFW_KEY_A])
-		cameraPos -=
-		    glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-	if (keys[GLFW_KEY_D])
-		cameraPos +=
-		    glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-}
-
 void key_callback(GLFWwindow *window, int key, int scancode, int action,
                   int mode)
 {
+	Breakout::Game *game =
+	    static_cast<Breakout::Game *>(glfwGetWindowUserPointer(window));
+
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 	{
 		glfwSetWindowShouldClose(window, GL_TRUE);
 	}
 
-	if (key >= 0 && key < 1024)
+	if (key >= 0 && key < Breakout::NUM_KEYS)
 	{
 		if (action == GLFW_PRESS)
-			keys[key] = TRUE;
+			game->keys[key] = TRUE;
 		else if (action == GLFW_RELEASE)
-			keys[key] = FALSE;
+			game->keys[key] = FALSE;
 	}
 }
 
 void mouse_callback(GLFWwindow *window, double xPos, double yPos)
 {
-	if (firstMouse)
-	{
-		lastX = (f32)xPos;
-		lastY = (f32)yPos;
-		firstMouse = false;
-	}
-
-	f32 xOffset = (f32)xPos - lastX;
-	f32 yOffset = lastY - (f32)yPos;
-	lastX = (f32)xPos;
-	lastY = (f32)yPos;
-
-	f32 sensitivity = 0.05f;
-	xOffset *= sensitivity;
-	yOffset *= sensitivity;
-
-	yaw   += xOffset;
-	pitch += yOffset;
-
-	if (pitch > 89.0f)
-		pitch = 89.0f;
-	else if (pitch < -89.0f)
-		pitch = -89.0f;
-
-	glm::vec3 front;
-	front.x     = cos(glm::radians(pitch)) * cos(glm::radians(yaw));
-	front.y     = sin(glm::radians(pitch));
-	front.z     = cos(glm::radians(pitch)) * sin(glm::radians(yaw));
-	cameraFront = glm::normalize(front);
 }
 
 void scroll_callback(GLFWwindow *window, double xOffset, double yOffset)
 {
-	if (fov >= 1.0f && fov <= 45.0f)
-		fov -= (f32)yOffset;
-	else if (fov <= 1.0f)
-		fov = 1.0f;
-	else // fov >= 45.0f
-		fov = 45.0f;
 }
 
 GLenum glCheckError_(const char *file, int line)
@@ -172,12 +87,15 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-	GLFWwindow *window =
-	    glfwCreateWindow(800, 600, "LearnOpenGL", nullptr, nullptr);
+	glm::ivec2 windowSize = glm::ivec2(800, 600);
+
+	GLFWwindow *window = glfwCreateWindow(windowSize.x, windowSize.y,
+	                                      "Breakout", nullptr, nullptr);
 
 	if (!window)
 	{
-		std::cout << "glfwCreateWindow() failed: Failed to create window" << std::endl;
+		std::cout << "glfwCreateWindow() failed: Failed to create window"
+		          << std::endl;
 		glfwTerminate();
 		return -1;
 	}
@@ -192,21 +110,28 @@ int main()
 		          << std::endl;
 		return -1;
 	}
+	// NOTE(doyle): glewInit() bug that sets the gl error flag after init
+	// regardless of success. Catch it once by calling glGetError
+	glGetError();
 
-	i32 screenWidth, screenHeight;
-	glfwGetFramebufferSize(window, &screenWidth, &screenHeight);
-	glViewport(0, 0, screenWidth, screenHeight);
+	glm::ivec2 frameBufferSize;
+	glfwGetFramebufferSize(window, &frameBufferSize.x, &frameBufferSize.y);
+	glViewport(0, 0, frameBufferSize.x, frameBufferSize.y);
 
 	glfwSetKeyCallback(window, key_callback);
 	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetScrollCallback(window, scroll_callback);
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	firstMouse = TRUE;
+	glEnable(GL_CULL_FACE | GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glCullFace(GL_BACK);
 
-	glEnable(GL_DEPTH_TEST);
+	Breakout::Game game = Breakout::Game(frameBufferSize.x, frameBufferSize.y);
+	glfwSetWindowUserPointer(window, static_cast<void *>(&game));
+	game.init();
 
-	/* Initialise shaders */
+	    /* Initialise shaders */
 	Dengine::AssetManager assetManager;
 	i32 result = 0;
 
@@ -220,63 +145,13 @@ int main()
 	                                       "container");
 	if (result) return result;
 
+	result = assetManager.loadTextureImage("data/textures/wall.jpg",
+	                                       "wall");
+	if (result) return result;
+
 	Dengine::Texture *containerTex = assetManager.getTexture("container");
+	Dengine::Texture *wallTex = assetManager.getTexture("wall");
 	Dengine::Shader *shader = assetManager.getShader("default");
-
-	/* Create OGL Vertex objects */
-	GLfloat vertices[] = {
-		// Positions          Colors             Texture Coords
-		+0.5f, +0.5f, +0.0f,  1.0f, 0.0f, 0.0f,  1.0f, 1.0f, // Top Right
-		+0.5f, -0.5f, +0.0f,  0.0f, 1.0f, 0.0f,  1.0f, 0.0f, // Bottom Right
-		-0.5f, -0.5f, +0.0f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f, // Bottom left
-		-0.5f, +0.5f, +0.0f,  1.0f, 1.0f, 0.0f,  0.0f, 1.0f, // Top left
-	};
-
-	GLuint indices[] = {
-	    0, 1, 3, // First triangle
-	    1, 2, 3, // First triangle
-	};
-
-	GLuint vbo, vao;
-	glGenVertexArrays(1, &vao);
-	glGenBuffers(1, &vbo);
-	GLuint ebo;
-	glGenBuffers(1, &ebo);
-
-	// 1. Bind vertex array object
-	glBindVertexArray(vao);
-
-	// 2. Bind and set vertex buffer(s) and attribute pointer(s)
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-	const i32 numPos      = 3;
-	const i32 numColors   = 3;
-	const i32 numTexCoord = 2;
-
-	const GLint vertexSize =
-	    (numPos + numColors + numTexCoord) * sizeof(GLfloat);
-
-	const GLint vertByteOffset     = 0;
-	const GLint colorByteOffset    = vertByteOffset + (numPos * sizeof(GLfloat));
-	const GLint texCoordByteOffset = colorByteOffset + (numColors * sizeof(GLfloat));
-
-	glVertexAttribPointer(0, numPos, GL_FLOAT, GL_FALSE, vertexSize,
-	                      (GLvoid *)vertByteOffset);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, numColors, GL_FLOAT, GL_FALSE, vertexSize,
-	                      (GLvoid *)colorByteOffset);
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(2, numTexCoord, GL_FLOAT, GL_FALSE, vertexSize,
-	                      (GLvoid *)texCoordByteOffset);
-	glEnableVertexAttribArray(2);
-
-	// 4. Unbind to prevent mistakes
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
 
 	f32 deltaTime = 0.0f; // Time between current frame and last frame
 	f32 lastFrame = 0.0f; // Time of last frame
@@ -290,56 +165,25 @@ int main()
 
 		/* Check and call events */
 		glfwPollEvents();
-		doMovement(deltaTime);
+
+		game.processInput(deltaTime);
+		game.update(deltaTime);
 
 		/* Rendering commands here*/
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		/* Bind textures */
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, containerTex->mId);
-		glUniform1i(glGetUniformLocation(shader->mProgram, "ourTexture"), 0);
-
 		shader->use();
-
-		/* Camera/View transformation */
-		glm::mat4 model;
-		glm::mat4 view;
-		// NOTE(doyle): Lookat generates the matrix for camera coordinate axis
-		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-
-		/* Projection */
-		glm::mat4 projection;
-		projection = glm::perspective(fov,
-		                              ((f32)screenWidth / (f32)screenHeight),
-		                              0.1f, 100.0f);
-
-		/* Get shader uniform locations */
-		GLuint modelLoc = glGetUniformLocation(shader->mProgram, "model");
-		GLuint viewLoc  = glGetUniformLocation(shader->mProgram, "view");
-		GLuint projectionLoc =
-		    glGetUniformLocation(shader->mProgram, "projection");
-
-		/* Pass matrices to the shader */
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-		glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-		glBindVertexArray(vao);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
+		game.render();
 
 		/* Swap the buffers */
 		glfwSwapBuffers(window);
 	}
 
-	glDeleteVertexArrays(1, &vao);
-	glDeleteBuffers(1, &vbo);
-#if 0
-	glDeleteBuffers(1, &ebo);
-#endif
-
 	glfwTerminate();
 	return 0;
 }
+
+#else
+#include <Tutorial.cpp>
+#endif

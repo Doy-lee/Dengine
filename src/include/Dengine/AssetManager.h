@@ -15,6 +15,7 @@ class AssetManager
 {
 public:
 	AssetManager();
+	// TODO(doyle): Unload all resources in memory
 	~AssetManager();
 
 	/* Texture */
