@@ -10,7 +10,7 @@ namespace Dengine
 class Shader
 {
 public:
-	GLuint mProgram;
+	GLuint program;
 
 	Shader();
 	~Shader();

@@ -5,8 +5,8 @@ namespace Dengine
 {
 
 Sprite::Sprite()
-: mPos(0, 0),
-mTex(nullptr)
+: pos(0, 0),
+tex(nullptr)
 {
 }
 
@@ -16,8 +16,8 @@ b32 Sprite::loadSprite(Texture *tex, glm::vec2 pos)
 {
 	if (!tex) return -1;
 	
-	mTex = tex;
-	mPos = pos;
+	this->tex = tex;
+	this->pos = pos;
 
 	// NOTE(doyle): We encode in a vec4 (vec2)pos, (vec2)texCoords
 	glm::vec4 spriteVertex[] = {
@@ -28,21 +28,17 @@ b32 Sprite::loadSprite(Texture *tex, glm::vec2 pos)
 		{-0.5f, -0.5f, 0.0f, 0.0f}, // Bottom left
 	};
 
-	glGenBuffers(1, &mVbo);
-	glBindBuffer(GL_ARRAY_BUFFER, mVbo);
+	/* Create and bind buffers */
+	glGenBuffers(1, &this->vbo);
+	glGenVertexArrays(1, &this->vao);
+	glBindVertexArray(this->vao);
+	glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
+
+	/* Configure VBO */
 	glBufferData(GL_ARRAY_BUFFER, sizeof(spriteVertex), spriteVertex,
 	             GL_DYNAMIC_DRAW);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-	return 0;
-}
-
-void Sprite::initVertexArrayObject(GLuint vao)
-{
-	// NOTE(doyle): Set the VAO object attributes to match a sprite's
-    // vertex composition
-	glBindVertexArray(vao);
-
+	/* Configure VAO */
 	i32 numElementsInVertex = 4;
 	i32 vertexSize = sizeof(glm::vec4);
 	glEnableVertexAttribArray(0);
@@ -50,26 +46,26 @@ void Sprite::initVertexArrayObject(GLuint vao)
 	                      vertexSize, (GLvoid *)(0));
 
 	/* Unbind */
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
+	return 0;
 }
 
-void Sprite::render(Shader *shader, GLuint spriteVAO)
+void Sprite::render(Shader *shader)
 {
 	// NOTE(doyle): Associate the VAO with this sprites VBO
-	glBindVertexArray(spriteVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, mVbo);
+	glBindVertexArray(this->vao);
 
 	/* Set texture */
 	glActiveTexture(GL_TEXTURE0);
-	mTex->bind();
-	glUniform1i(glGetUniformLocation(shader->mProgram, "texture"), 0);
+	this->tex->bind();
+	glUniform1i(glGetUniformLocation(shader->program, "tex"), 0);
 
 	/* Render */
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
 	// Unbind
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 }
 

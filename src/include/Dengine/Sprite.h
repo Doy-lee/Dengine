@@ -15,12 +15,12 @@ public:
 
 	b32 loadSprite(Texture *tex, glm::vec2 pos);
 
-	void initVertexArrayObject(GLuint vao);
-	void render(Shader *shader, GLuint shaderVao);
+	void render(Shader *shader);
 private:
-	glm::vec2 mPos;
-	Texture *mTex;
-	GLuint mVbo;
+	glm::vec2 pos;
+	Texture *tex;
+	GLuint vbo;
+	GLuint vao;
 };
 }
 

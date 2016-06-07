@@ -6,7 +6,7 @@
 namespace Dengine
 {
 Shader::Shader()
-: mProgram(0)
+: program(0)
 {
 }
 
@@ -14,20 +14,20 @@ Shader::~Shader() {}
 
 i32 Shader::loadProgram(GLuint vertexShader, GLuint fragmentShader)
 {
-	mProgram = glCreateProgram();
-	glAttachShader(mProgram, vertexShader);
-	glAttachShader(mProgram, fragmentShader);
-	glLinkProgram(mProgram);
+	this->program = glCreateProgram();
+	glAttachShader(this->program, vertexShader);
+	glAttachShader(this->program, fragmentShader);
+	glLinkProgram(this->program);
 
 	glDeleteShader(fragmentShader);
 	glDeleteShader(vertexShader);
 
 	GLint success;
 	GLchar infoLog[512];
-	glGetProgramiv(mProgram, GL_LINK_STATUS, &success);
+	glGetProgramiv(this->program, GL_LINK_STATUS, &success);
 	if (!success)
 	{
-		glGetProgramInfoLog(mProgram, 512, NULL, infoLog);
+		glGetProgramInfoLog(this->program, 512, NULL, infoLog);
 		std::cout << "glLinkProgram failed: " << infoLog << std::endl;
 		return -1;
 	}
@@ -36,5 +36,5 @@ i32 Shader::loadProgram(GLuint vertexShader, GLuint fragmentShader)
 
 }
 
-void Shader::use() { glUseProgram(mProgram); }
+void Shader::use() { glUseProgram(this->program); }
 }

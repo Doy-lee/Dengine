@@ -151,23 +151,21 @@ int main()
 	                                       "wall");
 	if (result) return result;
 
-	result = assetManager.loadTextureImage("data/textures/awesomeface.png"
-	                                       , "awesomeface");
+	result = assetManager.loadTextureImage("data/textures/awesomeface.png",
+	                                       "awesomeface");
 	if (result) return result;
 
 	Dengine::Texture *containerTex = assetManager.getTexture("container");
-	Dengine::Texture *wallTex = assetManager.getTexture("wall");
+	Dengine::Texture *wallTex      = assetManager.getTexture("wall");
+	Dengine::Texture *awesomeTex   = assetManager.getTexture("awesomeface");
+
 	Dengine::Shader *shader = assetManager.getShader("sprite");
-	Dengine::Texture *awesomeTex = assetManager.getTexture("awesomeface");
 
 	f32 deltaTime = 0.0f; // Time between current frame and last frame
 	f32 lastFrame = 0.0f; // Time of last frame
 
-	GLuint spriteVao;
-	glGenVertexArrays(1, &spriteVao);
 	Dengine::Sprite sprite = Dengine::Sprite();
-	sprite.loadSprite(awesomeTex, glm::vec2(0, 0));
-	sprite.initVertexArrayObject(spriteVao);
+	sprite.loadSprite(wallTex, glm::vec2(0, 0));
 
 	/* Main game loop */
 	while (!glfwWindowShouldClose(window))
@@ -189,7 +187,7 @@ int main()
 		shader->use();
 		game.render();
 
-		sprite.render(shader, spriteVao);
+		sprite.render(shader);
 
 		/* Swap the buffers */
 		glfwSwapBuffers(window);
