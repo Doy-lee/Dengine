@@ -28,19 +28,22 @@ b32 Sprite::loadSprite(Texture *tex, glm::vec2 pos)
 		{-0.5f, -0.5f, 0.0f, 0.0f}, // Bottom left
 	};
 
-	/* Create and bind buffers */
+	/* Create buffers */
 	glGenBuffers(1, &this->vbo);
 	glGenVertexArrays(1, &this->vao);
+
+	/* Bind buffers */
 	glBindVertexArray(this->vao);
 	glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
 
 	/* Configure VBO */
 	glBufferData(GL_ARRAY_BUFFER, sizeof(spriteVertex), spriteVertex,
-	             GL_DYNAMIC_DRAW);
+	             GL_STATIC_DRAW);
 
 	/* Configure VAO */
 	i32 numElementsInVertex = 4;
 	i32 vertexSize = sizeof(glm::vec4);
+
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, numElementsInVertex, GL_FLOAT, GL_FALSE,
 	                      vertexSize, (GLvoid *)(0));
@@ -63,7 +66,8 @@ void Sprite::render(Shader *shader)
 	glUniform1i(glGetUniformLocation(shader->program, "tex"), 0);
 
 	/* Render */
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	i32 numVerticesToDraw = 4;
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, numVerticesToDraw);
 
 	// Unbind
 	glBindVertexArray(0);

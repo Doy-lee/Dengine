@@ -129,48 +129,19 @@ int main()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glCullFace(GL_BACK);
 
-	Breakout::Game game = Breakout::Game(frameBufferSize.x, frameBufferSize.y);
-	glfwSetWindowUserPointer(window, static_cast<void *>(&game));
-	game.init();
-
-	    /* Initialise shaders */
 	Dengine::AssetManager assetManager;
-	i32 result = 0;
+	Breakout::Game game = Breakout::Game(frameBufferSize.x, frameBufferSize.y);
+	game.init(&assetManager);
 
-	result = assetManager.loadShaderFiles("data/shaders/sprite.vert.glsl",
-	                                      "data/shaders/sprite.frag.glsl",
-	                                      "sprite");
-	if (result) return result;
-
-	/* Load a texture */
-	result = assetManager.loadTextureImage("data/textures/container.jpg",
-	                                       "container");
-	if (result) return result;
-
-	result = assetManager.loadTextureImage("data/textures/wall.jpg",
-	                                       "wall");
-	if (result) return result;
-
-	result = assetManager.loadTextureImage("data/textures/awesomeface.png",
-	                                       "awesomeface");
-	if (result) return result;
-
-	Dengine::Texture *containerTex = assetManager.getTexture("container");
-	Dengine::Texture *wallTex      = assetManager.getTexture("wall");
-	Dengine::Texture *awesomeTex   = assetManager.getTexture("awesomeface");
-
-	Dengine::Shader *shader = assetManager.getShader("sprite");
+	glfwSetWindowUserPointer(window, static_cast<void *>(&game));
 
 	f32 deltaTime = 0.0f; // Time between current frame and last frame
 	f32 lastFrame = 0.0f; // Time of last frame
 
-	Dengine::Sprite sprite = Dengine::Sprite();
-	sprite.loadSprite(wallTex, glm::vec2(0, 0));
-
 	/* Main game loop */
 	while (!glfwWindowShouldClose(window))
 	{
-		f32 currentFrame = (f32)glfwGetTime();
+		f32 currentFrame = static_cast<f32>(glfwGetTime());
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
 
@@ -184,10 +155,7 @@ int main()
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		shader->use();
 		game.render();
-
-		sprite.render(shader);
 
 		/* Swap the buffers */
 		glfwSwapBuffers(window);
