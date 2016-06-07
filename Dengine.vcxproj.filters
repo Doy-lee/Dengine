@@ -33,10 +33,15 @@
     <ClCompile Include="src\Tutorial.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Sprite.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="data\shaders\default.vert.glsl" />
     <None Include="data\shaders\default.frag.glsl" />
+    <None Include="data\shaders\sprite.vert.glsl" />
+    <None Include="data\shaders\sprite.frag.glsl" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\include\Dengine\Common.h">
@@ -55,6 +60,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\include\Breakout\Game.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\include\Dengine\Sprite.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

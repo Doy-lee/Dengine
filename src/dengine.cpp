@@ -3,6 +3,7 @@
 #include <Dengine/Common.h>
 #include <Dengine/Shader.h>
 #include <Dengine/AssetManager.h>
+#include <Dengine/Sprite.h>
 
 #include <Breakout/Game.h>
 
@@ -124,6 +125,7 @@ int main()
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glEnable(GL_CULL_FACE | GL_BLEND);
+
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glCullFace(GL_BACK);
 
@@ -135,9 +137,9 @@ int main()
 	Dengine::AssetManager assetManager;
 	i32 result = 0;
 
-	result = assetManager.loadShaderFiles("data/shaders/default.vert.glsl",
-	                                      "data/shaders/default.frag.glsl",
-	                                      "default");
+	result = assetManager.loadShaderFiles("data/shaders/sprite.vert.glsl",
+	                                      "data/shaders/sprite.frag.glsl",
+	                                      "sprite");
 	if (result) return result;
 
 	/* Load a texture */
@@ -149,12 +151,23 @@ int main()
 	                                       "wall");
 	if (result) return result;
 
+	result = assetManager.loadTextureImage("data/textures/awesomeface.png"
+	                                       , "awesomeface");
+	if (result) return result;
+
 	Dengine::Texture *containerTex = assetManager.getTexture("container");
 	Dengine::Texture *wallTex = assetManager.getTexture("wall");
-	Dengine::Shader *shader = assetManager.getShader("default");
+	Dengine::Shader *shader = assetManager.getShader("sprite");
+	Dengine::Texture *awesomeTex = assetManager.getTexture("awesomeface");
 
 	f32 deltaTime = 0.0f; // Time between current frame and last frame
 	f32 lastFrame = 0.0f; // Time of last frame
+
+	GLuint spriteVao;
+	glGenVertexArrays(1, &spriteVao);
+	Dengine::Sprite sprite = Dengine::Sprite();
+	sprite.loadSprite(awesomeTex, glm::vec2(0, 0));
+	sprite.initVertexArrayObject(spriteVao);
 
 	/* Main game loop */
 	while (!glfwWindowShouldClose(window))
@@ -175,6 +188,8 @@ int main()
 
 		shader->use();
 		game.render();
+
+		sprite.render(shader, spriteVao);
 
 		/* Swap the buffers */
 		glfwSwapBuffers(window);

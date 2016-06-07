@@ -124,12 +124,15 @@
     <ClCompile Include="src\dengine.cpp" />
     <ClCompile Include="src\Game.cpp" />
     <ClCompile Include="src\Shader.cpp" />
+    <ClCompile Include="src\Sprite.cpp" />
     <ClCompile Include="src\Texture.cpp" />
     <ClCompile Include="src\Tutorial.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="data\shaders\default.frag.glsl" />
     <None Include="data\shaders\default.vert.glsl" />
+    <None Include="data\shaders\sprite.frag.glsl" />
+    <None Include="data\shaders\sprite.vert.glsl" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\include\Dengine\AssetManager.h" />
@@ -137,6 +140,7 @@
     <ClInclude Include="src\include\Breakout\Game.h" />
     <ClInclude Include="src\include\Dengine\OpenGL.h" />
     <ClInclude Include="src\include\Dengine\Shader.h" />
+    <ClInclude Include="src\include\Dengine\Sprite.h" />
     <ClInclude Include="src\include\Dengine\Texture.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
