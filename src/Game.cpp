@@ -38,20 +38,23 @@ void Game::init(Dengine::AssetManager *assetManager)
 		
 	}
 
+	result = assetManager->loadTextureImage("data/textures/plain_terrain.png",
+	                                       "plain_terrain");
+
 	this->shader = assetManager->getShader("sprite");
 
 	/* Init player */
-	Dengine::Texture *wallTex = assetManager->getTexture("wall");
+	const Dengine::Texture *tex = assetManager->getTexture("plain_terrain");
 	this->player = Dengine::Sprite();
-	this->player.loadSprite(wallTex, glm::vec2(0, 0));
+	this->player.loadSprite(tex, glm::vec2(0, 0));
 
 	/* Init game state */
 	this->state = GAME_ACTIVE;
 
 }
 
-void Game::processInput(f32 dt) {}
-void Game::update(f32 dt) {}
+void Game::processInput(const f32 dt) {}
+void Game::update(const f32 dt) {}
 void Game::render()
 {
 	shader->use();

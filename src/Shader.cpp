@@ -36,5 +36,5 @@ i32 Shader::loadProgram(GLuint vertexShader, GLuint fragmentShader)
 
 }
 
-void Shader::use() { glUseProgram(this->program); }
+void Shader::use() const { glUseProgram(this->program); }
 }

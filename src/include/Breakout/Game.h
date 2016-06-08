@@ -29,13 +29,13 @@ public:
 	Game(i32 width, i32 height);
 	~Game();
 
-	void init(Dengine::AssetManager *assetManager);
+	void init(Dengine::AssetManager *const assetManager);
 
-	void processInput(f32 dt);
-	void update(f32 dt);
+	void processInput(const f32 dt);
+	void update(const f32 dt);
 	void render();
 private:
-	Dengine::Shader *shader;
+	const Dengine::Shader *shader;
 	Dengine::Sprite player;
 };
 }

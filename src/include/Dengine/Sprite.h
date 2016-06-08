@@ -13,12 +13,12 @@ public:
 	Sprite();
 	~Sprite();
 
-	b32 loadSprite(Texture *tex, glm::vec2 pos);
+	const b32 loadSprite(const Texture *tex, const glm::vec2 pos);
 
-	void render(Shader *shader);
+	void render(const Shader *shader) const;
 private:
 	glm::vec2 pos;
-	Texture *tex;
+	const Texture *tex;
 	GLuint vbo;
 	GLuint vao;
 };

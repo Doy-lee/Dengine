@@ -19,13 +19,14 @@ public:
 	~AssetManager();
 
 	/* Texture */
-	Texture *getTexture(std::string name);
-	i32 loadTextureImage(std::string path, std::string name);
+	const Texture *getTexture(const std::string name);
+	const i32 loadTextureImage(const std::string path, const std::string name);
 
 	/* Shaders */
-	Shader *getShader(std::string name);
-	i32 loadShaderFiles(std::string vertexPath, std::string fragmentPath,
-	                    std::string name);
+	const Shader *getShader(const std::string name);
+	const i32 loadShaderFiles(const std::string vertexPath,
+	                          const std::string fragmentPath,
+	                          const std::string name);
 
 private:
 	std::map<std::string, Texture> mTextures;

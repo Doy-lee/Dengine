@@ -12,7 +12,7 @@ tex(nullptr)
 
 Sprite::~Sprite() {}
 
-b32 Sprite::loadSprite(Texture *tex, glm::vec2 pos)
+const b32 Sprite::loadSprite(const Texture *tex, const glm::vec2 pos)
 {
 	if (!tex) return -1;
 	
@@ -55,7 +55,7 @@ b32 Sprite::loadSprite(Texture *tex, glm::vec2 pos)
 	return 0;
 }
 
-void Sprite::render(Shader *shader)
+void Sprite::render(const Shader *shader) const
 {
 	// NOTE(doyle): Associate the VAO with this sprites VBO
 	glBindVertexArray(this->vao);

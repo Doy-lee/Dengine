@@ -17,7 +17,7 @@ public:
 
 	i32 loadProgram(GLuint vertexShader, GLuint fragmentShader);
 
-	void use();
+	void use() const;
 };
 }
 
