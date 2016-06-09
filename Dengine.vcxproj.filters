@@ -33,7 +33,7 @@
     <ClCompile Include="src\Tutorial.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Sprite.cpp">
+    <ClCompile Include="src\Renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -62,7 +62,7 @@
     <ClInclude Include="src\include\Breakout\Game.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\include\Dengine\Sprite.h">
+    <ClInclude Include="src\include\Dengine\Renderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

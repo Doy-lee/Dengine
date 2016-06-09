@@ -14,23 +14,18 @@ namespace Dengine
 class AssetManager
 {
 public:
-	AssetManager();
-	// TODO(doyle): Unload all resources in memory
-	~AssetManager();
+	static std::map<std::string, Texture> textures;
+	static std::map<std::string, Shader> shaders;
 
 	/* Texture */
-	const Texture *getTexture(const std::string name);
-	const i32 loadTextureImage(const std::string path, const std::string name);
+	static Texture *getTexture(const std::string name);
+	static const i32 loadTextureImage(const std::string path, const std::string name);
 
 	/* Shaders */
-	const Shader *getShader(const std::string name);
-	const i32 loadShaderFiles(const std::string vertexPath,
+	static Shader *getShader(const std::string name);
+	static const i32 loadShaderFiles(const std::string vertexPath,
 	                          const std::string fragmentPath,
 	                          const std::string name);
-
-private:
-	std::map<std::string, Texture> mTextures;
-	std::map<std::string, Shader> mShaders;
 };
 }
 #endif

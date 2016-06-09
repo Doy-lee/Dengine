@@ -8,15 +8,15 @@
 namespace Dengine
 {
 
-AssetManager::AssetManager() {}
-AssetManager::~AssetManager() {}
+std::map<std::string, Texture> AssetManager::textures;
+std::map<std::string, Shader> AssetManager::shaders;
 
-const Texture *AssetManager::getTexture(const std::string name)
+Texture *AssetManager::getTexture(const std::string name)
 {
 	// NOTE(doyle): Since we're using a map, the count of an object can
 	// only be 1 or 0
-	if (mTextures.count(name) == 1)
-		return &mTextures[name];
+	if (textures.count(name) == 1)
+		return &textures[name];
 
 	return nullptr;
 }
@@ -41,14 +41,14 @@ const i32 AssetManager::loadTextureImage(const std::string path,
 	tex.generate(imgWidth, imgHeight, image);
 	stbi_image_free(image);
 
-	mTextures[name] = tex;
+	textures[name] = tex;
 	return 0;
 }
 
-const Shader *AssetManager::getShader(const std::string name)
+Shader *AssetManager::getShader(const std::string name)
 {
-	if (mShaders.count(name) == 1)
-		return &mShaders[name];
+	if (shaders.count(name) == 1)
+		return &shaders[name];
 
 	return nullptr;
 }
@@ -112,7 +112,7 @@ const i32 AssetManager::loadShaderFiles(const std::string vertexPath,
 	if (result)
 		return result;
 
-	mShaders[name] = shader;
+	shaders[name] = shader;
 	return 0;
 }
 }

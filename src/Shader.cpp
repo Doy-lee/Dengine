@@ -1,33 +1,36 @@
 #include <Dengine\Shader.h>
 
+#include <glm/gtc/type_ptr.hpp>
+
 #include <fstream>
 #include <iostream>
 
 namespace Dengine
 {
 Shader::Shader()
-: program(0)
+: id(0)
 {
 }
 
 Shader::~Shader() {}
 
-i32 Shader::loadProgram(GLuint vertexShader, GLuint fragmentShader)
+const i32 Shader::loadProgram(const GLuint vertexShader,
+                              const GLuint fragmentShader)
 {
-	this->program = glCreateProgram();
-	glAttachShader(this->program, vertexShader);
-	glAttachShader(this->program, fragmentShader);
-	glLinkProgram(this->program);
+	this->id = glCreateProgram();
+	glAttachShader(this->id, vertexShader);
+	glAttachShader(this->id, fragmentShader);
+	glLinkProgram(this->id);
 
 	glDeleteShader(fragmentShader);
 	glDeleteShader(vertexShader);
 
 	GLint success;
 	GLchar infoLog[512];
-	glGetProgramiv(this->program, GL_LINK_STATUS, &success);
+	glGetProgramiv(this->id, GL_LINK_STATUS, &success);
 	if (!success)
 	{
-		glGetProgramInfoLog(this->program, 512, NULL, infoLog);
+		glGetProgramInfoLog(this->id, 512, NULL, infoLog);
 		std::cout << "glLinkProgram failed: " << infoLog << std::endl;
 		return -1;
 	}
@@ -36,5 +39,19 @@ i32 Shader::loadProgram(GLuint vertexShader, GLuint fragmentShader)
 
 }
 
-void Shader::use() const { glUseProgram(this->program); }
+void Shader::uniformSet1i(const GLchar *name, const GLuint data)
+{
+	GLint uniformLoc = glGetUniformLocation(this->id, name);
+	glUniform1i(uniformLoc, data);
+}
+
+void Shader::uniformSetMat4fv(const GLchar *name, const glm::mat4 data)
+{
+	GLint uniformLoc = glGetUniformLocation(this->id, name);
+	glCheckError();
+	glUniformMatrix4fv(uniformLoc, 1, GL_FALSE, glm::value_ptr(data));
+	glCheckError();
+}
+
+void Shader::use() const { glUseProgram(this->id); }
 }

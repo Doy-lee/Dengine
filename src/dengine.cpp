@@ -3,7 +3,7 @@
 #include <Dengine/Common.h>
 #include <Dengine/Shader.h>
 #include <Dengine/AssetManager.h>
-#include <Dengine/Sprite.h>
+#include <Dengine/Renderer.h>
 
 #include <Breakout/Game.h>
 
@@ -44,42 +44,6 @@ void scroll_callback(GLFWwindow *window, double xOffset, double yOffset)
 {
 }
 
-GLenum glCheckError_(const char *file, int line)
-{
-	GLenum errorCode;
-	while ((errorCode = glGetError()) != GL_NO_ERROR)
-	{
-		std::string error;
-		switch (errorCode)
-		{
-		case GL_INVALID_ENUM:
-			error = "INVALID_ENUM";
-			break;
-		case GL_INVALID_VALUE:
-			error = "INVALID_VALUE";
-			break;
-		case GL_INVALID_OPERATION:
-			error = "INVALID_OPERATION";
-			break;
-		case GL_STACK_OVERFLOW:
-			error = "STACK_OVERFLOW";
-			break;
-		case GL_STACK_UNDERFLOW:
-			error = "STACK_UNDERFLOW";
-			break;
-		case GL_OUT_OF_MEMORY:
-			error = "OUT_OF_MEMORY";
-			break;
-		case GL_INVALID_FRAMEBUFFER_OPERATION:
-			error = "INVALID_FRAMEBUFFER_OPERATION";
-			break;
-		}
-		std::cout << error << " | " << file << " (" << line << ")" << std::endl;
-	}
-	return errorCode;
-}
-#define glCheckError() glCheckError_(__FILE__, __LINE__)
-
 int main()
 {
 	glfwInit();
@@ -88,7 +52,7 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-	glm::ivec2 windowSize = glm::ivec2(800, 600);
+	glm::ivec2 windowSize = glm::ivec2(1280, 720);
 
 	GLFWwindow *window = glfwCreateWindow(windowSize.x, windowSize.y,
 	                                      "Breakout", nullptr, nullptr);
@@ -115,6 +79,8 @@ int main()
 	// regardless of success. Catch it once by calling glGetError
 	glGetError();
 
+	glCheckError();
+
 	glm::ivec2 frameBufferSize;
 	glfwGetFramebufferSize(window, &frameBufferSize.x, &frameBufferSize.y);
 	glViewport(0, 0, frameBufferSize.x, frameBufferSize.y);
@@ -124,16 +90,23 @@ int main()
 	glfwSetScrollCallback(window, scroll_callback);
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	glEnable(GL_CULL_FACE | GL_BLEND);
+	glEnable(GL_BLEND);
+	glCheckError();
+	glEnable(GL_CULL_FACE);
+	glCheckError();
 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glCheckError();
 	glCullFace(GL_BACK);
+	glCheckError();
 
-	Dengine::AssetManager assetManager;
 	Breakout::Game game = Breakout::Game(frameBufferSize.x, frameBufferSize.y);
-	game.init(&assetManager);
+	glCheckError();
+	game.init();
+	glCheckError();
 
 	glfwSetWindowUserPointer(window, static_cast<void *>(&game));
+	glCheckError();
 
 	f32 deltaTime = 0.0f; // Time between current frame and last frame
 	f32 lastFrame = 0.0f; // Time of last frame
@@ -156,6 +129,7 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		game.render();
+		glCheckError();
 
 		/* Swap the buffers */
 		glfwSwapBuffers(window);

@@ -1,63 +1,74 @@
 #include <Breakout\Game.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace Breakout
 {
-Game::Game(i32 width, i32 height) {}
-Game::~Game() {}
+Game::Game(i32 width, i32 height)
+{
+	this->width = width;
+	this->height = height;
+	glCheckError();
+}
 
-void Game::init(Dengine::AssetManager *assetManager)
+Game::~Game()
+{
+	delete this->renderer;
+}
+
+void Game::init()
 {
 	/* Initialise assets */
-	i32 result = 0;
-	result = assetManager->loadShaderFiles("data/shaders/sprite.vert.glsl",
-	                                      "data/shaders/sprite.frag.glsl",
-	                                      "sprite");
-	if (result)
-	{
-		// TODO(doyle): Do something
-	}
+	Dengine::AssetManager::loadShaderFiles("data/shaders/sprite.vert.glsl",
+	                                       "data/shaders/sprite.frag.glsl",
+	                                       "sprite");
 
-	result = assetManager->loadTextureImage("data/textures/container.jpg",
-	                                       "container");
-	if (result)
-	{
-		
-	}
+	Dengine::AssetManager::loadTextureImage("data/textures/container.jpg",
+	                                        "container");
+	Dengine::AssetManager::loadTextureImage("data/textures/wall.jpg", "wall");
+	Dengine::AssetManager::loadTextureImage("data/textures/awesomeface.png",
+	                                        "awesomeface");
+	Dengine::AssetManager::loadTextureImage("data/textures/plain_terrain.jpg",
+	                                        "plain_terrain");
+	glCheckError();
 
-	result = assetManager->loadTextureImage("data/textures/wall.jpg",
-	                                       "wall");
-	if (result)
-	{
-		
-	}
+	glm::mat4 projection= glm::ortho(0.0f, 1280.0f,
+	               720.0f, 0.0f, -1.0f, 1.0f);
+	glCheckError();
 
-	result = assetManager->loadTextureImage("data/textures/awesomeface.png",
-	                                       "awesomeface");
-	if (result)
-	{
-		
-	}
+	this->shader = Dengine::AssetManager::getShader("sprite");
+	this->shader->use();
+	glCheckError();
+	//shader->uniformSetMat4fv("projection", projection);
+	glCheckError();
 
-	result = assetManager->loadTextureImage("data/textures/plain_terrain.png",
-	                                       "plain_terrain");
-
-	this->shader = assetManager->getShader("sprite");
-
-	/* Init player */
-	const Dengine::Texture *tex = assetManager->getTexture("plain_terrain");
-	this->player = Dengine::Sprite();
-	this->player.loadSprite(tex, glm::vec2(0, 0));
+	GLuint projectionLoc = glGetUniformLocation(this->shader->id, "projection");
+	glCheckError();
+	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+	glCheckError();
 
 	/* Init game state */
 	this->state = GAME_ACTIVE;
-
+	glCheckError();
+	this->renderer = new Dengine::Renderer(this->shader);
+	glCheckError();
 }
 
 void Game::processInput(const f32 dt) {}
 void Game::update(const f32 dt) {}
 void Game::render()
 {
-	shader->use();
-	this->player.render(shader);
+	const Dengine::Texture *tex =
+	    Dengine::AssetManager::getTexture("plain_terrain");
+	glm::vec2 pos = glm::vec2(200, 200);
+	glm::vec2 size = glm::vec2(640, 360);
+	GLfloat rotation = 0;
+	glm::vec3 color = glm::vec3(1.0f);
+	this->renderer->drawSprite(tex, pos, size, rotation, color);
+
+	this->renderer->drawSprite(Dengine::AssetManager::getTexture("awesomeface"),
+	                           glm::vec2(200, 200), glm::vec2(300, 400), 45.0f,
+	                           glm::vec3(0.0f, 1.0f, 0.0f));
 }
 }

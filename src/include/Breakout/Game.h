@@ -3,13 +3,12 @@
 
 #include <Dengine/OpenGL.h>
 #include <Dengine/Common.h>
-#include <Dengine/Sprite.h>
+#include <Dengine/Renderer.h>
 #include <Dengine/Shader.h>
 #include <Dengine/AssetManager.h>
 
 namespace Breakout
 {
-
 GLOBAL_VAR const i32 NUM_KEYS = 1024;
 
 enum GameState
@@ -29,14 +28,14 @@ public:
 	Game(i32 width, i32 height);
 	~Game();
 
-	void init(Dengine::AssetManager *const assetManager);
+	void init();
 
 	void processInput(const f32 dt);
 	void update(const f32 dt);
 	void render();
 private:
-	const Dengine::Shader *shader;
-	Dengine::Sprite player;
+	Dengine::Shader *shader;
+	Dengine::Renderer *renderer;
 };
 }
 
