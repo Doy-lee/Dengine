@@ -31,28 +31,21 @@ void Game::init()
 	                                        "awesomeface");
 	Dengine::AssetManager::loadTextureImage("data/textures/plain_terrain.jpg",
 	                                        "plain_terrain");
-	glCheckError();
-
-	glm::mat4 projection= glm::ortho(0.0f, 1280.0f,
-	               720.0f, 0.0f, -1.0f, 1.0f);
-	glCheckError();
 
 	this->shader = Dengine::AssetManager::getShader("sprite");
 	this->shader->use();
-	glCheckError();
-	//shader->uniformSetMat4fv("projection", projection);
-	glCheckError();
+
+	glm::mat4 projection =
+	    glm::ortho(0.0f, static_cast<GLfloat>(this->width), 0.0f,
+	               static_cast<GLfloat>(this->height), 0.0f, 1.0f);
+	this->shader->uniformSetMat4fv("projection", projection);
 
 	GLuint projectionLoc = glGetUniformLocation(this->shader->id, "projection");
-	glCheckError();
 	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-	glCheckError();
 
 	/* Init game state */
 	this->state = GAME_ACTIVE;
-	glCheckError();
 	this->renderer = new Dengine::Renderer(this->shader);
-	glCheckError();
 }
 
 void Game::processInput(const f32 dt) {}
@@ -61,14 +54,13 @@ void Game::render()
 {
 	const Dengine::Texture *tex =
 	    Dengine::AssetManager::getTexture("plain_terrain");
-	glm::vec2 pos = glm::vec2(200, 200);
-	glm::vec2 size = glm::vec2(640, 360);
-	GLfloat rotation = 0;
-	glm::vec3 color = glm::vec3(1.0f);
-	this->renderer->drawSprite(tex, pos, size, rotation, color);
+	glm::vec2 pos  = glm::vec2(0, 0);
+	glm::vec2 size = glm::vec2(1280.0f, 720.0f);
+	this->renderer->drawSprite(tex, pos, size);
 
-	this->renderer->drawSprite(Dengine::AssetManager::getTexture("awesomeface"),
-	                           glm::vec2(200, 200), glm::vec2(300, 400), 45.0f,
-	                           glm::vec3(0.0f, 1.0f, 0.0f));
+	tex  = Dengine::AssetManager::getTexture("container");
+	pos  = glm::vec2(200, 200);
+	size = glm::vec2(250.0f, 250.0f);
+	this->renderer->drawSprite(tex, pos, size);
 }
 }

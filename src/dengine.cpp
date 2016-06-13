@@ -79,8 +79,6 @@ int main()
 	// regardless of success. Catch it once by calling glGetError
 	glGetError();
 
-	glCheckError();
-
 	glm::ivec2 frameBufferSize;
 	glfwGetFramebufferSize(window, &frameBufferSize.x, &frameBufferSize.y);
 	glViewport(0, 0, frameBufferSize.x, frameBufferSize.y);
@@ -91,22 +89,15 @@ int main()
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glEnable(GL_BLEND);
-	glCheckError();
 	glEnable(GL_CULL_FACE);
-	glCheckError();
 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glCheckError();
 	glCullFace(GL_BACK);
-	glCheckError();
 
 	Breakout::Game game = Breakout::Game(frameBufferSize.x, frameBufferSize.y);
-	glCheckError();
 	game.init();
-	glCheckError();
 
 	glfwSetWindowUserPointer(window, static_cast<void *>(&game));
-	glCheckError();
 
 	f32 deltaTime = 0.0f; // Time between current frame and last frame
 	f32 lastFrame = 0.0f; // Time of last frame
