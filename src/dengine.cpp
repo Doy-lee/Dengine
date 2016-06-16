@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode)
@@ -49,7 +50,7 @@ int main()
 
 	glm::ivec2 windowSize = glm::ivec2(1280, 720);
 
-	GLFWwindow *window = glfwCreateWindow(windowSize.x, windowSize.y, "Breakout", nullptr, nullptr);
+	GLFWwindow *window = glfwCreateWindow(windowSize.x, windowSize.y, "Dengine", nullptr, nullptr);
 
 	if (!window)
 	{
@@ -91,20 +92,23 @@ int main()
 
 	glfwSetWindowUserPointer(window, static_cast<void *>(&game));
 
-	f32 deltaTime = 0.0f; // Time between current frame and last frame
-	f32 lastFrame = 0.0f; // Time of last frame
+	f32 secondsElapsed = 0.0f; // Time between current frame and last frame
+
+	// TODO(doyle): Get actual monitor refresh rate
+	i32 monitorRefreshHz = 60;
+	f32 targetSecondsPerFrame  = 1.0f / static_cast<f32>(monitorRefreshHz);
+	f32 startTime = static_cast<f32>(glfwGetTime());
+
+	//glfwSwapInterval(1);
 
 	/* Main game loop */
 	while (!glfwWindowShouldClose(window))
 	{
-		f32 currentFrame = static_cast<f32>(glfwGetTime());
-		deltaTime        = currentFrame - lastFrame;
-		lastFrame        = currentFrame;
 
 		/* Check and call events */
 		glfwPollEvents();
 
-		game.update(deltaTime);
+		game.update(secondsElapsed);
 
 		/* Rendering commands here*/
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -115,6 +119,31 @@ int main()
 
 		/* Swap the buffers */
 		glfwSwapBuffers(window);
+
+		f32 endTime = static_cast<f32>(glfwGetTime());
+		secondsElapsed = endTime - startTime;
+
+		// TODO(doyle): Busy waiting, should sleep
+		while (secondsElapsed < targetSecondsPerFrame)
+		{
+			endTime        = static_cast<f32>(glfwGetTime());
+			secondsElapsed = endTime - startTime;
+		}
+
+		LOCAL_PERSIST f32 titleUpdateFrequencyInSeconds = 0.5f;
+
+		titleUpdateFrequencyInSeconds -= secondsElapsed;
+		if (titleUpdateFrequencyInSeconds <= 0)
+		{
+			f32 msPerFrame      = secondsElapsed * 1000.0f;
+			f32 framesPerSecond = 1.0f / secondsElapsed;
+			std::stringstream ss;
+			ss << "Dengine | " << msPerFrame << " ms/f | " << framesPerSecond << " fps";
+			glfwSetWindowTitle(window, ss.str().c_str());
+			titleUpdateFrequencyInSeconds = 0.5f;
+		}
+
+		startTime = endTime;
 	}
 
 	glfwTerminate();

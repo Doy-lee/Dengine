@@ -4,7 +4,7 @@ IF NOT EXIST ..\bin mkdir ..\bin
 pushd ..\bin
 
 set GLEW=..\extern\glew-1.13.0
-set GLFW=..\extern\glfw-3.1.2.bin.WIN32
+set GLFW=..\extern\glfw-3.2.bin.WIN32
 set STB=..\extern\stb-master
 set GLM=..\extern\glm-0.9.7.5
 
