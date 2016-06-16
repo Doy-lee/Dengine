@@ -18,8 +18,7 @@ public:
 	Shader();
 	~Shader();
 
-	const i32 loadProgram(const GLuint vertexShader,
-	                      const GLuint fragmentShader);
+	const i32 loadProgram(const GLuint vertexShader, const GLuint fragmentShader);
 
 	void uniformSet1i(const GLchar *name, const GLuint data);
 	void uniformSetMat4fv(const GLchar *name, const glm::mat4 data);

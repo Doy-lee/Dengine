@@ -4,6 +4,7 @@
 # Custom
 *.swp
 *.opendb
+data/textures/SrcAssets/
 
 # User-specific files
 *.suo

@@ -1,8 +1,8 @@
 #ifndef DENGINE_TEXTURE_H
 #define DENGINE_TEXTURE_H
 
-#include <Dengine/OpenGL.h>
 #include <Dengine/Common.h>
+#include <Dengine/OpenGL.h>
 
 namespace Dengine
 {
@@ -13,7 +13,7 @@ public:
 	Texture();
 
 	// Generates texture from image data
-	void generate(const GLuint width, const GLuint height,
+	void generate(const GLuint width, const GLuint height, const GLint bytesPerPixel,
 	              const u8 *const image);
 
 	// Binds the texture as the current active GL_TEXTURE_2D texture object
@@ -37,14 +37,13 @@ private:
 	GLuint imageFormat;    // Format of loaded image
 
 	// Texture configuration
-	GLuint wrapS;     // Wrapping mode on S axis
-	GLuint wrapT;     // Wrapping mode on T axis
+	GLuint wrapS; // Wrapping mode on S axis
+	GLuint wrapT; // Wrapping mode on T axis
 
 	// Filtering mode if texture pixels < screen pixels
 	GLuint filterMinification;
 	// Filtering mode if texture pixels > screen pixels
 	GLuint filterMagnification;
-
 };
 }
 #endif

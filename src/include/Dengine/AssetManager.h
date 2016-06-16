@@ -1,13 +1,13 @@
 #ifndef DENGINE_ASSET_MANAGER_H
 #define DENGINE_ASSET_MANAGER_H
 
-#include <Dengine\Common.h>
-#include <Dengine\Texture.h>
-#include <Dengine\Shader.h>
+#include <Dengine/Common.h>
+#include <Dengine/Shader.h>
+#include <Dengine/Texture.h>
 
+#include <iostream>
 #include <map>
 #include <string>
-#include <iostream>
 
 namespace Dengine
 {
@@ -23,9 +23,8 @@ public:
 
 	/* Shaders */
 	static Shader *getShader(const std::string name);
-	static const i32 loadShaderFiles(const std::string vertexPath,
-	                          const std::string fragmentPath,
-	                          const std::string name);
+	static const i32 loadShaderFiles(const std::string vertexPath, const std::string fragmentPath,
+	                                 const std::string name);
 };
 }
 #endif

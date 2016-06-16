@@ -1,8 +1,8 @@
-#include <Dengine/Renderer.h>
 #include <Dengine/OpenGL.h>
+#include <Dengine/Renderer.h>
 
-#include <glm/gtx/transform.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/transform.hpp>
 
 namespace Dengine
 {
@@ -12,20 +12,15 @@ Renderer::Renderer(Shader *shader)
 	this->initRenderData();
 }
 
-Renderer::~Renderer()
-{
-	glDeleteVertexArrays(1, &this->quadVAO);
-}
-void Renderer::drawSprite(const Texture *texture, glm::vec2 position,
-                          glm::vec2 size, GLfloat rotate, glm::vec3 color)
+Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
+void Renderer::drawEntity(Entity *entity, GLfloat rotate, glm::vec3 color)
 {
 	this->shader->use();
-	glm::mat4 transMatrix  = glm::translate(glm::vec3(position, 0.0f));
+	glm::mat4 transMatrix  = glm::translate(glm::vec3(entity->pos, 0.0f));
 	glm::mat4 rotateMatrix = glm::rotate(rotate, glm::vec3(0.0f, 0.0f, 1.0f));
 
-
 	// NOTE(doyle): We draw everything as a unit square in OGL. Scale it to size
-	glm::mat4 scaleMatrix  = glm::scale(glm::vec3(size, 1.0f));
+	glm::mat4 scaleMatrix = glm::scale(glm::vec3(entity->size, 1.0f));
 
 	glm::mat4 model = transMatrix * rotateMatrix * scaleMatrix;
 
@@ -35,7 +30,7 @@ void Renderer::drawSprite(const Texture *texture, glm::vec2 position,
 	// this->shader->uniformSetVec3f("spriteColor", color);
 
 	glActiveTexture(GL_TEXTURE0);
-	texture->bind();
+	entity->tex->bind();
 	this->shader->uniformSet1i("tex", 0);
 
 	glBindVertexArray(this->quadVAO);
@@ -70,11 +65,10 @@ void Renderer::initRenderData()
 
 	/* Configure VAO */
 	const GLuint numVertexElements = 4;
-	const GLuint vertexSize = sizeof(glm::vec4);
+	const GLuint vertexSize        = sizeof(glm::vec4);
 
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, numVertexElements, GL_FLOAT, GL_FALSE, vertexSize,
-	                      (GLvoid *)0);
+	glVertexAttribPointer(0, numVertexElements, GL_FLOAT, GL_FALSE, vertexSize, (GLvoid *)0);
 
 	/* Unbind */
 	glBindBuffer(GL_ARRAY_BUFFER, 0);

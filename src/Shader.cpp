@@ -14,8 +14,7 @@ Shader::Shader()
 
 Shader::~Shader() {}
 
-const i32 Shader::loadProgram(const GLuint vertexShader,
-                              const GLuint fragmentShader)
+const i32 Shader::loadProgram(const GLuint vertexShader, const GLuint fragmentShader)
 {
 	this->id = glCreateProgram();
 	glAttachShader(this->id, vertexShader);
@@ -36,7 +35,6 @@ const i32 Shader::loadProgram(const GLuint vertexShader,
 	}
 
 	return 0;
-
 }
 
 void Shader::uniformSet1i(const GLchar *name, const GLuint data)

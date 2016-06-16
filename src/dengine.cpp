@@ -1,33 +1,32 @@
 #if 1
-#include <Dengine/OpenGL.h>
-#include <Dengine/Common.h>
-#include <Dengine/Shader.h>
 #include <Dengine/AssetManager.h>
+#include <Dengine/Common.h>
+#include <Dengine/OpenGL.h>
 #include <Dengine/Renderer.h>
+#include <Dengine/Shader.h>
 
-#include <Breakout/Game.h>
+#include <WorldTraveller/WorldTraveller.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <iostream>
 #include <cstdint>
 #include <fstream>
+#include <iostream>
 #include <string>
 
-void key_callback(GLFWwindow *window, int key, int scancode, int action,
-                  int mode)
+void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode)
 {
-	Breakout::Game *game =
-	    static_cast<Breakout::Game *>(glfwGetWindowUserPointer(window));
+	WorldTraveller::Game *game =
+	    static_cast<WorldTraveller::Game *>(glfwGetWindowUserPointer(window));
 
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 	{
 		glfwSetWindowShouldClose(window, GL_TRUE);
 	}
 
-	if (key >= 0 && key < Breakout::NUM_KEYS)
+	if (key >= 0 && key < WorldTraveller::NUM_KEYS)
 	{
 		if (action == GLFW_PRESS)
 			game->keys[key] = TRUE;
@@ -36,13 +35,9 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action,
 	}
 }
 
-void mouse_callback(GLFWwindow *window, double xPos, double yPos)
-{
-}
+void mouse_callback(GLFWwindow *window, double xPos, double yPos) {}
 
-void scroll_callback(GLFWwindow *window, double xOffset, double yOffset)
-{
-}
+void scroll_callback(GLFWwindow *window, double xOffset, double yOffset) {}
 
 int main()
 {
@@ -54,13 +49,11 @@ int main()
 
 	glm::ivec2 windowSize = glm::ivec2(1280, 720);
 
-	GLFWwindow *window = glfwCreateWindow(windowSize.x, windowSize.y,
-	                                      "Breakout", nullptr, nullptr);
+	GLFWwindow *window = glfwCreateWindow(windowSize.x, windowSize.y, "Breakout", nullptr, nullptr);
 
 	if (!window)
 	{
-		std::cout << "glfwCreateWindow() failed: Failed to create window"
-		          << std::endl;
+		std::cout << "glfwCreateWindow() failed: Failed to create window" << std::endl;
 		glfwTerminate();
 		return -1;
 	}
@@ -71,8 +64,7 @@ int main()
 	glewExperimental = GL_TRUE;
 	if (glewInit() != GLEW_OK)
 	{
-		std::cout << "glewInit() failed: Failed to initialise GLEW"
-		          << std::endl;
+		std::cout << "glewInit() failed: Failed to initialise GLEW" << std::endl;
 		return -1;
 	}
 	// NOTE(doyle): glewInit() bug that sets the gl error flag after init
@@ -94,7 +86,7 @@ int main()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glCullFace(GL_BACK);
 
-	Breakout::Game game = Breakout::Game(frameBufferSize.x, frameBufferSize.y);
+	WorldTraveller::Game game = WorldTraveller::Game(frameBufferSize.x, frameBufferSize.y);
 	game.init();
 
 	glfwSetWindowUserPointer(window, static_cast<void *>(&game));
@@ -106,13 +98,12 @@ int main()
 	while (!glfwWindowShouldClose(window))
 	{
 		f32 currentFrame = static_cast<f32>(glfwGetTime());
-		deltaTime = currentFrame - lastFrame;
-		lastFrame = currentFrame;
+		deltaTime        = currentFrame - lastFrame;
+		lastFrame        = currentFrame;
 
 		/* Check and call events */
 		glfwPollEvents();
 
-		game.processInput(deltaTime);
 		game.update(deltaTime);
 
 		/* Rendering commands here*/

@@ -122,9 +122,10 @@
   <ItemGroup>
     <ClCompile Include="src\AssetManager.cpp" />
     <ClCompile Include="src\dengine.cpp" />
-    <ClCompile Include="src\Game.cpp" />
+    <ClCompile Include="src\Entity.cpp" />
     <ClCompile Include="src\Renderer.cpp" />
     <ClCompile Include="src\Shader.cpp" />
+    <ClCompile Include="src\WorldTraveller.cpp" />
     <ClCompile Include="src\Texture.cpp" />
     <ClCompile Include="src\Tutorial.cpp" />
   </ItemGroup>
@@ -138,10 +139,12 @@
     <ClInclude Include="src\include\Dengine\AssetManager.h" />
     <ClInclude Include="src\include\Dengine\Common.h" />
     <ClInclude Include="src\include\Breakout\Game.h" />
+    <ClInclude Include="src\include\Dengine\Entity.h" />
     <ClInclude Include="src\include\Dengine\OpenGL.h" />
     <ClInclude Include="src\include\Dengine\Renderer.h" />
     <ClInclude Include="src\include\Dengine\Shader.h" />
     <ClInclude Include="src\include\Dengine\Texture.h" />
+    <ClInclude Include="src\include\WorldTraveller\WorldTraveller.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
