@@ -92,14 +92,19 @@ int main()
 
 	glfwSetWindowUserPointer(window, static_cast<void *>(&game));
 
+	f32 startTime      = static_cast<f32>(glfwGetTime());
 	f32 secondsElapsed = 0.0f; // Time between current frame and last frame
 
+#if 0
 	// TODO(doyle): Get actual monitor refresh rate
-	i32 monitorRefreshHz = 60;
-	f32 targetSecondsPerFrame  = 1.0f / static_cast<f32>(monitorRefreshHz);
-	f32 startTime = static_cast<f32>(glfwGetTime());
-
-	//glfwSwapInterval(1);
+	i32 monitorRefreshHz      = 60;
+	f32 targetSecondsPerFrame = 1.0f / static_cast<f32>(monitorRefreshHz);
+#else
+	// TODO(doyle): http://gafferongames.com/game-physics/fix-your-timestep/
+	// NOTE(doyle): Prevent glfwSwapBuffer until a vertical retrace has
+	// occurred, i.e. limit framerate to monitor refresh rate
+	glfwSwapInterval(1);
+#endif
 
 	/* Main game loop */
 	while (!glfwWindowShouldClose(window))
@@ -120,15 +125,17 @@ int main()
 		/* Swap the buffers */
 		glfwSwapBuffers(window);
 
-		f32 endTime = static_cast<f32>(glfwGetTime());
+		f32 endTime    = static_cast<f32>(glfwGetTime());
 		secondsElapsed = endTime - startTime;
 
+#if 0
 		// TODO(doyle): Busy waiting, should sleep
 		while (secondsElapsed < targetSecondsPerFrame)
 		{
 			endTime        = static_cast<f32>(glfwGetTime());
 			secondsElapsed = endTime - startTime;
 		}
+#endif
 
 		LOCAL_PERSIST f32 titleUpdateFrequencyInSeconds = 0.5f;
 
