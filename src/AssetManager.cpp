@@ -1,17 +1,14 @@
-#include <Dengine\AssetManager.h>
+#include <Dengine/AssetManager.h>
 
 #define STBI_FAILURE_USERMSG
 #define STB_IMAGE_IMPLEMENTATION
 #include <STB/stb_image.h>
 #include <fstream>
 
-namespace Dengine
-{
+std::map<std::string, Texture> textures;
+std::map<std::string, Shader> shaders;
 
-std::map<std::string, Texture> AssetManager::textures;
-std::map<std::string, Shader> AssetManager::shaders;
-
-Texture *AssetManager::getTexture(const std::string name)
+Texture *asset_getTexture(const std::string name)
 {
 	// NOTE(doyle): Since we're using a map, the count of an object can
 	// only be 1 or 0
@@ -21,29 +18,31 @@ Texture *AssetManager::getTexture(const std::string name)
 	return nullptr;
 }
 
-const i32 AssetManager::loadTextureImage(const std::string path, const std::string name)
+const i32 asset_loadTextureImage(const std::string path, const std::string name)
 {
 	/* Open the texture image */
 	i32 imgWidth, imgHeight, bytesPerPixel;
 	stbi_set_flip_vertically_on_load(TRUE);
-	u8 *image = stbi_load(path.c_str(), &imgWidth, &imgHeight, &bytesPerPixel, 0);
+	u8 *image =
+	    stbi_load(path.c_str(), &imgWidth, &imgHeight, &bytesPerPixel, 0);
 
 	if (!image)
 	{
-		std::cerr << "stdbi_load() failed: " << stbi_failure_reason() << std::endl;
+		std::cerr << "stdbi_load() failed: " << stbi_failure_reason()
+		          << std::endl;
 		return -1;
 	}
 
-	Texture tex;
-	tex.generate(static_cast<GLuint>(imgWidth), static_cast<GLuint>(imgHeight),
-	             static_cast<GLint>(bytesPerPixel), image);
+	Texture tex = genTexture(CAST(GLuint)(imgWidth), CAST(GLuint)(imgHeight),
+	                         CAST(GLint)(bytesPerPixel), image);
+	glCheckError();
 	stbi_image_free(image);
 
 	textures[name] = tex;
 	return 0;
 }
 
-Shader *AssetManager::getShader(const std::string name)
+Shader *asset_getShader(const std::string name)
 {
 	if (shaders.count(name) == 1)
 		return &shaders[name];
@@ -96,19 +95,19 @@ INTERNAL GLuint createShaderFromPath(std::string path, GLuint shadertype)
 	return result;
 }
 
-const i32 AssetManager::loadShaderFiles(const std::string vertexPath,
-                                        const std::string fragmentPath, const std::string name)
+const i32 asset_loadShaderFiles(const std::string vertexPath,
+                                const std::string fragmentPath,
+                                const std::string name)
 {
-
-	GLuint vertexShader   = createShaderFromPath(vertexPath, GL_VERTEX_SHADER);
-	GLuint fragmentShader = createShaderFromPath(fragmentPath, GL_FRAGMENT_SHADER);
+	GLuint vertexShader = createShaderFromPath(vertexPath, GL_VERTEX_SHADER);
+	GLuint fragmentShader =
+	    createShaderFromPath(fragmentPath, GL_FRAGMENT_SHADER);
 
 	Shader shader;
-	i32 result = shader.loadProgram(vertexShader, fragmentShader);
+	i32 result = shader_loadProgram(&shader, vertexShader, fragmentShader);
 	if (result)
 		return result;
 
 	shaders[name] = shader;
 	return 0;
-}
 }

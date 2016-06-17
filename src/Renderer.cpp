@@ -4,74 +4,35 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
 
-namespace Dengine
+void renderer_entity(Renderer *renderer, Entity *entity, GLfloat rotate,
+                     glm::vec3 color)
 {
-Renderer::Renderer(Shader *shader)
-{
-	this->shader = shader;
-	this->initRenderData();
-}
-
-Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
-void Renderer::drawEntity(Entity *entity, GLfloat rotate, glm::vec3 color)
-{
-	this->shader->use();
+	shader_use(renderer->shader);
 	glm::mat4 transMatrix  = glm::translate(glm::vec3(entity->pos, 0.0f));
 	glm::mat4 rotateMatrix = glm::rotate(rotate, glm::vec3(0.0f, 0.0f, 1.0f));
+	glCheckError();
 
 	// NOTE(doyle): We draw everything as a unit square in OGL. Scale it to size
 	glm::mat4 scaleMatrix = glm::scale(glm::vec3(entity->size, 1.0f));
 
 	glm::mat4 model = transMatrix * rotateMatrix * scaleMatrix;
-
-	this->shader->uniformSetMat4fv("model", model);
+	shader_uniformSetMat4fv(renderer->shader, "model", model);
+	glCheckError();
 
 	// TODO(doyle): Unimplemented
 	// this->shader->uniformSetVec3f("spriteColor", color);
 
 	glActiveTexture(GL_TEXTURE0);
-	entity->tex->bind();
-	this->shader->uniformSet1i("tex", 0);
+	glCheckError();
+	glBindTexture(GL_TEXTURE_2D, entity->tex->id);
+	glCheckError();
+	shader_uniformSet1i(renderer->shader, "tex", 0);
+	glCheckError();
 
-	glBindVertexArray(this->quadVAO);
+	glBindVertexArray(renderer->quadVAO);
+	glCheckError();
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	glCheckError();
 	glBindVertexArray(0);
-}
-
-void Renderer::initRenderData()
-{
-	// NOTE(doyle): Draws a series of triangles (three-sided polygons) using
-	// vertices v0, v1, v2, then v2, v1, v3 (note the order)
-	glm::vec4 vertices[] = {
-	    //  x     y       s     t
-	    {0.0f, 1.0f, 0.0f, 1.0f}, // Top left
-	    {0.0f, 0.0f, 0.0f, 0.0f}, // Bottom left
-	    {1.0f, 1.0f, 1.0f, 1.0f}, // Top right
-	    {1.0f, 0.0f, 1.0f, 0.0f}, // Bottom right
-	};
-
-	GLuint VBO;
-
-	/* Create buffers */
-	glGenVertexArrays(1, &this->quadVAO);
-	glGenBuffers(1, &VBO);
-
-	/* Bind buffers */
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBindVertexArray(this->quadVAO);
-
-	/* Configure VBO */
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-	/* Configure VAO */
-	const GLuint numVertexElements = 4;
-	const GLuint vertexSize        = sizeof(glm::vec4);
-
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, numVertexElements, GL_FLOAT, GL_FALSE, vertexSize, (GLvoid *)0);
-
-	/* Unbind */
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-}
+	glCheckError();
 }

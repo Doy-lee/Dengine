@@ -11,23 +11,18 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <cstdint>
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <string>
+#include <stdio.h>
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode)
 {
-	WorldTraveller::Game *game =
-	    static_cast<WorldTraveller::Game *>(glfwGetWindowUserPointer(window));
+	GameState *game = CAST(GameState *)(glfwGetWindowUserPointer(window));
 
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 	{
 		glfwSetWindowShouldClose(window, GL_TRUE);
 	}
 
-	if (key >= 0 && key < WorldTraveller::NUM_KEYS)
+	if (key >= 0 && key < NUM_KEYS)
 	{
 		if (action == GLFW_PRESS)
 			game->keys[key] = TRUE;
@@ -50,11 +45,11 @@ int main()
 
 	glm::ivec2 windowSize = glm::ivec2(1280, 720);
 
-	GLFWwindow *window = glfwCreateWindow(windowSize.x, windowSize.y, "Dengine", nullptr, nullptr);
+	GLFWwindow *window = glfwCreateWindow(windowSize.x, windowSize.y, "Dengine", NULL, NULL);
 
 	if (!window)
 	{
-		std::cout << "glfwCreateWindow() failed: Failed to create window" << std::endl;
+		printf("glfwCreateWindow() failed: Failed to create window\n");
 		glfwTerminate();
 		return -1;
 	}
@@ -65,7 +60,7 @@ int main()
 	glewExperimental = GL_TRUE;
 	if (glewInit() != GLEW_OK)
 	{
-		std::cout << "glewInit() failed: Failed to initialise GLEW" << std::endl;
+		printf("glewInit() failed: Failed to initialise GLEW\n");
 		return -1;
 	}
 	// NOTE(doyle): glewInit() bug that sets the gl error flag after init
@@ -87,12 +82,16 @@ int main()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glCullFace(GL_BACK);
 
-	WorldTraveller::Game game = WorldTraveller::Game(frameBufferSize.x, frameBufferSize.y);
-	game.init();
+	GameState worldTraveller = {};
+	worldTraveller.state = state_active;
+	worldTraveller.width = frameBufferSize.x;
+	worldTraveller.height = frameBufferSize.y;
 
-	glfwSetWindowUserPointer(window, static_cast<void *>(&game));
+	worldTraveller_gameInit(&worldTraveller);
 
-	f32 startTime      = static_cast<f32>(glfwGetTime());
+	glfwSetWindowUserPointer(window, CAST(void *)(&worldTraveller));
+
+	f32 startTime      = CAST(f32)(glfwGetTime());
 	f32 secondsElapsed = 0.0f; // Time between current frame and last frame
 
 #if 0
@@ -109,23 +108,20 @@ int main()
 	/* Main game loop */
 	while (!glfwWindowShouldClose(window))
 	{
-
 		/* Check and call events */
 		glfwPollEvents();
-
-		game.update(secondsElapsed);
 
 		/* Rendering commands here*/
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		game.render();
+		worldTraveller_gameUpdateAndRender(&worldTraveller, secondsElapsed);
 		glCheckError();
 
 		/* Swap the buffers */
 		glfwSwapBuffers(window);
 
-		f32 endTime    = static_cast<f32>(glfwGetTime());
+		f32 endTime    = (f32)glfwGetTime();
 		secondsElapsed = endTime - startTime;
 
 #if 0
@@ -144,9 +140,12 @@ int main()
 		{
 			f32 msPerFrame      = secondsElapsed * 1000.0f;
 			f32 framesPerSecond = 1.0f / secondsElapsed;
-			std::stringstream ss;
-			ss << "Dengine | " << msPerFrame << " ms/f | " << framesPerSecond << " fps";
-			glfwSetWindowTitle(window, ss.str().c_str());
+
+			char textBuffer[256];
+			snprintf(textBuffer, ARRAY_COUNT(textBuffer), "Dengine | %f ms/f | %f fps", msPerFrame,
+			         framesPerSecond);
+
+			glfwSetWindowTitle(window, textBuffer);
 			titleUpdateFrequencyInSeconds = 0.5f;
 		}
 

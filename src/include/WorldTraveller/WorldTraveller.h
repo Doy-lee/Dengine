@@ -9,21 +9,8 @@
 #include <Dengine/Renderer.h>
 #include <Dengine/Shader.h>
 
-namespace WorldTraveller
-{
-GLOBAL_VAR const i32 NUM_KEYS = 1024;
-GLOBAL_VAR const f32 METERS_TO_PIXEL = 100;
-
-enum Cardinal
-{
-	cardinal_north = 0,
-	cardinal_west  = 1,
-	cardinal_south = 2,
-	cardinal_east  = 3,
-	cardinal_num,
-	cardinal_null
-
-};
+#define NUM_KEYS 1024
+#define METERS_TO_PIXEL 100
 
 enum State
 {
@@ -32,25 +19,16 @@ enum State
 	state_win
 };
 
-class Game
+struct GameState
 {
-public:
 	State state;
 	GLboolean keys[NUM_KEYS];
 	i32 width, height;
 
-	Game(i32 width, i32 height);
-	~Game();
-
-	void init();
-
-	void update(const f32 dt);
-	void render();
-private:
-	Dengine::Shader *shader;
-	Dengine::Renderer *renderer;
-	Dengine::Entity hero;
+	Renderer renderer;
+	Entity hero;
 };
-}
 
+void worldTraveller_gameInit(GameState *state);
+void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt);
 #endif

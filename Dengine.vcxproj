@@ -122,7 +122,6 @@
   <ItemGroup>
     <ClCompile Include="src\AssetManager.cpp" />
     <ClCompile Include="src\dengine.cpp" />
-    <ClCompile Include="src\Entity.cpp" />
     <ClCompile Include="src\Renderer.cpp" />
     <ClCompile Include="src\Shader.cpp" />
     <ClCompile Include="src\WorldTraveller.cpp" />

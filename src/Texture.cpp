@@ -1,21 +1,5 @@
 #include <Dengine\Texture.h>
 
-namespace Dengine
-{
-Texture::Texture()
-: id(0)
-, width(0)
-, height(0)
-, internalFormat(GL_RGBA)
-, imageFormat(GL_RGB)
-, wrapS(GL_REPEAT)
-, wrapT(GL_REPEAT)
-, filterMinification(GL_LINEAR)
-, filterMagnification(GL_LINEAR)
-{
-	glGenTextures(1, &this->id);
-}
-
 enum BytesPerPixel
 {
 	Greyscale      = 1,
@@ -24,7 +8,7 @@ enum BytesPerPixel
 	RGBA           = 4,
 };
 
-INTERNAL GLint getGLFormat(BytesPerPixel bytesPerPixel, b32 srgb)
+INTERNAL GLint getGLFormat(i32 bytesPerPixel, b32 srgb)
 {
 	switch (bytesPerPixel)
 	{
@@ -44,32 +28,54 @@ INTERNAL GLint getGLFormat(BytesPerPixel bytesPerPixel, b32 srgb)
 	}
 }
 
-void Texture::generate(const GLuint width, const GLuint height, const GLint bytesPerPixel,
-                       const u8 *const image)
+Texture genTexture(const GLuint width, const GLuint height,
+                   const GLint bytesPerPixel, const u8 *const image)
 {
 	// TODO(doyle): Let us set the parameters gl params as well
-	this->width  = width;
-	this->height = height;
+	glCheckError();
+	Texture tex = {};
+	tex.width  = width;
+	tex.height = height;
+	tex.internalFormat = GL_RGBA;
+	tex.wrapS = GL_REPEAT;
+	tex.wrapT = GL_REPEAT;
+	tex.filterMinification = GL_LINEAR;
+	tex.filterMagnification = GL_LINEAR;
 
-	glBindTexture(GL_TEXTURE_2D, this->id);
+	glGenTextures(1, &tex.id);
+	glCheckError();
+
+
+	glBindTexture(GL_TEXTURE_2D, tex.id);
+	glCheckError();
 
 	/* Load image into texture */
 	// TODO(doyle) Figure out the gl format
-	this->imageFormat = getGLFormat(static_cast<enum BytesPerPixel>(bytesPerPixel), FALSE);
+	tex.imageFormat = getGLFormat(bytesPerPixel, FALSE);
+	glCheckError();
 
-	glTexImage2D(GL_TEXTURE_2D, 0, this->internalFormat, this->width, this->height, 0,
-	             this->imageFormat, GL_UNSIGNED_BYTE, image);
+	glTexImage2D(GL_TEXTURE_2D, 0, tex.internalFormat, tex.width, tex.height, 0,
+	             tex.imageFormat, GL_UNSIGNED_BYTE, image);
+	glCheckError();
+	glActiveTexture(GL_TEXTURE0);
+	// TODO(doyle): Don't forget about thsi!
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 3, 3, 55, 55, GL_RGBA, GL_UNSIGNED_BYTE,
+	                image);
+	glCheckError();
 	glGenerateMipmap(GL_TEXTURE_2D);
 
 	/* Set parameter of currently bound texture */
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, this->wrapS);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, this->wrapT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, this->filterMinification);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, this->filterMagnification);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, tex.wrapS);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tex.wrapT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+	                tex.filterMinification);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
+	                tex.filterMagnification);
+	glCheckError();
 
 	/* Unbind and clean up */
 	glBindTexture(GL_TEXTURE_2D, 0);
-}
+	glCheckError();
 
-void Texture::bind() const { glBindTexture(GL_TEXTURE_2D, this->id); }
+	return tex;
 }

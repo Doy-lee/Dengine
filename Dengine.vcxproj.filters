@@ -36,9 +36,6 @@
     <ClCompile Include="src\WorldTraveller.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Entity.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="data\shaders\default.vert.glsl" />

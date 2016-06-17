@@ -4,26 +4,8 @@
 #include <Dengine/Common.h>
 #include <Dengine/OpenGL.h>
 
-namespace Dengine
+struct Texture
 {
-class Texture
-{
-public:
-	// Constructor (sets default texture modes)
-	Texture();
-
-	// Generates texture from image data
-	void generate(const GLuint width, const GLuint height, const GLint bytesPerPixel,
-	              const u8 *const image);
-
-	// Binds the texture as the current active GL_TEXTURE_2D texture object
-	void bind() const;
-
-	inline const GLuint getWidth() const { return this->width; }
-	inline const GLuint getHeight() const { return this->height; }
-	inline const GLuint getID() const { return this->id; }
-
-private:
 	// Holds the ID of the texture object, used for all texture operations to
 	// reference to this particlar texture
 	GLuint id;
@@ -45,5 +27,9 @@ private:
 	// Filtering mode if texture pixels > screen pixels
 	GLuint filterMagnification;
 };
-}
+
+// Generates texture from image data
+Texture genTexture(const GLuint width, const GLuint height, const GLint bytesPerPixel,
+                   const u8 *const image);
+
 #endif

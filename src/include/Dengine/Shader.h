@@ -6,25 +6,20 @@
 
 #include <glm/glm.hpp>
 
-#include <string>
-
-namespace Dengine
+struct Shader
 {
-class Shader
-{
-public:
 	GLuint id;
-
-	Shader();
-	~Shader();
-
-	const i32 loadProgram(const GLuint vertexShader, const GLuint fragmentShader);
-
-	void uniformSet1i(const GLchar *name, const GLuint data);
-	void uniformSetMat4fv(const GLchar *name, const glm::mat4 data);
-
-	void use() const;
 };
-}
+
+const i32 shader_loadProgram(Shader *const shader,
+                             const GLuint vertexShader,
+                             const GLuint fragmentShader);
+
+void shader_uniformSet1i(Shader *const shader, const GLchar *name,
+                         const GLuint data);
+void shader_uniformSetMat4fv(Shader *const shader, const GLchar *name,
+                             const glm::mat4 data);
+
+void shader_use(const Shader *const shader);
 
 #endif

@@ -8,22 +8,13 @@
 
 #include <GLM/glm.hpp>
 
-namespace Dengine
+struct Renderer
 {
-class Renderer
-{
-public:
-	Renderer(Shader *shader);
-	~Renderer();
-
-	void drawEntity(Entity *entity, GLfloat rotate = 0.0f, glm::vec3 color = glm::vec3(1.0f));
-
-private:
 	Shader *shader;
 	GLuint quadVAO;
-
-	void initRenderData();
 };
-}
+
+void renderer_entity(Renderer *renderer, Entity *entity, GLfloat rotate = 0.0f,
+                     glm::vec3 color = glm::vec3(1.0f));
 
 #endif

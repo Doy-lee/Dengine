@@ -3,17 +3,10 @@
 
 #include <Dengine/Common.h>
 
-namespace Dengine
+inline f32 squared(const f32 a)
 {
-class Math
-{
-public:
-	static inline f32 squared(const f32 a)
-	{
-		f32 result = a * a;
-		return result;
-	}
-};
+	f32 result = a * a;
+	return result;
 }
-#endif
 
+#endif

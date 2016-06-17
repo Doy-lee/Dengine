@@ -4,65 +4,85 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <cstdlib>
-
-namespace WorldTraveller
-{
-
-// TODO(doyle): Entity list for each world
-// TODO(doyle): Jumping mechanics
-// TODO(doyle): Collision
-
-
-Game::Game(i32 width, i32 height)
-{
-	this->width  = width;
-	this->height = height;
-
-	for (i32 i        = 0; i < NUM_KEYS; i++)
-		this->keys[i] = FALSE;
-}
-
-Game::~Game() { delete this->renderer; }
-
-void Game::init()
+void worldTraveller_gameInit(GameState *state)
 {
 	/* Initialise assets */
-	std::string texFolder = "data/textures/WorldTraveller/";
-	Dengine::AssetManager::loadShaderFiles("data/shaders/sprite.vert.glsl",
-	                                       "data/shaders/sprite.frag.glsl", "sprite");
 
-	Dengine::AssetManager::loadTextureImage(texFolder + "hero.png", "hero");
-	Dengine::AssetManager::loadTextureImage(texFolder + "wall.png", "wall");
-	Dengine::AssetManager::loadTextureImage(texFolder + "hitMarker.png", "hitMarker");
+	asset_loadTextureImage("data/textures/WorldTraveller/elisa-spritesheet1.png",
+	                 "hero");
+	glCheckError();
 
-	this->shader = Dengine::AssetManager::getShader("sprite");
-	this->shader->use();
+	state->state       = state_active;
+	Renderer *renderer = &state->renderer;
+	asset_loadShaderFiles("data/shaders/sprite.vert.glsl",
+	                      "data/shaders/sprite.frag.glsl", "sprite");
+	glCheckError();
 
-	glm::mat4 projection = glm::ortho(0.0f, static_cast<GLfloat>(this->width), 0.0f,
-	                                  static_cast<GLfloat>(this->height), 0.0f, 1.0f);
-	this->shader->uniformSetMat4fv("projection", projection);
+	renderer->shader = asset_getShader("sprite");
+	shader_use(renderer->shader);
+	glm::mat4 projection = glm::ortho(0.0f, CAST(GLfloat) state->width, 0.0f,
+	                                  CAST(GLfloat) state->height, 0.0f, 1.0f);
+	shader_uniformSetMat4fv(renderer->shader, "projection", projection);
+	glCheckError();
 
-	GLuint projectionLoc = glGetUniformLocation(this->shader->id, "projection");
-	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+	/* Init renderer */
+	// NOTE(doyle): Draws a series of triangles (three-sided polygons) using
+	// vertices v0, v1, v2, then v2, v1, v3 (note the order)
+	glm::vec4 vertices[] = {
+	    //  x     y       s     t
+	    {0.0f, 1.0f, 0.0f, 1.0f}, // Top left
+	    {0.0f, 0.0f, 0.0f, 0.0f}, // Bottom left
+	    {1.0f, 1.0f, 1.0f, 1.0f}, // Top right
+	    {1.0f, 0.0f, 1.0f, 0.0f}, // Bottom right
+	};
 
-	/* Init game state */
-	this->state    = state_active;
-	this->renderer = new Dengine::Renderer(this->shader);
+	GLuint VBO;
+	/* Create buffers */
+	glGenVertexArrays(1, &renderer->quadVAO);
+	glGenBuffers(1, &VBO);
+	glCheckError();
 
+	/* Bind buffers */
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBindVertexArray(renderer->quadVAO);
+
+	/* Configure VBO */
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	glCheckError();
+
+	/* Configure VAO */
+	const GLuint numVertexElements = 4;
+	const GLuint vertexSize        = sizeof(glm::vec4);
+
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, numVertexElements, GL_FLOAT, GL_FALSE, vertexSize,
+	                      (GLvoid *)0);
+	glCheckError();
+
+	/* Unbind */
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+	glCheckError();
 	/* Init hero */
-	this->hero = Dengine::Entity(glm::vec2(0, 0), "hero");
 
-	glm::vec2 screenCentre       = glm::vec2(this->width / 2.0f, this->height / 2.0f);
-	glm::vec2 heroOffsetToCentre = glm::vec2(-((i32)hero.size.x / 2), -((i32)hero.size.y / 2));
+	Entity *hero = &state->hero;
+	hero->tex    = asset_getTexture("hero");
+	hero->size   = glm::vec2(100, 100);
+
+	glm::vec2 screenCentre =
+	    glm::vec2(state->width / 2.0f, state->height / 2.0f);
+	glm::vec2 heroOffsetToCentre =
+	    glm::vec2(-((i32)hero->size.x / 2), -((i32)hero->size.y / 2));
 
 	glm::vec2 heroCentered = screenCentre + heroOffsetToCentre;
-	hero.pos               = heroCentered;
+	hero->pos              = heroCentered;
 
-	srand(static_cast<u32>(glfwGetTime()));
+	srand(CAST(u32)(glfwGetTime()));
+	glCheckError();
 }
 
-void Game::update(const f32 dt)
+INTERNAL void parseInput(GameState *state, const f32 dt)
 {
 	/*
 	   Equations of Motion
@@ -78,24 +98,24 @@ void Game::update(const f32 dt)
 
 	glm::vec2 ddPos = glm::vec2(0, 0);
 
-	if (this->keys[GLFW_KEY_SPACE])
+	if (state->keys[GLFW_KEY_SPACE])
 	{
 	}
 
-	if (this->keys[GLFW_KEY_RIGHT])
+	if (state->keys[GLFW_KEY_RIGHT])
 	{
 		ddPos.x = 1.0f;
 	}
-	if (this->keys[GLFW_KEY_LEFT])
+	if (state->keys[GLFW_KEY_LEFT])
 	{
 		ddPos.x = -1.0f;
 	}
 
-	if (this->keys[GLFW_KEY_UP])
+	if (state->keys[GLFW_KEY_UP])
 	{
 		ddPos.y = 1.0f;
 	}
-	if (this->keys[GLFW_KEY_DOWN])
+	if (state->keys[GLFW_KEY_DOWN])
 	{
 		ddPos.y = -1.0f;
 	}
@@ -108,42 +128,33 @@ void Game::update(const f32 dt)
 		ddPos *= 0.70710678118f;
 	}
 
-	const f32 heroSpeed = static_cast<f32>((22.0f * METERS_TO_PIXEL)); // m/s^2
+	f32 heroSpeed = CAST(f32)(22.0f * METERS_TO_PIXEL); // m/s^2
+	if (state->keys[GLFW_KEY_LEFT_SHIFT])
+	{
+		heroSpeed = CAST(f32)(22.0f * 5.0f * METERS_TO_PIXEL);
+	}
 	ddPos *= heroSpeed;
 
 	// TODO(doyle): Counteracting force on player's acceleration is arbitrary
-	ddPos += -(5.5f * hero.dPos);
+	Entity *hero = &state->hero;
+	ddPos += -(5.5f * hero->dPos);
 
-	glm::vec2 newHeroP = (0.5f * ddPos) * Dengine::Math::squared(dt) + (hero.dPos * dt) + hero.pos;
+	glm::vec2 newHeroP =
+	    (0.5f * ddPos) * squared(dt) + (hero->dPos * dt) + hero->pos;
 
-	hero.dPos = (ddPos * dt) + hero.dPos;
-	hero.pos = newHeroP;
+	hero->dPos = (ddPos * dt) + hero->dPos;
+	hero->pos  = newHeroP;
 }
 
-void Game::render()
+void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 {
+	/* Update */
+	parseInput(state, dt);
+	glCheckError();
 
-	Dengine::Renderer *renderer = this->renderer;
-
-	Dengine::Entity wall = Dengine::Entity(glm::vec2(0, 0), "wall");
-	glm::vec2 maxTilesOnScreen =
-	    glm::vec2((this->width / wall.size.x), (this->height / wall.size.y));
-
-	Dengine::Entity hitMarker = Dengine::Entity(glm::vec2(100, 100), "hitMarker");
-
-	for (i32 x = 0; x < maxTilesOnScreen.x; x++)
-	{
-		for (i32 y = 0; y < maxTilesOnScreen.y; y++)
-		{
-			if (x == 0 || x == maxTilesOnScreen.x - 1 || y == 0 || y == maxTilesOnScreen.y - 1)
-			{
-				wall.pos = glm::vec2(x * wall.tex->getWidth(), y * wall.tex->getHeight());
-
-				renderer->drawEntity(&wall);
-			}
-		}
-	}
-	renderer->drawEntity(&hero);
-	renderer->drawEntity(&hitMarker);
+	/* Render */
+	renderer_entity(&state->renderer, &state->hero);
+	// TODO(doyle): Clean up lines
+	// Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
 }
-} // namespace Dengine
+
