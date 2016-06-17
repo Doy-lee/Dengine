@@ -17,7 +17,10 @@ public:
 	Entity(const glm::vec2 pos, const std::string texName);
 	~Entity();
 
-	glm::vec2 pos;
+
+	glm::vec2 pos;  // Position
+	glm::vec2 dPos; // Velocity
+
 	glm::vec2 size;
 	const Texture *tex;
 };

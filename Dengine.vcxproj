@@ -140,6 +140,7 @@
     <ClInclude Include="src\include\Dengine\Common.h" />
     <ClInclude Include="src\include\Breakout\Game.h" />
     <ClInclude Include="src\include\Dengine\Entity.h" />
+    <ClInclude Include="src\include\Dengine\Math.h" />
     <ClInclude Include="src\include\Dengine\OpenGL.h" />
     <ClInclude Include="src\include\Dengine\Renderer.h" />
     <ClInclude Include="src\include\Dengine\Shader.h" />

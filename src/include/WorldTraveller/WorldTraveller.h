@@ -1,17 +1,18 @@
 #ifndef WORLDTRAVELLER_GAME_H
 #define WORLDTRAVELLER_GAME_H
 
-#include <Dengine/OpenGL.h>
+#include <Dengine/AssetManager.h>
 #include <Dengine/Common.h>
+#include <Dengine/Entity.h>
+#include <Dengine/Math.h>
+#include <Dengine/OpenGL.h>
 #include <Dengine/Renderer.h>
 #include <Dengine/Shader.h>
-#include <Dengine/AssetManager.h>
-#include <Dengine/Entity.h>
 
 namespace WorldTraveller
 {
 GLOBAL_VAR const i32 NUM_KEYS = 1024;
-GLOBAL_VAR const i32 METERS_TO_PIXEL = 100;
+GLOBAL_VAR const f32 METERS_TO_PIXEL = 100;
 
 enum Cardinal
 {

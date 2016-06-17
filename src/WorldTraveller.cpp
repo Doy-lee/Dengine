@@ -64,27 +64,60 @@ void Game::init()
 
 void Game::update(const f32 dt)
 {
-	const f32 heroSpeed = static_cast<f32>((3.0f * METERS_TO_PIXEL) * dt);
+	/*
+	   Equations of Motion
+	   f(t)  = position     m
+	   f'(t) = velocity     m/s
+	   f"(t) = acceleration m/s^2
+
+	   The user supplies an acceleration, a, and by integrating
+	   f"(t) = a,                   where a is a constant, acceleration
+	   f'(t) = a*t + v,             where v is a constant, old velocity
+	   f (t) = (a/2)*t^2 + v*t + p, where p is a constant, old position
+	 */
+
+	glm::vec2 ddPos = glm::vec2(0, 0);
 
 	if (this->keys[GLFW_KEY_SPACE])
 	{
-#if 0
-		Dengine::Entity hitMarker = Dengine::Entity(glm::vec2(0, 0), "hitMarker");
-		glm::vec2 hitMarkerP =
-		    glm::vec2((hero.pos.x * 1.5f) + hitMarker.tex->getWidth(), hero.pos.y * 1.5f);
-		hitMarker.pos = hitMarkerP;
-		renderer->drawEntity(&hitMarker);
-#endif
 	}
 
 	if (this->keys[GLFW_KEY_RIGHT])
 	{
-		hero.pos.x += heroSpeed;
+		ddPos.x = 1.0f;
 	}
-	else if (this->keys[GLFW_KEY_LEFT])
+	if (this->keys[GLFW_KEY_LEFT])
 	{
-		hero.pos.x -= heroSpeed;
+		ddPos.x = -1.0f;
 	}
+
+	if (this->keys[GLFW_KEY_UP])
+	{
+		ddPos.y = 1.0f;
+	}
+	if (this->keys[GLFW_KEY_DOWN])
+	{
+		ddPos.y = -1.0f;
+	}
+
+	if (ddPos.x != 0.0f && ddPos.y != 0.0f)
+	{
+		// NOTE(doyle): Cheese it and pre-compute the vector for diagonal using
+		// pythagoras theorem on a unit triangle
+		// 1^2 + 1^2 = c^2
+		ddPos *= 0.70710678118f;
+	}
+
+	const f32 heroSpeed = static_cast<f32>((22.0f * METERS_TO_PIXEL)); // m/s^2
+	ddPos *= heroSpeed;
+
+	// TODO(doyle): Counteracting force on player's acceleration is arbitrary
+	ddPos += -(5.5f * hero.dPos);
+
+	glm::vec2 newHeroP = (0.5f * ddPos) * Dengine::Math::squared(dt) + (hero.dPos * dt) + hero.pos;
+
+	hero.dPos = (ddPos * dt) + hero.dPos;
+	hero.pos = newHeroP;
 }
 
 void Game::render()
