@@ -36,6 +36,9 @@
     <ClCompile Include="src\WorldTraveller.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Platform.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="data\shaders\default.vert.glsl" />
@@ -72,6 +75,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\include\Dengine\Math.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\include\Dengine\Platform.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

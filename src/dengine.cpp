@@ -1,9 +1,6 @@
 #if 1
 #include <Dengine/AssetManager.h>
-#include <Dengine/Common.h>
-#include <Dengine/OpenGL.h>
 #include <Dengine/Renderer.h>
-#include <Dengine/Shader.h>
 
 #include <WorldTraveller/WorldTraveller.h>
 

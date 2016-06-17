@@ -1,7 +1,6 @@
 #ifndef DENGINE_ENTITY_H
 #define DENGINE_ENTITY_H
 
-#include <Dengine/Common.h>
 #include <Dengine/Texture.h>
 
 #include <glm/glm.hpp>

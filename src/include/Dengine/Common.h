@@ -2,7 +2,6 @@
 #define DENGINE_COMMON_H
 
 #include <stdint.h>
-#include <stdlib.h>
 
 typedef uint8_t u8;
 typedef uint32_t u32;

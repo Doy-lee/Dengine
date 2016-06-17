@@ -3,33 +3,31 @@
 #define STBI_FAILURE_USERMSG
 #define STB_IMAGE_IMPLEMENTATION
 #include <STB/stb_image.h>
-#include <fstream>
 
 std::map<std::string, Texture> textures;
 std::map<std::string, Shader> shaders;
 
-Texture *asset_getTexture(const std::string name)
+Texture *asset_getTexture(const char *const name)
 {
 	// NOTE(doyle): Since we're using a map, the count of an object can
 	// only be 1 or 0
 	if (textures.count(name) == 1)
 		return &textures[name];
 
-	return nullptr;
+	return NULL;
 }
 
-const i32 asset_loadTextureImage(const std::string path, const std::string name)
+const i32 asset_loadTextureImage(const char *const path, const char *const name)
 {
 	/* Open the texture image */
 	i32 imgWidth, imgHeight, bytesPerPixel;
 	stbi_set_flip_vertically_on_load(TRUE);
 	u8 *image =
-	    stbi_load(path.c_str(), &imgWidth, &imgHeight, &bytesPerPixel, 0);
+	    stbi_load(path, &imgWidth, &imgHeight, &bytesPerPixel, 0);
 
 	if (!image)
 	{
-		std::cerr << "stdbi_load() failed: " << stbi_failure_reason()
-		          << std::endl;
+		printf("stdbi_load() failed: %s\n", stbi_failure_reason());
 		return -1;
 	}
 
@@ -42,7 +40,7 @@ const i32 asset_loadTextureImage(const std::string path, const std::string name)
 	return 0;
 }
 
-Shader *asset_getShader(const std::string name)
+Shader *asset_getShader(const char *const name)
 {
 	if (shaders.count(name) == 1)
 		return &shaders[name];
@@ -50,34 +48,15 @@ Shader *asset_getShader(const std::string name)
 	return nullptr;
 }
 
-INTERNAL std::string stringFromFile(const std::string &filename)
+INTERNAL GLuint createShaderFromPath(const char *const path, GLuint shadertype)
 {
-	std::ifstream file;
-	file.open(filename.c_str(), std::ios::in | std::ios::binary);
+	PlatformFileReadResult file = {0};
 
-	std::string output;
-	std::string line;
+	i32 status = platform_readFileToBuffer(path, &file);
+	if (status)
+		return status;
 
-	if (!file.is_open())
-	{
-		std::runtime_error(std::string("Failed to open file: ") + filename);
-	}
-	else
-	{
-		while (file.good())
-		{
-			std::getline(file, line);
-			output.append(line + "\n");
-		}
-	}
-	file.close();
-	return output;
-}
-
-INTERNAL GLuint createShaderFromPath(std::string path, GLuint shadertype)
-{
-	std::string shaderSource = stringFromFile(path);
-	const GLchar *source     = shaderSource.c_str();
+	const GLchar *source = CAST(char *)file.buffer;
 
 	GLuint result = glCreateShader(shadertype);
 	glShaderSource(result, 1, &source, NULL);
@@ -89,15 +68,17 @@ INTERNAL GLuint createShaderFromPath(std::string path, GLuint shadertype)
 	if (!success)
 	{
 		glGetShaderInfoLog(result, 512, NULL, infoLog);
-		std::cout << "glCompileShader failed: " << infoLog << std::endl;
+		printf("glCompileShader() failed: %s\n", infoLog);
 	}
+
+	platform_closeFileReadResult(&file);
 
 	return result;
 }
 
-const i32 asset_loadShaderFiles(const std::string vertexPath,
-                                const std::string fragmentPath,
-                                const std::string name)
+const i32 asset_loadShaderFiles(const char *const vertexPath,
+                                const char *const fragmentPath,
+                                const char *const name)
 {
 	GLuint vertexShader = createShaderFromPath(vertexPath, GL_VERTEX_SHADER);
 	GLuint fragmentShader =
