@@ -29,7 +29,7 @@ struct Texture
 };
 
 // Generates texture from image data
-Texture genTexture(const GLuint width, const GLuint height, const GLint bytesPerPixel,
-                   const u8 *const image);
+Texture genTexture(const GLuint width, const GLuint height,
+                   const GLint bytesPerPixel, const u8 *const image);
 
 #endif
