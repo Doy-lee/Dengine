@@ -57,11 +57,6 @@ Texture genTexture(const GLuint width, const GLuint height,
 	glTexImage2D(GL_TEXTURE_2D, 0, tex.internalFormat, tex.width, tex.height, 0,
 	             tex.imageFormat, GL_UNSIGNED_BYTE, image);
 	glCheckError();
-	glActiveTexture(GL_TEXTURE0);
-	// TODO(doyle): Don't forget about thsi!
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 3, 3, 55, 55, GL_RGBA, GL_UNSIGNED_BYTE,
-	                image);
-	glCheckError();
 	glGenerateMipmap(GL_TEXTURE_2D);
 
 	/* Set parameter of currently bound texture */

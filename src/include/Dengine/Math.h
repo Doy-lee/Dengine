@@ -102,6 +102,13 @@ INTERNAL inline f32 v##num##_dot(const v##num a, const v##num b) \
 	for (i32 i = 0; i < ##num; i++) { result += (a.e[i] * b.e[i]); } \
 	return result; \
 } \
+INTERNAL inline b32 v##num##_equals(const v##num a, const v##num b) \
+{ \
+	b32 result = TRUE; \
+	for (i32 i = 0; i < ##num; i++) \
+		if (a.e[i] != b.e[i]) result = FALSE; \
+	return result; \
+} \
 
 DEFINE_VECTOR_MATH(2);
 DEFINE_VECTOR_MATH(3);

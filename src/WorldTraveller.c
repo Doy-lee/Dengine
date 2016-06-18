@@ -6,7 +6,7 @@ void worldTraveller_gameInit(GameState *state)
 {
 	/* Initialise assets */
 	asset_loadTextureImage(
-	    "data/textures/WorldTraveller/elisa-spritesheet1.png", texlist_hero);
+	    "data/textures/WorldTraveller/TerraSprite.png", texlist_hero);
 	glCheckError();
 
 	state->state       = state_active;
@@ -23,15 +23,48 @@ void worldTraveller_gameInit(GameState *state)
 	shader_uniformSetMat4fv(renderer->shader, "projection", projection);
 	glCheckError();
 
+	/* Init hero */
+	Entity *hero = &state->hero;
+	hero->tex    = asset_getTexture(texlist_hero);
+	hero->size   = V2(91.0f, 146.0f);
+
+	//v2 screenCentre = V2(state->width / 2.0f, state->height / 2.0f);
+	//v2 heroOffsetToCentre =
+	//    V2(-(hero->size.x / 2.0f), -(hero->size.y / 2.0f));
+
+	//v2 heroCentered = v2_add(screenCentre, heroOffsetToCentre);
+	hero->pos       = V2(0.0f, 0.0f);
+	glCheckError();
+
+	Texture *heroSheet = asset_getTexture(texlist_hero);
+	v2 sheetSize = V2(CAST(f32)heroSheet->width, CAST(f32)heroSheet->height);
+	if (sheetSize.x != sheetSize.y)
+	{
+		printf(
+		    "worldTraveller_gameInit() warning: Sprite sheet is not square: "
+		    "%dx%dpx\n",
+		    CAST(i32) sheetSize.x, CAST(i32) sheetSize.y);
+	}
+
+	f32 uvNormalisedFactor = sheetSize.x;
+	v2 heroStartPixel = V2(219.0f, 14.0f);
+	v4 heroRect =
+	    V4(heroStartPixel.x, heroStartPixel.y, heroStartPixel.x + hero->size.x,
+	       heroStartPixel.y + hero->size.y);
+	v4 heroUVNormalised = v4_scale(heroRect, 1.0f/uvNormalisedFactor);
+
+	heroUVNormalised.y = 1.0f - heroUVNormalised.y;
+	heroUVNormalised.w = 1.0f - heroUVNormalised.w;
+
 	/* Init renderer */
 	// NOTE(doyle): Draws a series of triangles (three-sided polygons) using
 	// vertices v0, v1, v2, then v2, v1, v3 (note the order)
 	v4 vertices[] = {
 		//  x     y       s     t
-		{0.0f, 1.0f, 0.0f, 1.0f}, // Top left
-		{0.0f, 0.0f, 0.0f, 0.0f}, // Bottom left
-		{1.0f, 1.0f, 1.0f, 1.0f}, // Top right
-	    {1.0f, 0.0f, 1.0f, 0.0f}, // Bottom right
+		{0.0f, 1.0f, heroUVNormalised.x, heroUVNormalised.y}, // Top left
+		{0.0f, 0.0f, heroUVNormalised.x, heroUVNormalised.w}, // Bottom left
+		{1.0f, 1.0f, heroUVNormalised.z, heroUVNormalised.y}, // Top right
+	    {1.0f, 0.0f, heroUVNormalised.z, heroUVNormalised.w}, // Bottom right
 	};
 
 	GLuint VBO;
@@ -60,20 +93,6 @@ void worldTraveller_gameInit(GameState *state)
 	/* Unbind */
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
-
-	glCheckError();
-	/* Init hero */
-
-	Entity *hero = &state->hero;
-	hero->tex    = asset_getTexture(texlist_hero);
-	hero->size   = V2(260.0f, 260.0f);
-
-	//v2 screenCentre = V2(state->width / 2.0f, state->height / 2.0f);
-	//v2 heroOffsetToCentre =
-	//    V2(-(hero->size.x / 2.0f), -(hero->size.y / 2.0f));
-
-	//v2 heroCentered = v2_add(screenCentre, heroOffsetToCentre);
-	hero->pos       = V2(0.0f, 0.0f);
 	glCheckError();
 }
 
