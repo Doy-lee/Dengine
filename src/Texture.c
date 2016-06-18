@@ -57,7 +57,8 @@ Texture genTexture(const GLuint width, const GLuint height,
 	glTexImage2D(GL_TEXTURE_2D, 0, tex.internalFormat, tex.width, tex.height, 0,
 	             tex.imageFormat, GL_UNSIGNED_BYTE, image);
 	glCheckError();
-	glGenerateMipmap(GL_TEXTURE_2D);
+
+	// TODO(doyle): Not needed for sprites? glGenerateMipmap(GL_TEXTURE_2D);
 
 	/* Set parameter of currently bound texture */
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, tex.wrapS);

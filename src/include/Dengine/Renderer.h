@@ -8,7 +8,8 @@
 typedef struct Renderer
 {
 	Shader *shader;
-	GLuint quadVAO;
+	GLuint vao;
+	GLuint vbo;
 } Renderer;
 
 void renderer_entity(Renderer *renderer, Entity *entity, f32 rotate,

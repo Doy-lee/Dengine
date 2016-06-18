@@ -15,6 +15,15 @@ enum State
 	state_win
 };
 
+enum Direction
+{
+	direction_north,
+	direction_west,
+	direction_south,
+	direction_east,
+	direction_num,
+};
+
 typedef struct GameState
 {
 	enum State state;
@@ -23,6 +32,7 @@ typedef struct GameState
 
 	Renderer renderer;
 	Entity hero;
+	enum Direction heroLastDirection;
 } GameState;
 
 void worldTraveller_gameInit(GameState *state);

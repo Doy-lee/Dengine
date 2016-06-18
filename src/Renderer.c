@@ -23,7 +23,7 @@ void renderer_entity(Renderer *renderer, Entity *entity, f32 rotate, v3 color)
 	shader_uniformSet1i(renderer->shader, "tex", 0);
 	glCheckError();
 
-	glBindVertexArray(renderer->quadVAO);
+	glBindVertexArray(renderer->vao);
 	glCheckError();
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glCheckError();

@@ -2,80 +2,91 @@
 #include <Dengine/Math.h>
 #include <WorldTraveller/WorldTraveller.h>
 
+void updateBufferObject(GLuint vbo, v4 texNDC)
+{
+	// TODO(doyle): We assume that vbo and vao are assigned
+	v4 vertices[] = {
+		//  x     y       s     t
+		{0.0f, 1.0f, texNDC.x, texNDC.y}, // Top left
+		{0.0f, 0.0f, texNDC.x, texNDC.w}, // Bottom left
+		{1.0f, 1.0f, texNDC.z, texNDC.y}, // Top right
+	    {1.0f, 0.0f, texNDC.z, texNDC.w}, // Bottom right
+	};
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+	// TODO(doyle): glBufferSubData
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 void worldTraveller_gameInit(GameState *state)
 {
 	/* Initialise assets */
 	asset_loadTextureImage(
 	    "data/textures/WorldTraveller/TerraSprite.png", texlist_hero);
 	glCheckError();
-
-	state->state       = state_active;
-	Renderer *renderer = &state->renderer;
 	asset_loadShaderFiles("data/shaders/sprite.vert.glsl",
 	                      "data/shaders/sprite.frag.glsl", shaderlist_sprite);
 	glCheckError();
 
-	renderer->shader = asset_getShader(shaderlist_sprite);
-	shader_use(renderer->shader);
-
-	mat4 projection = mat4_ortho(0.0f, CAST(f32) state->width, 0.0f,
-	                             CAST(f32) state->height, 0.0f, 1.0f);
-	shader_uniformSetMat4fv(renderer->shader, "projection", projection);
-	glCheckError();
+	state->state = state_active;
+	state->heroLastDirection = direction_east;
 
 	/* Init hero */
 	Entity *hero = &state->hero;
 	hero->tex    = asset_getTexture(texlist_hero);
 	hero->size   = V2(91.0f, 146.0f);
+	hero->pos    = V2(0.0f, 0.0f);
 
-	//v2 screenCentre = V2(state->width / 2.0f, state->height / 2.0f);
-	//v2 heroOffsetToCentre =
-	//    V2(-(hero->size.x / 2.0f), -(hero->size.y / 2.0f));
-
-	//v2 heroCentered = v2_add(screenCentre, heroOffsetToCentre);
-	hero->pos       = V2(0.0f, 0.0f);
-	glCheckError();
-
-	Texture *heroSheet = asset_getTexture(texlist_hero);
+	Texture *heroSheet = hero->tex;
 	v2 sheetSize = V2(CAST(f32)heroSheet->width, CAST(f32)heroSheet->height);
 	if (sheetSize.x != sheetSize.y)
 	{
 		printf(
 		    "worldTraveller_gameInit() warning: Sprite sheet is not square: "
 		    "%dx%dpx\n",
-		    CAST(i32) sheetSize.x, CAST(i32) sheetSize.y);
+		    CAST(i32) sheetSize.w, CAST(i32) sheetSize.h);
 	}
 
-	f32 uvNormalisedFactor = sheetSize.x;
-	v2 heroStartPixel = V2(219.0f, 14.0f);
-	v4 heroRect =
-	    V4(heroStartPixel.x, heroStartPixel.y, heroStartPixel.x + hero->size.x,
-	       heroStartPixel.y + hero->size.y);
-	v4 heroUVNormalised = v4_scale(heroRect, 1.0f/uvNormalisedFactor);
+	f32 ndcFactor = sheetSize.w;
+	v2 heroStartPixel = V2(219.0f, 498.0f);
+	v4 heroRect = V4(heroStartPixel.x,
+	                 heroStartPixel.y,
+	                 heroStartPixel.x + hero->size.w,
+	                 heroStartPixel.y - hero->size.h);
 
-	heroUVNormalised.y = 1.0f - heroUVNormalised.y;
-	heroUVNormalised.w = 1.0f - heroUVNormalised.w;
+	v4 heroTexNDC = v4_scale(heroRect, 1.0f/ndcFactor);
 
 	/* Init renderer */
+	Renderer *renderer = &state->renderer;
+	renderer->shader = asset_getShader(shaderlist_sprite);
+	shader_use(renderer->shader);
+
+	const mat4 projection = mat4_ortho(0.0f, CAST(f32) state->width, 0.0f,
+	                                   CAST(f32) state->height, 0.0f, 1.0f);
+	shader_uniformSetMat4fv(renderer->shader, "projection", projection);
+	glCheckError();
+
 	// NOTE(doyle): Draws a series of triangles (three-sided polygons) using
 	// vertices v0, v1, v2, then v2, v1, v3 (note the order)
 	v4 vertices[] = {
 		//  x     y       s     t
-		{0.0f, 1.0f, heroUVNormalised.x, heroUVNormalised.y}, // Top left
-		{0.0f, 0.0f, heroUVNormalised.x, heroUVNormalised.w}, // Bottom left
-		{1.0f, 1.0f, heroUVNormalised.z, heroUVNormalised.y}, // Top right
-	    {1.0f, 0.0f, heroUVNormalised.z, heroUVNormalised.w}, // Bottom right
+		{0.0f, 1.0f, heroTexNDC.x, heroTexNDC.y}, // Top left
+		{0.0f, 0.0f, heroTexNDC.x, heroTexNDC.w}, // Bottom left
+		{1.0f, 1.0f, heroTexNDC.z, heroTexNDC.y}, // Top right
+	    {1.0f, 0.0f, heroTexNDC.z, heroTexNDC.w}, // Bottom right
 	};
 
-	GLuint VBO;
 	/* Create buffers */
-	glGenVertexArrays(1, &renderer->quadVAO);
-	glGenBuffers(1, &VBO);
+	glGenVertexArrays(1, &renderer->vao);
+	glGenBuffers(1, &renderer->vbo);
 	glCheckError();
 
 	/* Bind buffers */
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBindVertexArray(renderer->quadVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
+	glBindVertexArray(renderer->vao);
 
 	/* Configure VBO */
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
@@ -119,10 +130,12 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	if (state->keys[GLFW_KEY_RIGHT])
 	{
 		ddPos.x = 1.0f;
+		state->heroLastDirection = direction_east;
 	}
 	if (state->keys[GLFW_KEY_LEFT])
 	{
 		ddPos.x = -1.0f;
+		state->heroLastDirection = direction_west;
 	}
 
 	if (state->keys[GLFW_KEY_UP])
@@ -173,6 +186,22 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	/* Update */
 	parseInput(state, dt);
 	glCheckError();
+
+	Entity *hero       = &state->hero;
+	Texture *heroSheet = hero->tex;
+	f32 ndcFactor      = CAST(f32)heroSheet->width;
+
+	v2 heroStartPixel = V2(219.0f, 498.0f); // direction == east
+	if (state->heroLastDirection == direction_west)
+		heroStartPixel = V2(329.0f, 498.0f);
+
+	v4 heroRect = V4(heroStartPixel.x,
+	                 heroStartPixel.y,
+	                 heroStartPixel.x + hero->size.w,
+	                 heroStartPixel.y - hero->size.h);
+
+	v4 heroTexNDC = v4_scale(heroRect, 1.0f/ndcFactor);
+	updateBufferObject(state->renderer.vbo, heroTexNDC);
 
 	/* Render */
 	renderer_entity(&state->renderer, &state->hero, 0.0f, V3(0, 0, 0));
