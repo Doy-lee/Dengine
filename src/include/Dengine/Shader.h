@@ -1,15 +1,13 @@
 #ifndef DENGINE_SHADER_H
 #define DENGINE_SHADER_H
 
-#include <Dengine/Common.h>
 #include <Dengine/OpenGL.h>
+#include <Dengine/Math.h>
 
-#include <glm/glm.hpp>
-
-struct Shader
+typedef struct Shader
 {
 	GLuint id;
-};
+} Shader;
 
 const i32 shader_loadProgram(Shader *const shader,
                              const GLuint vertexShader,
@@ -18,7 +16,7 @@ const i32 shader_loadProgram(Shader *const shader,
 void shader_uniformSet1i(Shader *const shader, const GLchar *name,
                          const GLuint data);
 void shader_uniformSetMat4fv(Shader *const shader, const GLchar *name,
-                             const glm::mat4 data);
+                             mat4 data);
 
 void shader_use(const Shader *const shader);
 

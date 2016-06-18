@@ -1,25 +1,39 @@
 #ifndef DENGINE_ASSET_MANAGER_H
 #define DENGINE_ASSET_MANAGER_H
 
-#include <Dengine/Platform.h>
 #include <Dengine/Shader.h>
 #include <Dengine/Texture.h>
 
-#include <map>
-#include <string>
+enum TexList
+{
+	texlist_hero,
+	texlist_count,
+};
 
-extern std::map<std::string, Texture> textures;
-extern std::map<std::string, Shader> shaders;
+enum ShaderList
+{
+	shaderlist_sprite,
+	shaderlist_count,
+};
+
+// TODO(doyle): Switch to hash based lookup
+typedef struct AssetManager
+{
+	Texture textures[256];
+	Shader shaders[256];
+} AssetManager;
+
+extern AssetManager assetManager;
 
 /* Texture */
-Texture *asset_getTexture(const char *const name);
+Texture *asset_getTexture(const enum TexList type);
 const i32 asset_loadTextureImage(const char *const path,
-                                 const char *const name);
+                                 const enum TexList type);
 
 /* Shaders */
-Shader *asset_getShader(const char *const name);
+Shader *asset_getShader(const enum ShaderList type);
 const i32 asset_loadShaderFiles(const char *const vertexPath,
                                 const char *const fragmentPath,
-                                const char *const name);
+                                const enum ShaderList type);
 
 #endif

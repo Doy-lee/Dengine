@@ -3,8 +3,8 @@
 
 #include <Dengine/Common.h>
 
-#include <stdio.h>
 #include <Windows.h>
+#include <stdio.h>
 
 typedef struct
 {

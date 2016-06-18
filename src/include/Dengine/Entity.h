@@ -2,15 +2,14 @@
 #define DENGINE_ENTITY_H
 
 #include <Dengine/Texture.h>
+#include <Dengine/Math.h>
 
-#include <glm/glm.hpp>
-
-struct Entity
+typedef struct Entity
 {
-	glm::vec2 pos;  // Position
-	glm::vec2 dPos; // Velocity
-	glm::vec2 size;
+	v2 pos;  // Position
+	v2 dPos; // Velocity
+	v2 size;
 	Texture *tex;
-};
+} Entity;
 
 #endif

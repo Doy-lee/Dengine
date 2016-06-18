@@ -71,7 +71,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>.\bin\</OutDir>
     <IntDir>.\bin\</IntDir>
-    <IncludePath>extern\glm-0.9.7.5\include;extern\stb-master\include;src\include;extern\glew-1.13.0\include;extern\glfw-3.2.bin.WIN32\include;$(IncludePath)</IncludePath>
+    <IncludePath>extern\stb-master\include;src\include;extern\glew-1.13.0\include;extern\glfw-3.2.bin.WIN32\include;$(IncludePath)</IncludePath>
     <LibraryPath>extern\glew-1.13.0\lib\Release\Win32;extern\glfw-3.2.bin.WIN32\lib-vc2015;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -120,13 +120,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\AssetManager.cpp" />
-    <ClCompile Include="src\dengine.cpp" />
-    <ClCompile Include="src\Platform.cpp" />
-    <ClCompile Include="src\Renderer.cpp" />
-    <ClCompile Include="src\Shader.cpp" />
-    <ClCompile Include="src\WorldTraveller.cpp" />
-    <ClCompile Include="src\Texture.cpp" />
+    <ClCompile Include="src\AssetManager.c" />
+    <ClCompile Include="src\dengine.c" />
+    <ClCompile Include="src\Platform.c" />
+    <ClCompile Include="src\Renderer.c" />
+    <ClCompile Include="src\Shader.c" />
+    <ClCompile Include="src\WorldTraveller.c" />
+    <ClCompile Include="src\Texture.c" />
     <ClCompile Include="src\Tutorial.cpp" />
   </ItemGroup>
   <ItemGroup>

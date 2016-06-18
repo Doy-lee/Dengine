@@ -4,7 +4,7 @@
 #include <Dengine/Common.h>
 #include <Dengine/OpenGL.h>
 
-struct Texture
+typedef struct Texture
 {
 	// Holds the ID of the texture object, used for all texture operations to
 	// reference to this particlar texture
@@ -26,7 +26,7 @@ struct Texture
 	GLuint filterMinification;
 	// Filtering mode if texture pixels > screen pixels
 	GLuint filterMagnification;
-};
+} Texture;
 
 // Generates texture from image data
 Texture genTexture(const GLuint width, const GLuint height,
