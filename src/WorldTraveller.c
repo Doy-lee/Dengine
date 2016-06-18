@@ -25,19 +25,19 @@ void worldTraveller_gameInit(GameState *state)
 {
 	/* Initialise assets */
 	asset_loadTextureImage(
-	    "data/textures/WorldTraveller/TerraSprite.png", texlist_hero);
+	    "data/textures/WorldTraveller/TerraSprite1024.png", texlist_hero);
 	glCheckError();
 	asset_loadShaderFiles("data/shaders/sprite.vert.glsl",
 	                      "data/shaders/sprite.frag.glsl", shaderlist_sprite);
 	glCheckError();
 
-	state->state = state_active;
+	state->state             = state_active;
 	state->heroLastDirection = direction_east;
 
 	/* Init hero */
 	Entity *hero = &state->hero;
 	hero->tex    = asset_getTexture(texlist_hero);
-	hero->size   = V2(91.0f, 146.0f);
+	hero->size   = V2(58.0f, 98.0f);
 	hero->pos    = V2(0.0f, 0.0f);
 
 	Texture *heroSheet = hero->tex;
@@ -51,11 +51,12 @@ void worldTraveller_gameInit(GameState *state)
 	}
 
 	f32 ndcFactor = sheetSize.w;
-	v2 heroStartPixel = V2(219.0f, 498.0f);
+	v2 heroStartPixel = V2(746.0f, 1018.0f);
+	v2 heroSizeOnSheet = V2(58.0f, 98.0f);
 	v4 heroRect = V4(heroStartPixel.x,
 	                 heroStartPixel.y,
-	                 heroStartPixel.x + hero->size.w,
-	                 heroStartPixel.y - hero->size.h);
+	                 heroStartPixel.x + heroSizeOnSheet.w,
+	                 heroStartPixel.y - heroSizeOnSheet.h);
 
 	v4 heroTexNDC = v4_scale(heroRect, 1.0f/ndcFactor);
 
@@ -191,20 +192,57 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	Texture *heroSheet = hero->tex;
 	f32 ndcFactor      = CAST(f32)heroSheet->width;
 
-	v2 heroStartPixel = V2(219.0f, 498.0f); // direction == east
-	if (state->heroLastDirection == direction_west)
-		heroStartPixel = V2(329.0f, 498.0f);
+	v2 heroStartPixel = V2(746.0f, 1018.0f); // direction == east
 
+	v2 heroSizeOnSheet = V2(58.0f, 98.0f);
 	v4 heroRect = V4(heroStartPixel.x,
 	                 heroStartPixel.y,
-	                 heroStartPixel.x + hero->size.w,
-	                 heroStartPixel.y - hero->size.h);
+	                 heroStartPixel.x + heroSizeOnSheet.w,
+	                 heroStartPixel.y - heroSizeOnSheet.h);
 
-	v4 heroTexNDC = v4_scale(heroRect, 1.0f/ndcFactor);
+	v4 heroTexNDC = v4_scale(heroRect, 1.0f / ndcFactor);
+	if (state->heroLastDirection == direction_east)
+	{
+		// NOTE(doyle): Flip the x coordinates to flip the tex
+		v4 copyNDC = heroTexNDC;
+		heroTexNDC.x = copyNDC.z;
+		heroTexNDC.z = copyNDC.x;
+	}
+
 	updateBufferObject(state->renderer.vbo, heroTexNDC);
+	renderer_entity(&state->renderer, hero, 0.0f, V3(0, 0, 0));
 
-	/* Render */
-	renderer_entity(&state->renderer, &state->hero, 0.0f, V3(0, 0, 0));
+	Entity npcEnt = {V2(300.0f, 300.0f), V2(0.0f, 0.0f), hero->size, hero->tex};
+
+	v4 npcRects[2] = {
+		{944.0f, 918.0f, 1010.0f, 816.0f},
+		{944.0f, 812.0f, 1010.0f, 710.0f},
+	};
+
+	LOCAL_PERSIST f32 frameDurationInSec = 0.0f;
+	LOCAL_PERSIST i32 npcLastRect        = 0;
+
+	frameDurationInSec -= dt;
+	v4 npcCurrRect = npcRects[npcLastRect];
+	if (frameDurationInSec <= 0.0f)
+	{
+		if (npcLastRect == 0)
+		{
+			npcCurrRect = npcRects[1];
+			npcLastRect = 1;
+		}
+		else
+		{
+			npcCurrRect = npcRects[0];
+			npcLastRect = 0;
+		}
+		frameDurationInSec = 0.3f;
+	}
+
+	v4 npcTexNDC = v4_scale(npcCurrRect, 1.0f / ndcFactor);
+	updateBufferObject(state->renderer.vbo, npcTexNDC);
+	renderer_entity(&state->renderer, &npcEnt, 0.0f, V3(0, 0, 0));
+
 	// TODO(doyle): Clean up lines
 	// Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
 }
