@@ -15,15 +15,6 @@ enum State
 	state_win
 };
 
-enum Direction
-{
-	direction_north,
-	direction_west,
-	direction_south,
-	direction_east,
-	direction_num,
-};
-
 typedef struct GameState
 {
 	enum State state;
@@ -31,8 +22,11 @@ typedef struct GameState
 	i32 width, height;
 
 	Renderer renderer;
-	Entity hero;
-	enum Direction heroLastDirection;
+	i32 heroIndex;
+
+	// TODO(doyle): Make size of list dynamic
+	Entity entityList[256];
+	i32 freeEntityIndex;
 } GameState;
 
 void worldTraveller_gameInit(GameState *state);

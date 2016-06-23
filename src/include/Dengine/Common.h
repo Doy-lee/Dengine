@@ -22,5 +22,7 @@ typedef double f64;
 
 #define ARRAY_COUNT(array) (sizeof(array) / sizeof(array[0]))
 #define CAST(type) (type)
+#define ASSERT(expr) if(!(expr)) { *(int *)0 = 0; }
+
 
 #endif
