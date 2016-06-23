@@ -5,9 +5,7 @@
 #include <math.h>
 
 #define squared(x) (x * x)
-
-// TODO(doyle): Use this instead of window's math file ...
-//#define abs(x) ((x) > 0 ? (x) : -(x))
+#define absolute(x) ((x) > 0 ? (x) : -(x))
 
 /* VECTORS */
 typedef union v2

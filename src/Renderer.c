@@ -6,7 +6,11 @@ void renderer_entity(Renderer *renderer, Entity *entity, f32 rotate, v3 color)
 	shader_use(renderer->shader);
 	mat4 transMatrix  = mat4_translate(entity->pos.x, entity->pos.y, 0.0f);
 	mat4 rotateMatrix = mat4_rotate(rotate, 0.0f, 0.0f, 1.0f);
+
 	// NOTE(doyle): We draw everything as a unit square in OGL. Scale it to size
+	// TODO(doyle): We should have a notion of hitbox size and texture size
+	// we're going to render so we can draw textures that may be bigger than the
+	// entity, (slightly) but keep a consistent bounding box
 	mat4 scaleMatrix = mat4_scale(entity->size.x, entity->size.y, 1.0f);
 
 	mat4 model = mat4_mul(transMatrix, mat4_mul(rotateMatrix, scaleMatrix));

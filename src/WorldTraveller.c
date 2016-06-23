@@ -39,17 +39,29 @@ void worldTraveller_gameInit(GameState *state)
 	state->state = state_active;
 
 	/* Init hero */
-	SpriteAnim heroAnim = {NULL, 1, 0, 1.0f, 1.0f};
-	// TODO(doyle): Get rid of
-	heroAnim.rect = (v4 *)calloc(1, sizeof(v4));
-	heroAnim.rect[0] = V4(746.0f, 1018.0f, 804.0f, 920.0f);
-
 	Entity heroEnt = {V2(0.0f, 0.0f),
 	                  V2(0.0f, 0.0f),
 	                  V2(58.0f, 98.0f),
 	                  direction_east,
 	                  asset_getTexture(texlist_hero),
-	                  heroAnim};
+	                  0,
+	                  0,
+	                  0};
+
+	SpriteAnim heroAnimIdle = {NULL, 1, 0, 1.0f, 1.0f};
+	// TODO(doyle): Get rid of
+	heroAnimIdle.rect = (v4 *)calloc(1, sizeof(v4));
+	heroAnimIdle.rect[0] = V4(746.0f, 1018.0f, 804.0f, 920.0f);
+	heroEnt.anim[heroEnt.freeAnimIndex++] = heroAnimIdle;
+
+	SpriteAnim heroAnimWalk = {NULL, 3, 0, 0.10f, 0.10f};
+	// TODO(doyle): Get rid of
+	heroAnimWalk.rect = (v4 *)calloc(heroAnimWalk.numRects, sizeof(v4));
+	heroAnimWalk.rect[0] = V4(641.0f, 1018.0f, 699.0f, 920.0f);
+	heroAnimWalk.rect[1] = heroAnimIdle.rect[0];
+	heroAnimWalk.rect[2] = V4(849.0f, 1018.0f, 904.0f, 920.0f);
+	heroEnt.anim[heroEnt.freeAnimIndex++] = heroAnimWalk;
+	heroEnt.currAnimIndex = 0;
 
 	state->heroIndex = state->freeEntityIndex;
 	state->entityList[state->freeEntityIndex++] = heroEnt;
@@ -72,8 +84,15 @@ void worldTraveller_gameInit(GameState *state)
 	npcAnim.rect[0] = V4(944.0f, 918.0f, 1010.0f, 816.0f);
 	npcAnim.rect[1] = V4(944.0f, 812.0f, 1010.0f, 710.0f);
 
-	Entity npcEnt = {V2(300.0f, 300.0f), V2(0.0f, 0.0f), hero->size,
-	                 direction_null, hero->tex, npcAnim};
+	Entity npcEnt = {V2(300.0f, 300.0f),
+	                 V2(0.0f, 0.0f),
+	                 hero->size,
+	                 direction_null,
+	                 hero->tex,
+	                 0,
+	                 0,
+	                 0};
+	npcEnt.anim[npcEnt.freeAnimIndex++] = npcAnim;
 	state->entityList[state->freeEntityIndex++] = npcEnt;
 
 	/* Init renderer */
@@ -158,6 +177,30 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		ddPos = v2_scale(ddPos, 0.70710678118f);
 	}
 
+	f32 epsilon    = 20.0f;
+	v2 epsilonDpos = v2_sub(V2(epsilon, epsilon),
+	                        V2(absolute(hero->dPos.x), absolute(hero->dPos.y)));
+	if (epsilonDpos.x >= 0.0f && epsilonDpos.y >= 0.0f)
+	{
+		hero->dPos = V2(0.0f, 0.0f);
+		// TODO(doyle): Change index to use some meaningful name like a string
+		// or enum for referencing animations, in this case 0 is idle and 1 is
+		// walking
+		if (hero->currAnimIndex == 1)
+		{
+			SpriteAnim *currAnim    = &hero->anim[hero->currAnimIndex];
+			currAnim->currDuration  = currAnim->duration;
+			currAnim->currRectIndex = 0;
+			hero->currAnimIndex     = 0;
+		}
+	} else if (hero->currAnimIndex == 0)
+	{
+		SpriteAnim *currAnim    = &hero->anim[hero->currAnimIndex];
+		currAnim->currDuration  = currAnim->duration;
+		currAnim->currRectIndex = 0;
+		hero->currAnimIndex     = 1;
+	}
+
 	f32 heroSpeed = CAST(f32)(22.0f * METERS_TO_PIXEL); // m/s^2
 	if (state->keys[GLFW_KEY_LEFT_SHIFT])
 	{
@@ -197,7 +240,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	for (i32 i = 0; i < state->freeEntityIndex; i++)
 	{
 		Entity *entity   = &state->entityList[i];
-		SpriteAnim *anim = &entity->anim;
+		SpriteAnim *anim = &entity->anim[entity->currAnimIndex];
 
 		v4 currFrameRect = anim->rect[anim->currRectIndex];
 		anim->currDuration -= dt;
@@ -205,7 +248,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 		{
 			anim->currRectIndex++;
 			anim->currRectIndex = anim->currRectIndex % anim->numRects;
-			currFrameRect         = anim->rect[anim->currRectIndex];
+			currFrameRect       = anim->rect[anim->currRectIndex];
 			anim->currDuration  = anim->duration;
 		}
 

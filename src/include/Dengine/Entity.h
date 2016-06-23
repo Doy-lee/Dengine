@@ -31,7 +31,11 @@ typedef struct Entity
 	v2 size;
 	enum Direction direction;
 	Texture *tex;
-	SpriteAnim anim;
+
+	// TODO(doyle): String based access
+	SpriteAnim anim[16];
+	i32 freeAnimIndex;
+	i32 currAnimIndex;
 } Entity;
 
 #endif
