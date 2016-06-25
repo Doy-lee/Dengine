@@ -12,8 +12,19 @@ enum State
 {
 	state_active,
 	state_menu,
-	state_win
+	state_win,
 };
+
+typedef struct Tile
+{
+	v2 pos;
+} Tile;
+
+typedef struct World
+{
+	Tile tiles[2048];
+	enum TexList texType;
+} World;
 
 typedef struct GameState
 {
@@ -23,6 +34,10 @@ typedef struct GameState
 
 	Renderer renderer;
 	i32 heroIndex;
+
+	World world[4];
+	i32 currWorldIndex;
+	i32 tileSize;
 
 	// TODO(doyle): Make size of list dynamic
 	Entity entityList[256];

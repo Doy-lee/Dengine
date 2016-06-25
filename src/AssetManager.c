@@ -8,10 +8,16 @@ GLOBAL_VAR AssetManager assetManager;
 
 Texture *asset_getTexture(const enum TexList type)
 {
-	// NOTE(doyle): Since we're using a map, the count of an object can
-	// only be 1 or 0
 	if (type < texlist_count)
 		return &assetManager.textures[type];
+
+	return NULL;
+}
+
+TexAtlas *asset_getTextureAtlas(const enum TexList type)
+{
+	if (type < texlist_count)
+		return &assetManager.texAtlas[type];
 
 	return NULL;
 }

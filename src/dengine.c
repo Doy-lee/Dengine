@@ -80,7 +80,6 @@ int main()
 	glCullFace(GL_BACK);
 
 	GameState worldTraveller = {0};
-	worldTraveller.state     = state_active;
 	worldTraveller.width     = CAST(i32)frameBufferSize.x;
 	worldTraveller.height    = CAST(i32)frameBufferSize.y;
 
@@ -94,7 +93,7 @@ int main()
 #if 0
 	// TODO(doyle): Get actual monitor refresh rate
 	i32 monitorRefreshHz      = 60;
-	f32 targetSecondsPerFrame = 1.0f / static_cast<f32>(monitorRefreshHz);
+	f32 targetSecondsPerFrame = 1.0f / CAST(f32)(monitorRefreshHz);
 #else
 	// TODO(doyle): http://gafferongames.com/game-physics/fix-your-timestep/
 	// NOTE(doyle): Prevent glfwSwapBuffer until a vertical retrace has
@@ -125,7 +124,7 @@ int main()
 		// TODO(doyle): Busy waiting, should sleep
 		while (secondsElapsed < targetSecondsPerFrame)
 		{
-			endTime        = static_cast<f32>(glfwGetTime());
+			endTime        = CAST(f32)(glfwGetTime());
 			secondsElapsed = endTime - startTime;
 		}
 #endif

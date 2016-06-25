@@ -15,4 +15,7 @@ typedef struct Renderer
 void renderer_entity(Renderer *renderer, Entity *entity, f32 rotate,
                      v3 color);
 
+void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v3 color,
+                     Texture *tex);
+
 #endif

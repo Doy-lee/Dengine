@@ -37,7 +37,6 @@ typedef struct Entity
 	SpriteAnim anim[16];
 	i32 freeAnimIndex;
 	i32 currAnimIndex;
-
 } Entity;
 
 INTERNAL inline v4 getEntityScreenRect(Entity entity)

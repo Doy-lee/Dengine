@@ -32,11 +32,45 @@ void worldTraveller_gameInit(GameState *state)
 	/* Initialise assets */
 	asset_loadTextureImage(
 	    "data/textures/WorldTraveller/TerraSprite1024.png", texlist_hero);
+
+	asset_loadTextureImage(
+	    "data/textures/WorldTraveller/Terrain.png", texlist_terrain);
+	TexAtlas *terrainAtlas = asset_getTextureAtlas(texlist_terrain);
+	f32 atlasTileSize = 128.0f;
+	terrainAtlas->texRect[terraincoords_ground] =
+	    V4(384.0f, 512.0f, 384.0f + atlasTileSize, 512.0f + atlasTileSize);
+
 	asset_loadShaderFiles("data/shaders/sprite.vert.glsl",
 	                      "data/shaders/sprite.frag.glsl", shaderlist_sprite);
 	glCheckError();
 
-	state->state = state_active;
+	state->state          = state_active;
+	state->tileSize       = 32;
+	state->currWorldIndex = 0;
+
+	/* Init world tiles */
+	i32 highestSquaredValue = 1;
+	while (squared(highestSquaredValue) < ARRAY_COUNT(state->world[0].tiles))
+		highestSquaredValue++;
+
+	const i32 worldSize = highestSquaredValue - 1;
+
+	// NOTE(doyle): Origin is center of the world
+	for (i32 i = 0; i < ARRAY_COUNT(state->world); i++)
+	{
+		for (i32 y = 0; y < worldSize; y++)
+		{
+			for (i32 x = 0; x < worldSize; x++)
+			{
+				i32 packedDimension = y * worldSize + x;
+				World *world = state->world;
+
+				world[i].texType = texlist_terrain;
+				world[i].tiles[packedDimension].pos =
+				    V2(CAST(f32) x, CAST(f32) y);
+			}
+		}
+	}
 
 	/* Init hero */
 	Entity heroEnt = {V2(0.0f, 0.0f),
@@ -268,9 +302,27 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	parseInput(state, dt);
 	glCheckError();
 
+	World *world         = &state->world[state->currWorldIndex];
+	TexAtlas *worldAtlas = asset_getTextureAtlas(world->texType);
+	Texture *worldTex    = asset_getTexture(world->texType);
+
+	f32 ndcFactor       = 1.0f / CAST(f32)worldTex->width;
+	for (i32 i = 0; i < ARRAY_COUNT(world->tiles); i++)
+	{
+		Tile tile = world->tiles[i];
+		v2 tileSize = V2(CAST(f32)state->tileSize, CAST(f32)state->tileSize);
+		v2 tilePosInPixel = v2_scale(tile.pos, tileSize.x);
+
+		v4 texNDC =
+		    v4_scale(worldAtlas->texRect[terraincoords_ground], ndcFactor);
+		updateBufferObject(state->renderer.vbo, texNDC);
+		renderer_object(&state->renderer, tilePosInPixel, tileSize, 0.0f,
+		                V3(0, 0, 0), worldTex);
+	}
+
 	// NOTE(doyle): Factor to normalise sprite sheet rect coords to -1, 1
 	Entity *hero  = &state->entityList[state->heroIndex];
-	f32 ndcFactor = 1.0f / CAST(f32) hero->tex->width;
+	ndcFactor = 1.0f / CAST(f32) hero->tex->width;
 
 	ASSERT(state->freeEntityIndex < ARRAY_COUNT(state->entityList));
 	for (i32 i = 0; i < state->freeEntityIndex; i++)
