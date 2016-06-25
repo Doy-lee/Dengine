@@ -21,16 +21,14 @@ void renderer_entity(Renderer *renderer, Entity *entity, f32 rotate, v3 color)
 	// this->shader->uniformSetVec3f("spriteColor", color);
 
 	glActiveTexture(GL_TEXTURE0);
-	glCheckError();
 	glBindTexture(GL_TEXTURE_2D, entity->tex->id);
-	glCheckError();
 	shader_uniformSet1i(renderer->shader, "tex", 0);
 	glCheckError();
 
 	glBindVertexArray(renderer->vao);
-	glCheckError();
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-	glCheckError();
 	glBindVertexArray(0);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
 	glCheckError();
 }

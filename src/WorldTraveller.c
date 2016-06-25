@@ -44,6 +44,7 @@ void worldTraveller_gameInit(GameState *state)
 	                  V2(58.0f, 98.0f),
 	                  direction_east,
 	                  asset_getTexture(texlist_hero),
+	                  TRUE,
 	                  0,
 	                  0,
 	                  0};
@@ -89,6 +90,7 @@ void worldTraveller_gameInit(GameState *state)
 	                 hero->size,
 	                 direction_null,
 	                 hero->tex,
+	                 TRUE,
 	                 0,
 	                 0,
 	                 0};
@@ -193,7 +195,8 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			currAnim->currRectIndex = 0;
 			hero->currAnimIndex     = 0;
 		}
-	} else if (hero->currAnimIndex == 0)
+	}
+	else if (hero->currAnimIndex == 0)
 	{
 		SpriteAnim *currAnim    = &hero->anim[hero->currAnimIndex];
 		currAnim->currDuration  = currAnim->duration;
@@ -221,9 +224,42 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	v2 dPos     = v2_scale(hero->dPos, dt);
 	v2 newHeroP = v2_add(v2_add(ddPosNew, dPos), hero->pos);
 
-	// f'(t) = curr velocity = a*t + v, where v is old velocity
-    hero->dPos = v2_add(hero->dPos, v2_scale(ddPos, dt));
-	hero->pos  = newHeroP;
+	b32 heroCollided = FALSE;
+	if (hero->collides == TRUE)
+	{
+		for (i32 i = 0; i < ARRAY_COUNT(state->entityList); i++)
+		{
+			if (i == state->heroIndex) continue;
+			Entity entity = state->entityList[i];
+			if (entity.collides)
+			{
+				v4 heroRect =
+				    V4(newHeroP.x, newHeroP.y, (newHeroP.x + hero->size.x),
+				       (newHeroP.y + hero->size.y));
+				v4 entityRect = getEntityScreenRect(entity);
+
+				if (((heroRect.z >= entityRect.x && heroRect.z <= entityRect.z) ||
+				     (heroRect.x >= entityRect.x && heroRect.x <= entityRect.z)) &&
+				    ((heroRect.w <= entityRect.y && heroRect.w >= entityRect.w) ||
+				     (heroRect.y <= entityRect.y && heroRect.y >= entityRect.w)))
+				{
+					heroCollided = TRUE;
+					break;
+				}
+			}
+		}
+	}
+
+	if (heroCollided)
+	{
+		hero->dPos = V2(0.0f, 0.0f);
+	}
+	else
+	{
+		// f'(t) = curr velocity = a*t + v, where v is old velocity
+		hero->dPos = v2_add(hero->dPos, v2_scale(ddPos, dt));
+		hero->pos  = newHeroP;
+	}
 }
 
 void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
