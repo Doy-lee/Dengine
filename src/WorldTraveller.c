@@ -306,18 +306,22 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	TexAtlas *worldAtlas = asset_getTextureAtlas(world->texType);
 	Texture *worldTex    = asset_getTexture(world->texType);
 
-	f32 ndcFactor       = 1.0f / CAST(f32)worldTex->width;
+	f32 ndcFactor = 1.0f / CAST(f32) worldTex->width;
 	for (i32 i = 0; i < ARRAY_COUNT(world->tiles); i++)
 	{
 		Tile tile = world->tiles[i];
 		v2 tileSize = V2(CAST(f32)state->tileSize, CAST(f32)state->tileSize);
 		v2 tilePosInPixel = v2_scale(tile.pos, tileSize.x);
 
-		v4 texNDC =
-		    v4_scale(worldAtlas->texRect[terraincoords_ground], ndcFactor);
-		updateBufferObject(state->renderer.vbo, texNDC);
-		renderer_object(&state->renderer, tilePosInPixel, tileSize, 0.0f,
-		                V3(0, 0, 0), worldTex);
+		if ((tilePosInPixel.x < state->width && tilePosInPixel.x >= 0) &&
+		    (tilePosInPixel.y < state->height && tilePosInPixel.y >= 0))
+		{
+			v4 texNDC =
+			    v4_scale(worldAtlas->texRect[terraincoords_ground], ndcFactor);
+			updateBufferObject(state->renderer.vbo, texNDC);
+			renderer_object(&state->renderer, tilePosInPixel, tileSize, 0.0f,
+			                V3(0, 0, 0), worldTex);
+		}
 	}
 
 	// NOTE(doyle): Factor to normalise sprite sheet rect coords to -1, 1
