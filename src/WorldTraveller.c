@@ -6,24 +6,15 @@
 //choose to load assets outside of WorldTraveller!
 #include <stdlib.h>
 
-void updateBufferObject(GLuint vbo, v4 texNDC)
+void updateBufferObject(Renderer *renderer, RenderQuad *quads, i32 numQuads)
 {
 	// TODO(doyle): We assume that vbo and vao are assigned
-	// NOTE(doyle): Draws a series of triangles (three-sided polygons) using
-	// vertices v0, v1, v2, then v2, v1, v3 (note the order)
-	v4 vertices[] = {
-		//  x     y       s     t
-		{0.0f, 1.0f, texNDC.x, texNDC.y}, // Top left
-		{0.0f, 0.0f, texNDC.x, texNDC.w}, // Bottom left
-		{1.0f, 1.0f, texNDC.z, texNDC.y}, // Top right
-	    {1.0f, 0.0f, texNDC.z, texNDC.w}, // Bottom right
-	};
+	const i32 numVertexesInQuad = 4;
+	renderer->numVertexesInVbo = numQuads * numVertexesInQuad;
 
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
-	// TODO(doyle): glBufferSubData
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
-
+	glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
+	glBufferData(GL_ARRAY_BUFFER, numQuads * sizeof(RenderQuad), quads,
+	             GL_STREAM_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
@@ -306,7 +297,12 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	TexAtlas *worldAtlas = asset_getTextureAtlas(world->texType);
 	Texture *worldTex    = asset_getTexture(world->texType);
 
-	f32 ndcFactor = 1.0f / CAST(f32) worldTex->width;
+	f32 texNdcFactor = 1.0f / CAST(f32) worldTex->width;
+
+	RenderQuad worldQuads[ARRAY_COUNT(world->tiles)] = {0};
+	i32 quadIndex = 0;
+
+	const v2 vertexNdcFactor = V2(1.0f / state->width, 1.0f / state->height);
 	for (i32 i = 0; i < ARRAY_COUNT(world->tiles); i++)
 	{
 		Tile tile = world->tiles[i];
@@ -316,17 +312,30 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 		if ((tilePosInPixel.x < state->width && tilePosInPixel.x >= 0) &&
 		    (tilePosInPixel.y < state->height && tilePosInPixel.y >= 0))
 		{
-			v4 texNDC =
-			    v4_scale(worldAtlas->texRect[terraincoords_ground], ndcFactor);
-			updateBufferObject(state->renderer.vbo, texNDC);
-			renderer_object(&state->renderer, tilePosInPixel, tileSize, 0.0f,
-			                V3(0, 0, 0), worldTex);
+			const v4 tileTexRect = worldAtlas->texRect[terraincoords_ground];
+			const v4 texRectNdc  = v4_scale(tileTexRect, texNdcFactor);
+
+			const v4 tileRect = getRect(tilePosInPixel, tileSize);
+			v4 tileRectNdc    = tileRect;
+
+			tileRectNdc.e[0] *= vertexNdcFactor.w;
+			tileRectNdc.e[1] *= vertexNdcFactor.h;
+			tileRectNdc.e[2] *= vertexNdcFactor.w;
+			tileRectNdc.e[3] *= vertexNdcFactor.h;
+
+			RenderQuad tileQuad = renderer_createQuad(tileRectNdc, texRectNdc);
+			worldQuads[quadIndex++] = tileQuad;
 		}
 	}
 
+	v2 screenSize = V2(CAST(f32)state->width, CAST(f32)state->height);
+	updateBufferObject(&state->renderer, worldQuads, quadIndex);
+	renderer_object(&state->renderer, V2(0.0f, 0.0f), screenSize, 0.0f,
+	                V3(0, 0, 0), worldTex);
+
 	// NOTE(doyle): Factor to normalise sprite sheet rect coords to -1, 1
 	Entity *hero  = &state->entityList[state->heroIndex];
-	ndcFactor = 1.0f / CAST(f32) hero->tex->width;
+	texNdcFactor = 1.0f / CAST(f32) hero->tex->width;
 
 	ASSERT(state->freeEntityIndex < ARRAY_COUNT(state->entityList));
 	for (i32 i = 0; i < state->freeEntityIndex; i++)
@@ -344,16 +353,17 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 			anim->currDuration  = anim->duration;
 		}
 
-		v4 texNDC = v4_scale(currFrameRect, ndcFactor);
+		v4 texRectNdc = v4_scale(currFrameRect, texNdcFactor);
 		if (entity->direction == direction_east)
 		{
 			// NOTE(doyle): Flip the x coordinates to flip the tex
-			v4 tmpNDC = texNDC;
-			texNDC.x  = tmpNDC.z;
-			texNDC.z  = tmpNDC.x;
+			v4 tmp       = texRectNdc;
+			texRectNdc.x = tmp.z;
+			texRectNdc.z = tmp.x;
 		}
 
-		updateBufferObject(state->renderer.vbo, texNDC);
+		RenderQuad quad = renderer_createDefaultQuad(texRectNdc);
+		updateBufferObject(&state->renderer, &quad, 1);
 		renderer_entity(&state->renderer, entity, 0.0f, V3(0, 0, 0));
 	}
 

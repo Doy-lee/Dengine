@@ -21,6 +21,7 @@ void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v3 color,
 	mat4 scaleMatrix = mat4_scale(size.x, size.y, 1.0f);
 
 	mat4 model = mat4_mul(transMatrix, mat4_mul(rotateMatrix, scaleMatrix));
+	//mat4 model = mat4_mul(transMatrix, rotateMatrix);
 	shader_uniformSetMat4fv(renderer->shader, "model", model);
 	glCheckError();
 
@@ -36,7 +37,7 @@ void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v3 color,
 	}
 
 	glBindVertexArray(renderer->vao);
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
 	glBindVertexArray(0);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
