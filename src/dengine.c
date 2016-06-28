@@ -35,7 +35,7 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-	v2 windowSize = V2(1280.0f, 720.0f);
+	v2 windowSize = V2(1600.0f, 900.0f);
 
 	GLFWwindow *window = glfwCreateWindow(
 	    CAST(i32) windowSize.x, CAST(i32) windowSize.y, "Dengine", NULL, NULL);

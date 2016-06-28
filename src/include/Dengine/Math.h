@@ -9,6 +9,13 @@
 #define absolute(x) ((x) > 0 ? (x) : -(x))
 
 /* VECTORS */
+typedef union v2i
+{
+	struct { i32 x, y; };
+	struct { i32 w, h; };
+	i32 e[2];
+} v2i;
+
 typedef union v2
 {
 	struct { f32 x, y; };
@@ -30,6 +37,11 @@ typedef union v4
 	f32 e[4];
 } v4;
 
+INTERNAL inline v2i V2i(const i32 x, const i32 y)
+{
+	v2i result = {x, y};
+	return result;
+}
 INTERNAL inline v2 V2(const f32 x, const f32 y)
 {
 	v2 result = {x, y};
@@ -63,7 +75,7 @@ INTERNAL inline v4 V4(const f32 x, const f32 y, const f32 z, const f32 w)
 	This is repeated for v3 and v4 for the basic math operations
  */
 
-#define DEFINE_VECTOR_MATH(num) \
+#define DEFINE_VECTOR_FLOAT_MATH(num) \
 INTERNAL inline v##num v##num##_add(const v##num a, const v##num b) \
 { \
 	v##num result; \
@@ -109,9 +121,19 @@ INTERNAL inline b32 v##num##_equals(const v##num a, const v##num b) \
 	return result; \
 } \
 
-DEFINE_VECTOR_MATH(2);
-DEFINE_VECTOR_MATH(3);
-DEFINE_VECTOR_MATH(4);
+DEFINE_VECTOR_FLOAT_MATH(2);
+DEFINE_VECTOR_FLOAT_MATH(3);
+DEFINE_VECTOR_FLOAT_MATH(4);
+
+#define DEFINE_VECTOR_INT_MATH(num) \
+INTERNAL inline v##num##i v##num##i_add(const v##num##i a, const v##num##i b) \
+{ \
+	v##num##i result; \
+	for (i32 i = 0; i < ##num; i++) { result.e[i] = a.e[i] + b.e[i]; } \
+	return result; \
+} \
+
+DEFINE_VECTOR_INT_MATH(2);
 
 INTERNAL inline v3 v3_cross(const v3 a, const v3 b)
 {

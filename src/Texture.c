@@ -2,23 +2,23 @@
 
 enum BytesPerPixel
 {
-	Greyscale      = 1,
-	GreyscaleAlpha = 2,
-	RGB            = 3,
-	RGBA           = 4,
+	bytesPerPixel_Greyscale      = 1,
+	bytesPerPixel_GreyscaleAlpha = 2,
+	bytesPerPixel_RGB            = 3,
+	bytesPerPixel_RGBA           = 4,
 };
 
 INTERNAL GLint getGLFormat(i32 bytesPerPixel, b32 srgb)
 {
 	switch (bytesPerPixel)
 	{
-	case Greyscale:
+	case bytesPerPixel_Greyscale:
 		return GL_LUMINANCE;
-	case GreyscaleAlpha:
+	case bytesPerPixel_GreyscaleAlpha:
 		return GL_LUMINANCE_ALPHA;
-	case RGB:
+	case bytesPerPixel_RGB:
 		return (srgb ? GL_SRGB : GL_RGB);
-	case RGBA:
+	case bytesPerPixel_RGBA:
 		return (srgb ? GL_SRGB_ALPHA : GL_RGBA);
 	default:
 		// TODO(doyle): Invalid
@@ -45,13 +45,14 @@ Texture genTexture(const GLuint width, const GLuint height,
 	glGenTextures(1, &tex.id);
 	glCheckError();
 
-
 	glBindTexture(GL_TEXTURE_2D, tex.id);
 	glCheckError();
 
 	/* Load image into texture */
 	// TODO(doyle) Figure out the gl format
 	tex.imageFormat = getGLFormat(bytesPerPixel, FALSE);
+	ASSERT(tex.imageFormat == GL_RGBA);
+
 	glCheckError();
 
 	glTexImage2D(GL_TEXTURE_2D, 0, tex.internalFormat, tex.width, tex.height, 0,

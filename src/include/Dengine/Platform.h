@@ -10,12 +10,12 @@ typedef struct
 {
 	void *buffer;
 	i32 size;
-} PlatformFileReadResult;
+} PlatformFileRead;
 
 i32 platform_readFileToBuffer(const char *const filePath,
-                              PlatformFileReadResult *file);
+                              PlatformFileRead *file);
 
-inline void platform_closeFileReadResult(PlatformFileReadResult *file)
+inline void platform_closeFileRead(PlatformFileRead *file)
 {
 	if (file->buffer)
 	{

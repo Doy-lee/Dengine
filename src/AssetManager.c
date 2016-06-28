@@ -2,6 +2,10 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <STB/stb_image.h>
 
+#define SBTT_STATIC
+#define STB_TRUETYPE_IMPLEMENTATION
+#include <STB/stb_truetype.h>
+
 #include "Dengine/Platform.h"
 #include "Dengine/AssetManager.h"
 
@@ -56,7 +60,7 @@ Shader *asset_getShader(const enum ShaderList type)
 
 INTERNAL GLuint createShaderFromPath(const char *const path, GLuint shadertype)
 {
-	PlatformFileReadResult file = {0};
+	PlatformFileRead file = {0};
 
 	i32 status = platform_readFileToBuffer(path, &file);
 	if (status)
@@ -77,7 +81,7 @@ INTERNAL GLuint createShaderFromPath(const char *const path, GLuint shadertype)
 		printf("glCompileShader() failed: %s\n", infoLog);
 	}
 
-	platform_closeFileReadResult(&file);
+	platform_closeFileRead(&file);
 
 	return result;
 }
@@ -96,5 +100,180 @@ const i32 asset_loadShaderFiles(const char *const vertexPath,
 		return result;
 
 	assetManager.shaders[type] = shader;
+	return 0;
+}
+
+const i32 asset_loadTTFont(const char *filePath)
+{
+	PlatformFileRead fontFileRead = {0};
+	platform_readFileToBuffer(filePath, &fontFileRead);
+
+	stbtt_fontinfo fontInfo = {0};
+	stbtt_InitFont(&fontInfo, fontFileRead.buffer,
+	               stbtt_GetFontOffsetForIndex(fontFileRead.buffer, 0));
+
+	const v2i codepointRange = V2i(32, 127);
+	const i32 numGlyphs = codepointRange.y - codepointRange.x;
+
+	i32 glyphIndex = 0;
+	GlyphBitmap *glyphBitmaps =
+	    CAST(GlyphBitmap *) calloc(numGlyphs, sizeof(GlyphBitmap));
+	v2i largestGlyphDimension = V2i(0, 0);
+
+	f32 targetFontHeight = 64.0f;
+	f32 scaleY = stbtt_ScaleForPixelHeight(&fontInfo, targetFontHeight);
+
+	/* Use STB_TrueType to generate a series of bitmap characters */
+	for (i32 codepoint = codepointRange.x; codepoint < codepointRange.y;
+	     codepoint++)
+	{
+		// NOTE(doyle): ScaleX if not specified, is then calculated based on the
+		// ScaleY component
+		i32 width, height, xOffset, yOffset;
+		u8 *monoBitmap =
+		    stbtt_GetCodepointBitmap(&fontInfo, 0, scaleY, codepoint, &width,
+		                             &height, &xOffset, &yOffset);
+
+		u8 *source       = monoBitmap;
+		u32 *colorBitmap = calloc(width * height, sizeof(u32));
+		u32 *dest        = colorBitmap;
+
+		// NOTE(doyle): STB generates 1 byte per pixel bitmaps, we use 4bpp, so
+		// duplicate the alpha byte (essentially) for all RGBA components
+		for (i32 y = 0; y < height; y++)
+		{
+			for (i32 x = 0; x < width; x++)
+			{
+				u8 monoByte = *source++;
+				*dest++     = (monoByte << 24) | (monoByte << 16) |
+				              (monoByte << 8) | (monoByte << 0);
+			}
+		}
+
+		stbtt_FreeBitmap(monoBitmap, NULL);
+		glyphBitmaps[glyphIndex].dimensions = V2i(width, height);
+		glyphBitmaps[glyphIndex++].pixels = colorBitmap;
+
+		if (height > largestGlyphDimension.h)
+			largestGlyphDimension.h = height;
+		if (width > largestGlyphDimension.w)
+			largestGlyphDimension.w = width;
+
+#ifdef WT_DEBUG
+		if ((largestGlyphDimension.h - CAST(i32)targetFontHeight) >= 50)
+		{
+			printf(
+			    "asset_loadTTFont() warning: The loaded font file has a glyph "
+			    "considerably larger than our target .. font packing is "
+			    "unoptimal\n");
+		}
+#endif
+	}
+
+	/*
+	 * NOTE(doyle): Use rasterised TTF bitmap-characters combine them all into
+	 * one bitmap as an atlas. We determine how many glyphs we can fit per row
+	 * by determining the largest glyph size we have. Rounding it to the nearest
+	 * multiple of 2 and dividing by our target texture size.
+	 *
+	 * For the amount of glyphs we fit per row, we iterate through them and
+	 * write each row of the glyph adjacent to the next until we finish writing
+	 * all pixels for the glyphs, then move onto the next set of glyphs.
+	 */
+	if ((largestGlyphDimension.w & 1) == 1)
+		largestGlyphDimension.w += 1;
+
+	if ((largestGlyphDimension.h & 1) == 1)
+		largestGlyphDimension.h += 1;
+
+	i32 glyphsPerRow = MAX_TEXTURE_SIZE / largestGlyphDimension.w;
+
+#ifdef WT_DEBUG
+	i32 glyphsPerCol = MAX_TEXTURE_SIZE / largestGlyphDimension.h;
+	if ((glyphsPerRow * glyphsPerCol) <= numGlyphs)
+	{
+		printf(
+		    "asset_loadTTFont() warning: The target font height creates a "
+		    "glyph sheet that exceeds the available space!");
+		ASSERT(1);
+	}
+#endif
+
+	u32 *fontBitmap = (u32 *)calloc(
+	    squared(TARGET_TEXTURE_SIZE) * TARGET_BYTES_PER_PIXEL, sizeof(u32));
+	i32 pitch = MAX_TEXTURE_SIZE * TARGET_BYTES_PER_PIXEL;
+
+	// Check value to determine when a row of glyphs is completely printed
+	i32 verticalPixelsBlitted = 0;
+
+	i32 startingGlyphIndex = 0;
+	i32 glyphsRemaining = numGlyphs;
+	i32 glyphsOnCurrRow = glyphsPerRow;
+
+	for (i32 row = 0; row < MAX_TEXTURE_SIZE; row++)
+	{
+		u32 *destRow = fontBitmap + (row * MAX_TEXTURE_SIZE);
+		for (i32 glyphIndex = 0; glyphIndex < glyphsOnCurrRow;
+		     glyphIndex++)
+		{
+			i32 activeGlyphIndex = startingGlyphIndex + glyphIndex;
+
+			GlyphBitmap activeGlyph = glyphBitmaps[activeGlyphIndex];
+			i32 numPixelsToPad      = largestGlyphDimension.w;
+
+			/* Copy over exactly one row of pixels */
+			if (verticalPixelsBlitted < activeGlyph.dimensions.h)
+			{
+				const i32 srcPitch =
+				    activeGlyph.dimensions.w * verticalPixelsBlitted;
+				const u32 *src = activeGlyph.pixels + srcPitch;
+
+				const i32 numPixelsToCopy = activeGlyph.dimensions.w;
+
+				for (i32 count = 0; count < numPixelsToCopy; count++)
+					*destRow++ = *src++;
+
+				/*
+				 * NOTE(doyle): If the glyph is smaller than largest glyph
+				 * available size, don't advance src pointer any further
+				 * (NULL/mixes up rows), instead just advance the final bitmap
+				 * pointer by the remaining distance
+				 */
+				numPixelsToPad =
+				    largestGlyphDimension.w - activeGlyph.dimensions.w;
+			}
+			destRow += numPixelsToPad;
+		}
+
+		/* A row of glyphs has been fully formed on the atlas */
+		if (verticalPixelsBlitted++ >= largestGlyphDimension.h)
+		{
+			verticalPixelsBlitted = 0;
+			startingGlyphIndex += glyphsPerRow;
+
+			glyphsRemaining -= glyphsPerRow;
+
+			if (glyphsRemaining <= 0)
+				break;
+			else if (glyphsRemaining <= glyphsPerRow)
+			{
+				// NOTE(doyle): This allows us to modify the glyph iterator to
+				// prevent over-running of the available glyphs
+				glyphsOnCurrRow = glyphsRemaining;
+			}
+		}
+
+	}
+
+	Texture tex =
+	    genTexture(MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4, (u8 *)fontBitmap);
+	assetManager.textures[texlist_font] = tex;
+
+	for (i32 i = 0; i < numGlyphs; i++)
+		free(glyphBitmaps[i].pixels);
+
+	free(glyphBitmaps);
+	platform_closeFileRead(&fontFileRead);
+
 	return 0;
 }

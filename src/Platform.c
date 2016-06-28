@@ -1,7 +1,7 @@
 #include "Dengine/Platform.h"
 
 i32 platform_readFileToBuffer(const char *const filePath,
-                              PlatformFileReadResult *file)
+                                       PlatformFileRead *file)
 {
 	HANDLE fileHandle = CreateFile(filePath, GENERIC_READ, FILE_SHARE_READ,
 	                               NULL, OPEN_ALWAYS, 0, NULL);

@@ -6,8 +6,8 @@
 //choose to load assets outside of WorldTraveller!
 #include <stdlib.h>
 
-void updateBufferObject(Renderer *const renderer, RenderQuad *const quads,
-                        const i32 numQuads)
+INTERNAL void updateBufferObject(Renderer *const renderer,
+                                 RenderQuad *const quads, const i32 numQuads)
 {
 	// TODO(doyle): We assume that vbo and vao are assigned
 	const i32 numVertexesInQuad = 4;
@@ -34,6 +34,8 @@ void worldTraveller_gameInit(GameState *state)
 
 	asset_loadShaderFiles("data/shaders/sprite.vert.glsl",
 	                      "data/shaders/sprite.frag.glsl", shaderlist_sprite);
+
+	asset_loadTTFont("C:/Windows/Fonts/Arial.ttf");
 	glCheckError();
 
 	state->state          = state_active;
@@ -333,6 +335,14 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	updateBufferObject(&state->renderer, worldQuads, quadIndex);
 	renderer_object(&state->renderer, V2(0.0f, 0.0f), screenSize, 0.0f,
 	                V3(0, 0, 0), worldTex);
+
+	Texture *font = asset_getTexture(texlist_font);
+	v4 fontTexRect = V4(0.0f, 1.0f, 1.0f, 0.0);
+	RenderQuad fontQuad = renderer_createDefaultQuad(fontTexRect);
+	updateBufferObject(&state->renderer, &fontQuad, 1);
+	renderer_object(&state->renderer, V2(128.0f, 128.0f),
+	                V2(CAST(f32)font->width, CAST(f32)font->height), 0.0f,
+	                V3(0, 0, 0), font);
 
 	// NOTE(doyle): Factor to normalise sprite sheet rect coords to -1, 1
 	Entity *const hero  = &state->entityList[state->heroIndex];

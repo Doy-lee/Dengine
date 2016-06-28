@@ -4,10 +4,13 @@
 #include "Dengine/Shader.h"
 #include "Dengine/Texture.h"
 
+#define MAX_TEXTURE_SIZE 1024
+
 enum TexList
 {
 	texlist_hero,
 	texlist_terrain,
+	texlist_font,
 	texlist_count,
 };
 
@@ -30,12 +33,19 @@ typedef struct TexAtlas
 
 } TexAtlas;
 
+typedef struct GlyphBitmap
+{
+	v2i dimensions;
+	u32 *pixels;
+} GlyphBitmap;
+
 // TODO(doyle): Switch to hash based lookup
 typedef struct AssetManager
 {
 	Texture textures[256];
 	TexAtlas texAtlas[256];
 	Shader shaders[256];
+	Texture font;
 } AssetManager;
 
 extern AssetManager assetManager;
@@ -52,4 +62,5 @@ const i32 asset_loadShaderFiles(const char *const vertexPath,
                                 const char *const fragmentPath,
                                 const enum ShaderList type);
 
+const i32 asset_loadTTFont(const char *filePath);
 #endif

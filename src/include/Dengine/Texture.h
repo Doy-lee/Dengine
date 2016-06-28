@@ -4,6 +4,9 @@
 #include "Dengine/Common.h"
 #include "Dengine/OpenGL.h"
 
+#define TARGET_TEXTURE_SIZE 1024
+#define TARGET_BYTES_PER_PIXEL 4
+
 typedef struct Texture
 {
 	// Holds the ID of the texture object, used for all texture operations to
