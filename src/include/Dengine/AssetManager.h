@@ -1,8 +1,8 @@
 #ifndef DENGINE_ASSET_MANAGER_H
 #define DENGINE_ASSET_MANAGER_H
 
-#include <Dengine/Shader.h>
-#include <Dengine/Texture.h>
+#include "Dengine/Shader.h"
+#include "Dengine/Texture.h"
 
 enum TexList
 {

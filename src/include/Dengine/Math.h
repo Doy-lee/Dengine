@@ -1,8 +1,9 @@
 #ifndef DENGINE_MATH_H
 #define DENGINE_MATH_H
 
-#include <Dengine/Common.h>
 #include <math.h>
+
+#include "Dengine/Common.h"
 
 #define squared(x) (x * x)
 #define absolute(x) ((x) > 0 ? (x) : -(x))

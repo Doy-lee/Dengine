@@ -1,9 +1,9 @@
 #ifndef DENGINE_RENDERER_H
 #define DENGINE_RENDERER_H
 
-#include <Dengine/Math.h>
-#include <Dengine/Entity.h>
-#include <Dengine/Shader.h>
+#include "Dengine/Math.h"
+#include "Dengine/Entity.h"
+#include "Dengine/Shader.h"
 
 typedef struct Renderer
 {

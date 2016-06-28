@@ -1,10 +1,10 @@
 #ifndef DENGINE_PLATFORM_H
 #define DENGINE_PLATFORM_H
 
-#include <Dengine/Common.h>
-
 #include <Windows.h>
 #include <stdio.h>
+
+#include "Dengine/Common.h"
 
 typedef struct
 {

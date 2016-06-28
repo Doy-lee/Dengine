@@ -2,8 +2,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <STB/stb_image.h>
 
-#include <Dengine/Platform.h>
-#include <Dengine/AssetManager.h>
+#include "Dengine/Platform.h"
+#include "Dengine/AssetManager.h"
+
 GLOBAL_VAR AssetManager assetManager;
 
 Texture *asset_getTexture(const enum TexList type)

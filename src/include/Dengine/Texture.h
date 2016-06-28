@@ -1,8 +1,8 @@
 #ifndef DENGINE_TEXTURE_H
 #define DENGINE_TEXTURE_H
 
-#include <Dengine/Common.h>
-#include <Dengine/OpenGL.h>
+#include "Dengine/Common.h"
+#include "Dengine/OpenGL.h"
 
 typedef struct Texture
 {

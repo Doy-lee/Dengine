@@ -1,5 +1,5 @@
-#include <Dengine/OpenGL.h>
-#include <Dengine/Renderer.h>
+#include "Dengine/OpenGL.h"
+#include "Dengine/Renderer.h"
 
 void renderer_entity(Renderer *renderer, Entity *entity, f32 rotate, v3 color)
 {

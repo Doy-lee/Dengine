@@ -1,4 +1,4 @@
-#include <Dengine/Platform.h>
+#include "Dengine/Platform.h"
 
 i32 platform_readFileToBuffer(const char *const filePath,
                               PlatformFileReadResult *file)
