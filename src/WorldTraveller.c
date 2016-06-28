@@ -6,7 +6,8 @@
 //choose to load assets outside of WorldTraveller!
 #include <stdlib.h>
 
-void updateBufferObject(Renderer *renderer, RenderQuad *quads, i32 numQuads)
+void updateBufferObject(Renderer *const renderer, RenderQuad *const quads,
+                        const i32 numQuads)
 {
 	// TODO(doyle): We assume that vbo and vao are assigned
 	const i32 numVertexesInQuad = 4;
@@ -36,7 +37,7 @@ void worldTraveller_gameInit(GameState *state)
 	glCheckError();
 
 	state->state          = state_active;
-	state->tileSize       = 32;
+	state->tileSize       = 64;
 	state->currWorldIndex = 0;
 
 	/* Init world tiles */
@@ -293,20 +294,20 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	parseInput(state, dt);
 	glCheckError();
 
-	World *world         = &state->world[state->currWorldIndex];
-	TexAtlas *worldAtlas = asset_getTextureAtlas(world->texType);
-	Texture *worldTex    = asset_getTexture(world->texType);
+	World *const world         = &state->world[state->currWorldIndex];
+	TexAtlas *const worldAtlas = asset_getTextureAtlas(world->texType);
+	Texture *const worldTex    = asset_getTexture(world->texType);
 
-	f32 texNdcFactor = 1.0f / CAST(f32) worldTex->width;
+	f32 texNdcFactor = 1.0f / CAST(f32)worldTex->width;
 
 	RenderQuad worldQuads[ARRAY_COUNT(world->tiles)] = {0};
 	i32 quadIndex = 0;
 
+	const v2 tileSize = V2(CAST(f32) state->tileSize, CAST(f32) state->tileSize);
 	const v2 vertexNdcFactor = V2(1.0f / state->width, 1.0f / state->height);
 	for (i32 i = 0; i < ARRAY_COUNT(world->tiles); i++)
 	{
 		Tile tile = world->tiles[i];
-		v2 tileSize = V2(CAST(f32)state->tileSize, CAST(f32)state->tileSize);
 		v2 tilePosInPixel = v2_scale(tile.pos, tileSize.x);
 
 		if ((tilePosInPixel.x < state->width && tilePosInPixel.x >= 0) &&
@@ -328,19 +329,19 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 		}
 	}
 
-	v2 screenSize = V2(CAST(f32)state->width, CAST(f32)state->height);
+	const v2 screenSize = V2(CAST(f32)state->width, CAST(f32)state->height);
 	updateBufferObject(&state->renderer, worldQuads, quadIndex);
 	renderer_object(&state->renderer, V2(0.0f, 0.0f), screenSize, 0.0f,
 	                V3(0, 0, 0), worldTex);
 
 	// NOTE(doyle): Factor to normalise sprite sheet rect coords to -1, 1
-	Entity *hero  = &state->entityList[state->heroIndex];
+	Entity *const hero  = &state->entityList[state->heroIndex];
 	texNdcFactor = 1.0f / CAST(f32) hero->tex->width;
 
 	ASSERT(state->freeEntityIndex < ARRAY_COUNT(state->entityList));
 	for (i32 i = 0; i < state->freeEntityIndex; i++)
 	{
-		Entity *entity   = &state->entityList[i];
+		Entity *const entity   = &state->entityList[i];
 		SpriteAnim *anim = &entity->anim[entity->currAnimIndex];
 
 		v4 currFrameRect = anim->rect[anim->currRectIndex];
