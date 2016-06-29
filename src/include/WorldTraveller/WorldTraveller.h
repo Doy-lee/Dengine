@@ -42,6 +42,8 @@ typedef struct GameState
 	// TODO(doyle): Make size of list dynamic
 	Entity entityList[256];
 	i32 freeEntityIndex;
+
+	AssetManager assetManager;
 } GameState;
 
 void worldTraveller_gameInit(GameState *state);

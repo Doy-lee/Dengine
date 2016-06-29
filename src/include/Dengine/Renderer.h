@@ -24,6 +24,23 @@ void renderer_entity(Renderer *renderer, Entity *entity, f32 rotate,
 void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v3 color,
                      Texture *tex);
 
+INTERNAL inline void renderer_flipTexCoord(v4 *texCoords, b32 flipX, b32 flipY)
+{
+	if (flipX)
+	{
+		v4 tmp       = *texCoords;
+		texCoords->x = tmp.z;
+		texCoords->z = tmp.x;
+	}
+
+	if (flipY)
+	{
+		v4 tmp       = *texCoords;
+		texCoords->y = tmp.w;
+		texCoords->w = tmp.y;
+	}
+}
+
 INTERNAL inline RenderQuad renderer_createQuad(v4 quadRectNdc, v4 texRectNdc)
 {
 	// NOTE(doyle): Draws a series of triangles (three-sided polygons) using

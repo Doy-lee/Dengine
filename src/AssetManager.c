@@ -9,25 +9,24 @@
 #include "Dengine/Platform.h"
 #include "Dengine/AssetManager.h"
 
-GLOBAL_VAR AssetManager assetManager;
-
-Texture *asset_getTexture(const enum TexList type)
+Texture *asset_getTexture(AssetManager *assetManager, const enum TexList type)
 {
 	if (type < texlist_count)
-		return &assetManager.textures[type];
+		return &assetManager->textures[type];
 
 	return NULL;
 }
 
-TexAtlas *asset_getTextureAtlas(const enum TexList type)
+TexAtlas *asset_getTextureAtlas(AssetManager *assetManager, const enum TexList type)
 {
 	if (type < texlist_count)
-		return &assetManager.texAtlas[type];
+		return &assetManager->texAtlas[type];
 
 	return NULL;
 }
 
-const i32 asset_loadTextureImage(const char *const path, const enum TexList type)
+const i32 asset_loadTextureImage(AssetManager *assetManager,
+                                 const char *const path, const enum TexList type)
 {
 	/* Open the texture image */
 	i32 imgWidth, imgHeight, bytesPerPixel;
@@ -46,14 +45,14 @@ const i32 asset_loadTextureImage(const char *const path, const enum TexList type
 	glCheckError();
 	stbi_image_free(image);
 
-	assetManager.textures[type] = tex;
+	assetManager->textures[type] = tex;
 	return 0;
 }
 
-Shader *asset_getShader(const enum ShaderList type)
+Shader *asset_getShader(AssetManager *assetManager, const enum ShaderList type)
 {
 	if (type < shaderlist_count)
-		return &assetManager.shaders[type];
+		return &assetManager->shaders[type];
 
 	return NULL;
 }
@@ -86,7 +85,8 @@ INTERNAL GLuint createShaderFromPath(const char *const path, GLuint shadertype)
 	return result;
 }
 
-const i32 asset_loadShaderFiles(const char *const vertexPath,
+const i32 asset_loadShaderFiles(AssetManager *assetManager,
+                                const char *const vertexPath,
                                 const char *const fragmentPath,
                                 const enum ShaderList type)
 {
@@ -99,11 +99,19 @@ const i32 asset_loadShaderFiles(const char *const vertexPath,
 	if (result)
 		return result;
 
-	assetManager.shaders[type] = shader;
+	assetManager->shaders[type] = shader;
 	return 0;
 }
 
-const i32 asset_loadTTFont(const char *filePath)
+/* Individual glyph bitmap generated from STB used for creating a font sheet */
+typedef struct GlyphBitmap
+{
+	v2i dimensions;
+	u32 *pixels;
+	i32 codepoint;
+} GlyphBitmap;
+
+const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 {
 	PlatformFileRead fontFileRead = {0};
 	platform_readFileToBuffer(filePath, &fontFileRead);
@@ -112,7 +120,8 @@ const i32 asset_loadTTFont(const char *filePath)
 	stbtt_InitFont(&fontInfo, fontFileRead.buffer,
 	               stbtt_GetFontOffsetForIndex(fontFileRead.buffer, 0));
 
-	const v2i codepointRange = V2i(32, 127);
+	assetManager->codepointRange = V2i(32, 127);
+	v2i codepointRange = assetManager->codepointRange;
 	const i32 numGlyphs = codepointRange.y - codepointRange.x;
 
 	i32 glyphIndex = 0;
@@ -120,7 +129,7 @@ const i32 asset_loadTTFont(const char *filePath)
 	    CAST(GlyphBitmap *) calloc(numGlyphs, sizeof(GlyphBitmap));
 	v2i largestGlyphDimension = V2i(0, 0);
 
-	f32 targetFontHeight = 64.0f;
+	const f32 targetFontHeight = 64.0f;
 	f32 scaleY = stbtt_ScaleForPixelHeight(&fontInfo, targetFontHeight);
 
 	/* Use STB_TrueType to generate a series of bitmap characters */
@@ -130,7 +139,7 @@ const i32 asset_loadTTFont(const char *filePath)
 		// NOTE(doyle): ScaleX if not specified, is then calculated based on the
 		// ScaleY component
 		i32 width, height, xOffset, yOffset;
-		u8 *monoBitmap =
+		u8 *const monoBitmap =
 		    stbtt_GetCodepointBitmap(&fontInfo, 0, scaleY, codepoint, &width,
 		                             &height, &xOffset, &yOffset);
 
@@ -152,7 +161,8 @@ const i32 asset_loadTTFont(const char *filePath)
 
 		stbtt_FreeBitmap(monoBitmap, NULL);
 		glyphBitmaps[glyphIndex].dimensions = V2i(width, height);
-		glyphBitmaps[glyphIndex++].pixels = colorBitmap;
+		glyphBitmaps[glyphIndex].codepoint  = codepoint;
+		glyphBitmaps[glyphIndex++].pixels   = colorBitmap;
 
 		if (height > largestGlyphDimension.h)
 			largestGlyphDimension.h = height;
@@ -186,7 +196,7 @@ const i32 asset_loadTTFont(const char *filePath)
 	if ((largestGlyphDimension.h & 1) == 1)
 		largestGlyphDimension.h += 1;
 
-	i32 glyphsPerRow = MAX_TEXTURE_SIZE / largestGlyphDimension.w;
+	i32 glyphsPerRow = (MAX_TEXTURE_SIZE / largestGlyphDimension.w) + 1;
 
 #ifdef WT_DEBUG
 	i32 glyphsPerCol = MAX_TEXTURE_SIZE / largestGlyphDimension.h;
@@ -199,9 +209,10 @@ const i32 asset_loadTTFont(const char *filePath)
 	}
 #endif
 
-	u32 *fontBitmap = (u32 *)calloc(
+#if 1
+	u32 *fontBitmap = CAST(u32 *)calloc(
 	    squared(TARGET_TEXTURE_SIZE) * TARGET_BYTES_PER_PIXEL, sizeof(u32));
-	i32 pitch = MAX_TEXTURE_SIZE * TARGET_BYTES_PER_PIXEL;
+	const i32 pitch = MAX_TEXTURE_SIZE * TARGET_BYTES_PER_PIXEL;
 
 	// Check value to determine when a row of glyphs is completely printed
 	i32 verticalPixelsBlitted = 0;
@@ -210,7 +221,8 @@ const i32 asset_loadTTFont(const char *filePath)
 	i32 glyphsRemaining = numGlyphs;
 	i32 glyphsOnCurrRow = glyphsPerRow;
 
-	for (i32 row = MAX_TEXTURE_SIZE-1; row >= 0; row--)
+	i32 atlasIndex = 0;
+	for (i32 row = 0; row < MAX_TEXTURE_SIZE; row++)
 	{
 		u32 *destRow = fontBitmap + (row * MAX_TEXTURE_SIZE);
 		for (i32 glyphIndex = 0; glyphIndex < glyphsOnCurrRow;
@@ -219,9 +231,26 @@ const i32 asset_loadTTFont(const char *filePath)
 			i32 activeGlyphIndex = startingGlyphIndex + glyphIndex;
 
 			GlyphBitmap activeGlyph = glyphBitmaps[activeGlyphIndex];
-			i32 numPixelsToPad      = largestGlyphDimension.w;
+
+			/* Store the location of glyph into atlas */
+			if (verticalPixelsBlitted == 0)
+			{
+				TexAtlas *fontAtlas = &assetManager->texAtlas[texlist_font];
+#ifdef WT_DEBUG
+				printf("codepoint: %d\n", activeGlyph.codepoint);
+				printf("atlasIndex: %d\n", atlasIndex);
+				ASSERT(activeGlyph.codepoint < ARRAY_COUNT(fontAtlas->texRect));
+#endif
+
+				v2 origin = V2(CAST(f32)(glyphIndex * largestGlyphDimension.w),
+				               CAST(f32) row);
+				fontAtlas->texRect[atlasIndex++] =
+				    getRect(origin, V2(CAST(f32) largestGlyphDimension.w,
+				                       CAST(f32) largestGlyphDimension.h));
+			}
 
 			/* Copy over exactly one row of pixels */
+			i32 numPixelsToPad = largestGlyphDimension.w;
 			if (verticalPixelsBlitted < activeGlyph.dimensions.h)
 			{
 				const i32 srcPitch =
@@ -262,12 +291,17 @@ const i32 asset_loadTTFont(const char *filePath)
 				glyphsOnCurrRow = glyphsRemaining;
 			}
 		}
-
 	}
 
-	Texture tex =
-	    genTexture(MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4, (u8 *)fontBitmap);
+	Texture tex = genTexture(MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4,
+	                         CAST(u8 *) fontBitmap);
+	assetManager->textures[texlist_font] = tex;
+#else
+	i32 letter = 1;
+	Texture tex = genTexture(glyphBitmaps[letter].dimensions.w, glyphBitmaps[letter].dimensions.h, 4,
+	                         CAST(u8 *)glyphBitmaps[letter].pixels);
 	assetManager.textures[texlist_font] = tex;
+#endif
 
 	for (i32 i = 0; i < numGlyphs; i++)
 		free(glyphBitmaps[i].pixels);

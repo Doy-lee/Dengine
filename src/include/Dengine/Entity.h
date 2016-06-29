@@ -39,17 +39,6 @@ typedef struct Entity
 	i32 currAnimIndex;
 } Entity;
 
-INTERNAL inline v4 getRect(v2 origin, v2 size)
-{
-	v2 upperLeftBound  = v2_add(origin, V2(0.0f, size.y));
-	v2 lowerRightBound = v2_add(origin, V2(size.x, 0.0f));
-
-	v4 result = V4(upperLeftBound.x, upperLeftBound.y, lowerRightBound.x,
-	               lowerRightBound.y);
-
-	return result;
-}
-
 INTERNAL inline v4 getEntityScreenRect(Entity entity)
 {
 	v4 result = getRect(entity.pos, entity.size);

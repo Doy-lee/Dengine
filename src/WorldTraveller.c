@@ -21,21 +21,25 @@ INTERNAL void updateBufferObject(Renderer *const renderer,
 
 void worldTraveller_gameInit(GameState *state)
 {
+	AssetManager *assetManager = &state->assetManager;
 	/* Initialise assets */
-	asset_loadTextureImage(
-	    "data/textures/WorldTraveller/TerraSprite1024.png", texlist_hero);
+	asset_loadTextureImage(assetManager,
+	                       "data/textures/WorldTraveller/TerraSprite1024.png",
+	                       texlist_hero);
 
-	asset_loadTextureImage(
-	    "data/textures/WorldTraveller/Terrain.png", texlist_terrain);
-	TexAtlas *terrainAtlas = asset_getTextureAtlas(texlist_terrain);
+	asset_loadTextureImage(assetManager,
+	                       "data/textures/WorldTraveller/Terrain.png",
+	                       texlist_terrain);
+	TexAtlas *terrainAtlas =
+	    asset_getTextureAtlas(assetManager, texlist_terrain);
 	f32 atlasTileSize = 128.0f;
 	terrainAtlas->texRect[terraincoords_ground] =
 	    V4(384.0f, 512.0f, 384.0f + atlasTileSize, 512.0f + atlasTileSize);
 
-	asset_loadShaderFiles("data/shaders/sprite.vert.glsl",
+	asset_loadShaderFiles(assetManager, "data/shaders/sprite.vert.glsl",
 	                      "data/shaders/sprite.frag.glsl", shaderlist_sprite);
 
-	asset_loadTTFont("C:/Windows/Fonts/Arial.ttf");
+	asset_loadTTFont(assetManager, "C:/Windows/Fonts/Arial.ttf");
 	glCheckError();
 
 	state->state          = state_active;
@@ -71,7 +75,7 @@ void worldTraveller_gameInit(GameState *state)
 	                  V2(0.0f, 0.0f),
 	                  V2(58.0f, 98.0f),
 	                  direction_east,
-	                  asset_getTexture(texlist_hero),
+	                  asset_getTexture(assetManager, texlist_hero),
 	                  TRUE,
 	                  0,
 	                  0,
@@ -127,7 +131,7 @@ void worldTraveller_gameInit(GameState *state)
 
 	/* Init renderer */
 	Renderer *renderer = &state->renderer;
-	renderer->shader = asset_getShader(shaderlist_sprite);
+	renderer->shader = asset_getShader(assetManager, shaderlist_sprite);
 	shader_use(renderer->shader);
 
 	const mat4 projection = mat4_ortho(0.0f, CAST(f32) state->width, 0.0f,
@@ -296,11 +300,14 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	parseInput(state, dt);
 	glCheckError();
 
-	World *const world         = &state->world[state->currWorldIndex];
-	TexAtlas *const worldAtlas = asset_getTextureAtlas(world->texType);
-	Texture *const worldTex    = asset_getTexture(world->texType);
+	AssetManager *assetManager = &state->assetManager;
 
-	f32 texNdcFactor = 1.0f / CAST(f32)worldTex->width;
+	World *const world         = &state->world[state->currWorldIndex];
+	TexAtlas *const worldAtlas =
+	    asset_getTextureAtlas(assetManager, world->texType);
+	Texture *const worldTex = asset_getTexture(assetManager, world->texType);
+
+	f32 texNdcFactor = 1.0f / MAX_TEXTURE_SIZE;
 
 	RenderQuad worldQuads[ARRAY_COUNT(world->tiles)] = {0};
 	i32 quadIndex = 0;
@@ -338,7 +345,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	                V3(0, 0, 0), worldTex);
 
 	/* Render font sheet */
-	Texture *font = asset_getTexture(texlist_font);
+	Texture *font = asset_getTexture(assetManager, texlist_font);
 	v4 fontTexRect = V4(0.0f, 1.0f, 1.0f, 0.0);
 	RenderQuad fontQuad = renderer_createDefaultQuad(fontTexRect);
 	updateBufferObject(&state->renderer, &fontQuad, 1);
@@ -346,10 +353,48 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	                V2(CAST(f32)font->width, CAST(f32)font->height), 0.0f,
 	                V3(0, 0, 0), font);
 
+	char *string = "hello world";
+
+	i32 strLen = 11;
+	quadIndex = 0;
+	RenderQuad *stringQuads = CAST(RenderQuad *)calloc(strLen, sizeof(RenderQuad));
+	TexAtlas *fontAtlas = asset_getTextureAtlas(assetManager, texlist_font);
+
+	v2 eachCharSize = getRectSize(fontAtlas->texRect[0]);
+	f32 xPosOnScreen = 20.0f;
+	for (i32 i = 0; i < strLen; i++)
+	{
+		// NOTE(doyle): Atlas packs fonts tightly, so offset the codepoint to
+		// its actual atlas index, i.e. we skip the first 31 glyphs
+		i32 atlasIndex = string[i] - assetManager->codepointRange.x;
+
+		const v4 charTexRect = fontAtlas->texRect[atlasIndex];
+		v4 charTexRectNdc    = v4_scale(charTexRect, texNdcFactor);
+		renderer_flipTexCoord(&charTexRectNdc, FALSE, TRUE);
+
+		const v4 charRectOnScreen =
+		    getRect(V2(xPosOnScreen, 100.0f), eachCharSize);
+		xPosOnScreen += eachCharSize.w;
+		v4 charRectOnScreenNdc = charRectOnScreen;
+
+		charRectOnScreenNdc.e[0] *= vertexNdcFactor.w;
+		charRectOnScreenNdc.e[1] *= vertexNdcFactor.h;
+		charRectOnScreenNdc.e[2] *= vertexNdcFactor.w;
+		charRectOnScreenNdc.e[3] *= vertexNdcFactor.h;
+
+		RenderQuad charQuad =
+		    renderer_createQuad(charRectOnScreenNdc, charTexRectNdc);
+		stringQuads[quadIndex++] = charQuad;
+	}
+
+	updateBufferObject(&state->renderer, stringQuads, quadIndex);
+	renderer_object(&state->renderer, V2(0.0f, 100.0f), screenSize, 0.0f,
+	                V3(0, 0, 0), font);
+	free(stringQuads);
+
 	/* Render entities */
 	// NOTE(doyle): Factor to normalise sprite sheet rect coords to -1, 1
 	Entity *const hero  = &state->entityList[state->heroIndex];
-	texNdcFactor = 1.0f / CAST(f32) hero->tex->width;
 
 	ASSERT(state->freeEntityIndex < ARRAY_COUNT(state->entityList));
 	for (i32 i = 0; i < state->freeEntityIndex; i++)
@@ -371,9 +416,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 		if (entity->direction == direction_east)
 		{
 			// NOTE(doyle): Flip the x coordinates to flip the tex
-			v4 tmp       = texRectNdc;
-			texRectNdc.x = tmp.z;
-			texRectNdc.z = tmp.x;
+			renderer_flipTexCoord(&texRectNdc, TRUE, FALSE);
 		}
 
 		RenderQuad quad = renderer_createDefaultQuad(texRectNdc);
