@@ -43,3 +43,30 @@ void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v3 color,
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glCheckError();
 }
+
+RenderQuad renderer_createQuad(Renderer *renderer, v4 quadRect, v4 texRect,
+                               Texture *tex)
+{
+	// NOTE(doyle): Draws a series of triangles (three-sided polygons) using
+	// vertices v0, v1, v2, then v2, v1, v3 (note the order)
+	RenderQuad result = {0};
+
+	v4 quadRectNdc = quadRect;
+	quadRectNdc.e[0] *= renderer->vertexNdcFactor.w;
+	quadRectNdc.e[1] *= renderer->vertexNdcFactor.h;
+	quadRectNdc.e[2] *= renderer->vertexNdcFactor.w;
+	quadRectNdc.e[3] *= renderer->vertexNdcFactor.h;
+
+	v2 texNdcFactor = V2(1.0f / tex->width, 1.0f / tex->height);
+	v4 texRectNdc = texRect;
+	texRectNdc.e[0] *= texNdcFactor.w;
+	texRectNdc.e[1] *= texNdcFactor.h;
+	texRectNdc.e[2] *= texNdcFactor.w;
+	texRectNdc.e[3] *= texNdcFactor.h;
+
+	result.vertex[0] = V4(quadRectNdc.x, quadRectNdc.y, texRectNdc.x, texRectNdc.y); // Top left
+	result.vertex[1] = V4(quadRectNdc.x, quadRectNdc.w, texRectNdc.x, texRectNdc.w); // Bottom left
+	result.vertex[2] = V4(quadRectNdc.z, quadRectNdc.y, texRectNdc.z, texRectNdc.y); // Top right
+	result.vertex[3] = V4(quadRectNdc.z, quadRectNdc.w, texRectNdc.z, texRectNdc.w); // Bottom right
+	return result;
+}

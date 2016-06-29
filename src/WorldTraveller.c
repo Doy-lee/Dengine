@@ -19,7 +19,7 @@ INTERNAL void updateBufferObject(Renderer *const renderer,
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-void worldTraveller_gameInit(GameState *state)
+void worldTraveller_gameInit(GameState *state, v2i windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
 	/* Initialise assets */
@@ -131,13 +131,18 @@ void worldTraveller_gameInit(GameState *state)
 
 	/* Init renderer */
 	Renderer *renderer = &state->renderer;
+	renderer->size = V2(CAST(f32)windowSize.x, CAST(f32)windowSize.y);
+	// NOTE(doyle): Value to map a screen coordinate to NDC coordinate
+	renderer->vertexNdcFactor =
+	    V2(1.0f / renderer->size.w, 1.0f / renderer->size.h);
 	renderer->shader = asset_getShader(assetManager, shaderlist_sprite);
 	shader_use(renderer->shader);
 
-	const mat4 projection = mat4_ortho(0.0f, CAST(f32) state->width, 0.0f,
-	                                   CAST(f32) state->height, 0.0f, 1.0f);
+	const mat4 projection =
+	    mat4_ortho(0.0f, renderer->size.w, 0.0f, renderer->size.h, 0.0f, 1.0f);
 	shader_uniformSetMat4fv(renderer->shader, "projection", projection);
 	glCheckError();
+
 
 	/* Create buffers */
 	glGenVertexArrays(1, &renderer->vao);
@@ -301,8 +306,9 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	glCheckError();
 
 	AssetManager *assetManager = &state->assetManager;
+	Renderer *renderer         = &state->renderer;
 
-	World *const world         = &state->world[state->currWorldIndex];
+	World *const world = &state->world[state->currWorldIndex];
 	TexAtlas *const worldAtlas =
 	    asset_getTextureAtlas(assetManager, world->texType);
 	Texture *const worldTex = asset_getTexture(assetManager, world->texType);
@@ -312,119 +318,90 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	RenderQuad worldQuads[ARRAY_COUNT(world->tiles)] = {0};
 	i32 quadIndex = 0;
 
+
 	/* Render background tiles */
 	const v2 tileSize = V2(CAST(f32) state->tileSize, CAST(f32) state->tileSize);
-	const v2 vertexNdcFactor = V2(1.0f / state->width, 1.0f / state->height);
 	for (i32 i = 0; i < ARRAY_COUNT(world->tiles); i++)
 	{
 		Tile tile = world->tiles[i];
 		v2 tilePosInPixel = v2_scale(tile.pos, tileSize.x);
 
-		if ((tilePosInPixel.x < state->width && tilePosInPixel.x >= 0) &&
-		    (tilePosInPixel.y < state->height && tilePosInPixel.y >= 0))
+		if ((tilePosInPixel.x < renderer->size.w && tilePosInPixel.x >= 0) &&
+		    (tilePosInPixel.y < renderer->size.h && tilePosInPixel.y >= 0))
 		{
-			const v4 tileTexRect = worldAtlas->texRect[terraincoords_ground];
-			const v4 texRectNdc  = v4_scale(tileTexRect, texNdcFactor);
-
+			const v4 texRect  = worldAtlas->texRect[terraincoords_ground];
 			const v4 tileRect = getRect(tilePosInPixel, tileSize);
-			v4 tileRectNdc    = tileRect;
 
-			tileRectNdc.e[0] *= vertexNdcFactor.w;
-			tileRectNdc.e[1] *= vertexNdcFactor.h;
-			tileRectNdc.e[2] *= vertexNdcFactor.w;
-			tileRectNdc.e[3] *= vertexNdcFactor.h;
-
-			RenderQuad tileQuad = renderer_createQuad(tileRectNdc, texRectNdc);
+			RenderQuad tileQuad = renderer_createQuad(
+			    &state->renderer, tileRect, texRect, worldTex);
 			worldQuads[quadIndex++] = tileQuad;
 		}
 	}
 
-	const v2 screenSize = V2(CAST(f32)state->width, CAST(f32)state->height);
-	updateBufferObject(&state->renderer, worldQuads, quadIndex);
-	renderer_object(&state->renderer, V2(0.0f, 0.0f), screenSize, 0.0f,
+	updateBufferObject(renderer, worldQuads, quadIndex);
+	renderer_object(renderer, V2(0.0f, 0.0f), renderer->size, 0.0f,
 	                V3(0, 0, 0), worldTex);
 
-	/* Render font sheet */
-	Texture *font = asset_getTexture(assetManager, texlist_font);
-	v4 fontTexRect = V4(0.0f, 1.0f, 1.0f, 0.0);
-	RenderQuad fontQuad = renderer_createDefaultQuad(fontTexRect);
-	updateBufferObject(&state->renderer, &fontQuad, 1);
-	renderer_object(&state->renderer, V2(300.0f, -300.0f),
-	                V2(CAST(f32)font->width, CAST(f32)font->height), 0.0f,
-	                V3(0, 0, 0), font);
-
+	Font *font = &assetManager->font;
 	char *string = "hello world";
-
 	i32 strLen = 11;
 	quadIndex = 0;
 	RenderQuad *stringQuads = CAST(RenderQuad *)calloc(strLen, sizeof(RenderQuad));
-	TexAtlas *fontAtlas = asset_getTextureAtlas(assetManager, texlist_font);
 
-	v2 eachCharSize = getRectSize(fontAtlas->texRect[0]);
 	f32 xPosOnScreen = 20.0f;
 	for (i32 i = 0; i < strLen; i++)
 	{
 		// NOTE(doyle): Atlas packs fonts tightly, so offset the codepoint to
 		// its actual atlas index, i.e. we skip the first 31 glyphs
-		i32 atlasIndex = string[i] - assetManager->codepointRange.x;
+		i32 atlasIndex = string[i] - font->codepointRange.x;
 
-		const v4 charTexRect = fontAtlas->texRect[atlasIndex];
-		v4 charTexRectNdc    = v4_scale(charTexRect, texNdcFactor);
-		renderer_flipTexCoord(&charTexRectNdc, FALSE, TRUE);
+		v4 charTexRect = font->atlas->texRect[atlasIndex];
+		renderer_flipTexCoord(&charTexRect, FALSE, TRUE);
 
 		const v4 charRectOnScreen =
-		    getRect(V2(xPosOnScreen, 100.0f), eachCharSize);
-		xPosOnScreen += eachCharSize.w;
-		v4 charRectOnScreenNdc = charRectOnScreen;
+		    getRect(V2(xPosOnScreen, 100.0f),
+		            V2(CAST(f32) font->charSize.w, CAST(f32) font->charSize.w));
+		xPosOnScreen += font->charSize.w;
 
-		charRectOnScreenNdc.e[0] *= vertexNdcFactor.w;
-		charRectOnScreenNdc.e[1] *= vertexNdcFactor.h;
-		charRectOnScreenNdc.e[2] *= vertexNdcFactor.w;
-		charRectOnScreenNdc.e[3] *= vertexNdcFactor.h;
-
-		RenderQuad charQuad =
-		    renderer_createQuad(charRectOnScreenNdc, charTexRectNdc);
+		RenderQuad charQuad = renderer_createQuad(
+		    &state->renderer, charRectOnScreen, charTexRect, font->tex);
 		stringQuads[quadIndex++] = charQuad;
 	}
 
 	updateBufferObject(&state->renderer, stringQuads, quadIndex);
-	renderer_object(&state->renderer, V2(0.0f, 100.0f), screenSize, 0.0f,
-	                V3(0, 0, 0), font);
+	renderer_object(&state->renderer, V2(0.0f, 100.0f), renderer->size, 0.0f,
+	                V3(0, 0, 0), font->tex);
 	free(stringQuads);
 
 	/* Render entities */
-	// NOTE(doyle): Factor to normalise sprite sheet rect coords to -1, 1
-	Entity *const hero  = &state->entityList[state->heroIndex];
-
 	ASSERT(state->freeEntityIndex < ARRAY_COUNT(state->entityList));
 	for (i32 i = 0; i < state->freeEntityIndex; i++)
 	{
 		Entity *const entity   = &state->entityList[i];
 		SpriteAnim *anim = &entity->anim[entity->currAnimIndex];
 
-		v4 currFrameRect = anim->rect[anim->currRectIndex];
+		v4 texRect = anim->rect[anim->currRectIndex];
 		anim->currDuration -= dt;
 		if (anim->currDuration <= 0.0f)
 		{
 			anim->currRectIndex++;
 			anim->currRectIndex = anim->currRectIndex % anim->numRects;
-			currFrameRect       = anim->rect[anim->currRectIndex];
+			texRect             = anim->rect[anim->currRectIndex];
 			anim->currDuration  = anim->duration;
 		}
 
-		v4 texRectNdc = v4_scale(currFrameRect, texNdcFactor);
 		if (entity->direction == direction_east)
 		{
 			// NOTE(doyle): Flip the x coordinates to flip the tex
-			renderer_flipTexCoord(&texRectNdc, TRUE, FALSE);
+			renderer_flipTexCoord(&texRect, TRUE, FALSE);
 		}
 
-		RenderQuad quad = renderer_createDefaultQuad(texRectNdc);
-		updateBufferObject(&state->renderer, &quad, 1);
+		RenderQuad entityQuad =
+		    renderer_createDefaultQuad(&state->renderer, texRect, entity->tex);
+		updateBufferObject(&state->renderer, &entityQuad, 1);
 		renderer_entity(&state->renderer, entity, 0.0f, V3(0, 0, 0));
 	}
 
 	// TODO(doyle): Clean up lines
 	// Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
 }
-

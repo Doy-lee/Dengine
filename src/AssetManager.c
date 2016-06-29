@@ -120,8 +120,10 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	stbtt_InitFont(&fontInfo, fontFileRead.buffer,
 	               stbtt_GetFontOffsetForIndex(fontFileRead.buffer, 0));
 
-	assetManager->codepointRange = V2i(32, 127);
-	v2i codepointRange = assetManager->codepointRange;
+	Font *font = &assetManager->font;
+	font->codepointRange = V2i(32, 127);
+
+	v2i codepointRange = font->codepointRange;
 	const i32 numGlyphs = codepointRange.y - codepointRange.x;
 
 	i32 glyphIndex = 0;
@@ -178,6 +180,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 			    "unoptimal\n");
 		}
 #endif
+
 	}
 
 	/*
@@ -196,10 +199,12 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	if ((largestGlyphDimension.h & 1) == 1)
 		largestGlyphDimension.h += 1;
 
-	i32 glyphsPerRow = (MAX_TEXTURE_SIZE / largestGlyphDimension.w) + 1;
+	font->charSize = largestGlyphDimension;
+
+	i32 glyphsPerRow = (MAX_TEXTURE_SIZE / font->charSize.w) + 1;
 
 #ifdef WT_DEBUG
-	i32 glyphsPerCol = MAX_TEXTURE_SIZE / largestGlyphDimension.h;
+	i32 glyphsPerCol = MAX_TEXTURE_SIZE / font->charSize.h;
 	if ((glyphsPerRow * glyphsPerCol) <= numGlyphs)
 	{
 		printf(
@@ -209,7 +214,6 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	}
 #endif
 
-#if 1
 	u32 *fontBitmap = CAST(u32 *)calloc(
 	    squared(TARGET_TEXTURE_SIZE) * TARGET_BYTES_PER_PIXEL, sizeof(u32));
 	const i32 pitch = MAX_TEXTURE_SIZE * TARGET_BYTES_PER_PIXEL;
@@ -237,20 +241,18 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 			{
 				TexAtlas *fontAtlas = &assetManager->texAtlas[texlist_font];
 #ifdef WT_DEBUG
-				printf("codepoint: %d\n", activeGlyph.codepoint);
-				printf("atlasIndex: %d\n", atlasIndex);
 				ASSERT(activeGlyph.codepoint < ARRAY_COUNT(fontAtlas->texRect));
 #endif
 
-				v2 origin = V2(CAST(f32)(glyphIndex * largestGlyphDimension.w),
+				v2 origin = V2(CAST(f32)(glyphIndex * font->charSize.w),
 				               CAST(f32) row);
 				fontAtlas->texRect[atlasIndex++] =
-				    getRect(origin, V2(CAST(f32) largestGlyphDimension.w,
-				                       CAST(f32) largestGlyphDimension.h));
+				    getRect(origin, V2(CAST(f32) font->charSize.w,
+				                       CAST(f32) font->charSize.h));
 			}
 
 			/* Copy over exactly one row of pixels */
-			i32 numPixelsToPad = largestGlyphDimension.w;
+			i32 numPixelsToPad = font->charSize.w;
 			if (verticalPixelsBlitted < activeGlyph.dimensions.h)
 			{
 				const i32 srcPitch =
@@ -269,13 +271,13 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 				 * pointer by the remaining distance
 				 */
 				numPixelsToPad =
-				    largestGlyphDimension.w - activeGlyph.dimensions.w;
+				    font->charSize.w - activeGlyph.dimensions.w;
 			}
 			destRow += numPixelsToPad;
 		}
 
 		/* A row of glyphs has been fully formed on the atlas */
-		if (verticalPixelsBlitted++ >= largestGlyphDimension.h)
+		if (verticalPixelsBlitted++ >= font->charSize.h)
 		{
 			verticalPixelsBlitted = 0;
 			startingGlyphIndex += glyphsPerRow;
@@ -294,14 +296,11 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	}
 
 	Texture tex = genTexture(MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4,
-	                         CAST(u8 *) fontBitmap);
+	                         CAST(u8 *)fontBitmap);
 	assetManager->textures[texlist_font] = tex;
-#else
-	i32 letter = 1;
-	Texture tex = genTexture(glyphBitmaps[letter].dimensions.w, glyphBitmaps[letter].dimensions.h, 4,
-	                         CAST(u8 *)glyphBitmaps[letter].pixels);
-	assetManager.textures[texlist_font] = tex;
-#endif
+
+	font->tex = &assetManager->textures[texlist_font];
+	font->atlas = &assetManager->texAtlas[texlist_font];
 
 	for (i32 i = 0; i < numGlyphs; i++)
 		free(glyphBitmaps[i].pixels);

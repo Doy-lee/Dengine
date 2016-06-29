@@ -32,14 +32,21 @@ typedef struct TexAtlas
 	v4 texRect[128];
 } TexAtlas;
 
+typedef struct Font
+{
+	TexAtlas *atlas;
+	Texture *tex;
+	v2i codepointRange;
+	v2i charSize;
+} Font;
+
 // TODO(doyle): Switch to hash based lookup
 typedef struct AssetManager
 {
 	Texture textures[256];
 	TexAtlas texAtlas[256];
 	Shader shaders[256];
-
-	v2i codepointRange;
+	Font font;
 } AssetManager;
 
 GLOBAL_VAR AssetManager assetManager;

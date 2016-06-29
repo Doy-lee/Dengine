@@ -30,7 +30,6 @@ typedef struct GameState
 {
 	enum State state;
 	b32 keys[NUM_KEYS];
-	i32 width, height;
 
 	Renderer renderer;
 	i32 heroIndex;
@@ -46,6 +45,6 @@ typedef struct GameState
 	AssetManager assetManager;
 } GameState;
 
-void worldTraveller_gameInit(GameState *state);
+void worldTraveller_gameInit(GameState *state, v2i windowSize);
 void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt);
 #endif
