@@ -28,6 +28,12 @@ void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v3 color,
 	// TODO(doyle): Unimplemented
 	// this->shader->uniformSetVec3f("spriteColor", color);
 
+#if 1
+	glBindVertexArray(renderer->vao);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
+	glBindVertexArray(0);
+#endif
+
 	glActiveTexture(GL_TEXTURE0);
 
 	if (tex)
@@ -39,6 +45,7 @@ void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v3 color,
 	glBindVertexArray(renderer->vao);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
 	glBindVertexArray(0);
+
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glCheckError();

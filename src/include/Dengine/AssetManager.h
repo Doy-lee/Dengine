@@ -32,12 +32,33 @@ typedef struct TexAtlas
 	v4 texRect[128];
 } TexAtlas;
 
+typedef struct FontMetrics
+{
+	i32 ascent;
+	i32 descent;
+	i32 lineGap;
+} FontMetrics;
+
+typedef struct CharMetrics
+{
+	i32 advance;
+	i32 leftSideBearing;
+	i32 *kerning;
+	v2i offset;
+	v2i trueSize;
+} CharMetrics;
+
 typedef struct Font
 {
 	TexAtlas *atlas;
 	Texture *tex;
+
+	FontMetrics metrics;
+	CharMetrics *charMetrics;
+
 	v2i codepointRange;
-	v2i charSize;
+	v2i maxSize;
+
 } Font;
 
 // TODO(doyle): Switch to hash based lookup

@@ -343,25 +343,41 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	                V3(0, 0, 0), worldTex);
 
 	Font *font = &assetManager->font;
-	char *string = "hello world";
-	i32 strLen = 11;
+	char *string = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	i32 strLen = 52;
 	quadIndex = 0;
 	RenderQuad *stringQuads = CAST(RenderQuad *)calloc(strLen, sizeof(RenderQuad));
 
+	f32 baseline = 100.0f;
 	f32 xPosOnScreen = 20.0f;
+	f32 yPosOnScreen = baseline;
 	for (i32 i = 0; i < strLen; i++)
 	{
 		// NOTE(doyle): Atlas packs fonts tightly, so offset the codepoint to
 		// its actual atlas index, i.e. we skip the first 31 glyphs
-		i32 atlasIndex = string[i] - font->codepointRange.x;
+		i32 codepoint = string[i];
+		i32 relativeIndex = codepoint - font->codepointRange.x;
+		CharMetrics charMetric = font->charMetrics[relativeIndex];
 
-		v4 charTexRect = font->atlas->texRect[atlasIndex];
+		i32 charBaseline = (font->maxSize.h - charMetric.trueSize.h);
+		if (codepoint == 'a')
+		{
+			yPosOnScreen = baseline - charBaseline;
+		}
+		else
+		{
+			yPosOnScreen = baseline;
+		}
+
+		const v4 charRectOnScreen = getRect(
+		    V2(xPosOnScreen, yPosOnScreen),
+		    V2(CAST(f32) font->maxSize.w, CAST(f32) font->maxSize.h));
+
+		xPosOnScreen += charMetric.advance;
+		
+		/* Get texture out */
+		v4 charTexRect = font->atlas->texRect[relativeIndex];
 		renderer_flipTexCoord(&charTexRect, FALSE, TRUE);
-
-		const v4 charRectOnScreen =
-		    getRect(V2(xPosOnScreen, 100.0f),
-		            V2(CAST(f32) font->charSize.w, CAST(f32) font->charSize.w));
-		xPosOnScreen += font->charSize.w;
 
 		RenderQuad charQuad = renderer_createQuad(
 		    &state->renderer, charRectOnScreen, charTexRect, font->tex);
