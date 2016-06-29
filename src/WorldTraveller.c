@@ -305,6 +305,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	RenderQuad worldQuads[ARRAY_COUNT(world->tiles)] = {0};
 	i32 quadIndex = 0;
 
+	/* Render background tiles */
 	const v2 tileSize = V2(CAST(f32) state->tileSize, CAST(f32) state->tileSize);
 	const v2 vertexNdcFactor = V2(1.0f / state->width, 1.0f / state->height);
 	for (i32 i = 0; i < ARRAY_COUNT(world->tiles); i++)
@@ -336,14 +337,16 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	renderer_object(&state->renderer, V2(0.0f, 0.0f), screenSize, 0.0f,
 	                V3(0, 0, 0), worldTex);
 
+	/* Render font sheet */
 	Texture *font = asset_getTexture(texlist_font);
 	v4 fontTexRect = V4(0.0f, 1.0f, 1.0f, 0.0);
 	RenderQuad fontQuad = renderer_createDefaultQuad(fontTexRect);
 	updateBufferObject(&state->renderer, &fontQuad, 1);
-	renderer_object(&state->renderer, V2(128.0f, 128.0f),
+	renderer_object(&state->renderer, V2(300.0f, -300.0f),
 	                V2(CAST(f32)font->width, CAST(f32)font->height), 0.0f,
 	                V3(0, 0, 0), font);
 
+	/* Render entities */
 	// NOTE(doyle): Factor to normalise sprite sheet rect coords to -1, 1
 	Entity *const hero  = &state->entityList[state->heroIndex];
 	texNdcFactor = 1.0f / CAST(f32) hero->tex->width;

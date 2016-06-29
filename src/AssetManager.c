@@ -210,7 +210,7 @@ const i32 asset_loadTTFont(const char *filePath)
 	i32 glyphsRemaining = numGlyphs;
 	i32 glyphsOnCurrRow = glyphsPerRow;
 
-	for (i32 row = 0; row < MAX_TEXTURE_SIZE; row++)
+	for (i32 row = MAX_TEXTURE_SIZE-1; row >= 0; row--)
 	{
 		u32 *destRow = fontBitmap + (row * MAX_TEXTURE_SIZE);
 		for (i32 glyphIndex = 0; glyphIndex < glyphsOnCurrRow;
