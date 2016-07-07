@@ -121,6 +121,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\AssetManager.c" />
+    <ClCompile Include="src\Common.c" />
     <ClCompile Include="src\dengine.c" />
     <ClCompile Include="src\Platform.c" />
     <ClCompile Include="src\Renderer.c" />

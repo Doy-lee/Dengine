@@ -6,19 +6,6 @@
 //choose to load assets outside of WorldTraveller!
 #include <stdlib.h>
 
-INTERNAL void updateBufferObject(Renderer *const renderer,
-                                 RenderQuad *const quads, const i32 numQuads)
-{
-	// TODO(doyle): We assume that vbo and vao are assigned
-	const i32 numVertexesInQuad = 4;
-	renderer->numVertexesInVbo = numQuads * numVertexesInQuad;
-
-	glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
-	glBufferData(GL_ARRAY_BUFFER, numQuads * sizeof(RenderQuad), quads,
-	             GL_STREAM_DRAW);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-}
-
 void worldTraveller_gameInit(GameState *state, v2i windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
@@ -143,7 +130,6 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	shader_uniformSetMat4fv(renderer->shader, "projection", projection);
 	glCheckError();
 
-
 	/* Create buffers */
 	glGenVertexArrays(1, &renderer->vao);
 	glGenBuffers(1, &renderer->vbo);
@@ -165,6 +151,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 	glCheckError();
+
 }
 
 INTERNAL void parseInput(GameState *state, const f32 dt)
@@ -308,106 +295,43 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	AssetManager *assetManager = &state->assetManager;
 	Renderer *renderer         = &state->renderer;
 
+	/* Render background tiles */
+#if 0
 	World *const world = &state->world[state->currWorldIndex];
 	TexAtlas *const worldAtlas =
 	    asset_getTextureAtlas(assetManager, world->texType);
 	Texture *const worldTex = asset_getTexture(assetManager, world->texType);
+	v2 tileSize = (CAST(f32)state->tileSize.w, CAST(f32)state->tileSize.h);
+	renderer_backgroundTiles(&state->renderer, tileSize, world, atlas, tex);
+#endif
 
-	f32 texNdcFactor = 1.0f / MAX_TEXTURE_SIZE;
-
-	RenderQuad worldQuads[ARRAY_COUNT(world->tiles)] = {0};
-	i32 quadIndex = 0;
-
-	/* Render background tiles */
-	const v2 tileSize = V2(CAST(f32) state->tileSize, CAST(f32) state->tileSize);
-	for (i32 i = 0; i < ARRAY_COUNT(world->tiles); i++)
-	{
-		Tile tile = world->tiles[i];
-		v2 tilePosInPixel = v2_scale(tile.pos, tileSize.x);
-
-		if ((tilePosInPixel.x < renderer->size.w && tilePosInPixel.x >= 0) &&
-		    (tilePosInPixel.y < renderer->size.h && tilePosInPixel.y >= 0))
-		{
-			const v4 texRect  = worldAtlas->texRect[terraincoords_ground];
-			const v4 tileRect = getRect(tilePosInPixel, tileSize);
-
-			RenderQuad tileQuad = renderer_createQuad(
-			    &state->renderer, tileRect, texRect, worldTex);
-			worldQuads[quadIndex++] = tileQuad;
-		}
-	}
-
-	updateBufferObject(renderer, worldQuads, quadIndex);
-	renderer_object(renderer, V2(0.0f, 0.0f), renderer->size, 0.0f,
-	                V3(0, 0, 0), worldTex);
-
+#ifdef WT_DEBUG
+	Entity *hero = &state->entityList[state->heroIndex];
 	Font *font = &assetManager->font;
-	char *string = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-	i32 strLen = 52;
-	quadIndex = 0;
-	RenderQuad *stringQuads = CAST(RenderQuad *)calloc(strLen, sizeof(RenderQuad));
+	char textBuffer[256];
+	snprintf(textBuffer, ARRAY_COUNT(textBuffer), "Hero Pos: %.2f,%.2f",
+	         hero->pos.x, hero->pos.y);
+	renderer_debugString(&state->renderer, font, textBuffer);
 
-	f32 baseline = 100.0f;
-	f32 xPosOnScreen = 20.0f;
-	f32 yPosOnScreen = baseline;
-	for (i32 i = 0; i < strLen; i++)
-	{
-		// NOTE(doyle): Atlas packs fonts tightly, so offset the codepoint to
-		// its actual atlas index, i.e. we skip the first 31 glyphs
-		i32 codepoint = string[i];
-		i32 relativeIndex = codepoint - font->codepointRange.x;
-		CharMetrics charMetric = font->charMetrics[relativeIndex];
-		yPosOnScreen = baseline - charMetric.offset.y;
+	snprintf(textBuffer, ARRAY_COUNT(textBuffer), "Hero dPos: %.2f,%.2f",
+	         hero->dPos.x, hero->dPos.y);
+	renderer_debugString(&state->renderer, font, textBuffer);
 
-		const v4 charRectOnScreen = getRect(
-		    V2(xPosOnScreen, yPosOnScreen),
-		    V2(CAST(f32) font->maxSize.w, CAST(f32) font->maxSize.h));
-
-		xPosOnScreen += charMetric.advance;
-		
-		/* Get texture out */
-		v4 charTexRect = font->atlas->texRect[relativeIndex];
-		renderer_flipTexCoord(&charTexRect, FALSE, TRUE);
-
-		RenderQuad charQuad = renderer_createQuad(
-		    &state->renderer, charRectOnScreen, charTexRect, font->tex);
-		stringQuads[quadIndex++] = charQuad;
-	}
-
-	updateBufferObject(&state->renderer, stringQuads, quadIndex);
-	renderer_object(&state->renderer, V2(0.0f, 100.0f), renderer->size, 0.0f,
-	                V3(0, 0, 0), font->tex);
-	free(stringQuads);
+	snprintf(textBuffer, ARRAY_COUNT(textBuffer), "FreeEntityIndex: %d",
+	         state->freeEntityIndex);
+	renderer_debugString(&state->renderer, font, textBuffer);
+#endif
 
 	/* Render entities */
 	ASSERT(state->freeEntityIndex < ARRAY_COUNT(state->entityList));
 	for (i32 i = 0; i < state->freeEntityIndex; i++)
 	{
-		Entity *const entity   = &state->entityList[i];
-		SpriteAnim *anim = &entity->anim[entity->currAnimIndex];
-
-		v4 texRect = anim->rect[anim->currRectIndex];
-		anim->currDuration -= dt;
-		if (anim->currDuration <= 0.0f)
-		{
-			anim->currRectIndex++;
-			anim->currRectIndex = anim->currRectIndex % anim->numRects;
-			texRect             = anim->rect[anim->currRectIndex];
-			anim->currDuration  = anim->duration;
-		}
-
-		if (entity->direction == direction_east)
-		{
-			// NOTE(doyle): Flip the x coordinates to flip the tex
-			renderer_flipTexCoord(&texRect, TRUE, FALSE);
-		}
-
-		RenderQuad entityQuad =
-		    renderer_createDefaultQuad(&state->renderer, texRect, entity->tex);
-		updateBufferObject(&state->renderer, &entityQuad, 1);
-		renderer_entity(&state->renderer, entity, 0.0f, V3(0, 0, 0));
+		Entity *const entity = &state->entityList[i];
+		renderer_entity(&state->renderer, entity, dt, 0.0f, V3(0, 0, 0));
 	}
 
 	// TODO(doyle): Clean up lines
 	// Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
+
+	debugRenderer.init = FALSE;
 }

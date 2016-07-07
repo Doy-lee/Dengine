@@ -26,5 +26,6 @@ typedef double f64;
 #define CAST(type) (type)
 #define ASSERT(expr) if(!(expr)) { *(int *)0 = 0; }
 
+i32 common_strlen(const char *const string);
 
 #endif

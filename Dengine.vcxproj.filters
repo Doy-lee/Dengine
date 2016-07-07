@@ -39,6 +39,9 @@
     <ClCompile Include="src\AssetManager.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Common.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="data\shaders\default.vert.glsl" />

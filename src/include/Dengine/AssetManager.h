@@ -90,4 +90,12 @@ const i32 asset_loadShaderFiles(AssetManager *assetManager,
                                 const enum ShaderList type);
 
 const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath);
+
+inline i32 asset_getVFontSpacing(FontMetrics metrics)
+{
+	i32 result =
+	    metrics.ascent - metrics.descent + metrics.lineGap;
+	return result;
+}
+
 #endif
