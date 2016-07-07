@@ -9,6 +9,12 @@
 #include "Dengine/Platform.h"
 #include "Dengine/AssetManager.h"
 
+//#define WT_RENDER_FONT_FILE
+#ifdef WT_RENDER_FONT_FILE
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <STB/stb_image_write.h>
+#endif
+
 Texture *asset_getTexture(AssetManager *assetManager, const enum TexList type)
 {
 	if (type < texlist_count)
@@ -251,6 +257,9 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	i32 glyphsRemaining = numGlyphs;
 	i32 glyphsOnCurrRow = glyphsPerRow;
 
+	// TODO(doyle): We copy over the bitmap direct to the font sheet, should we
+	// align the baselines up so we don't need to do baseline adjusting at
+	// render?
 	i32 atlasIndex = 0;
 	for (i32 row = 0; row < MAX_TEXTURE_SIZE; row++)
 	{
@@ -330,6 +339,12 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	Texture tex = genTexture(MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4,
 	                         CAST(u8 *)fontBitmap);
 	assetManager->textures[texlist_font] = tex;
+
+#ifdef WT_RENDER_FONT_FILE
+	/* save out a 4 channel image */
+	stbi_write_png("out.png", MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4, fontBitmap,
+	               MAX_TEXTURE_SIZE * 4);
+#endif
 
 	font->tex = &assetManager->textures[texlist_font];
 	font->atlas = &assetManager->texAtlas[texlist_font];

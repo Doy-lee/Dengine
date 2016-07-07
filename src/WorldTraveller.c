@@ -318,7 +318,6 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	RenderQuad worldQuads[ARRAY_COUNT(world->tiles)] = {0};
 	i32 quadIndex = 0;
 
-
 	/* Render background tiles */
 	const v2 tileSize = V2(CAST(f32) state->tileSize, CAST(f32) state->tileSize);
 	for (i32 i = 0; i < ARRAY_COUNT(world->tiles); i++)
@@ -358,16 +357,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 		i32 codepoint = string[i];
 		i32 relativeIndex = codepoint - font->codepointRange.x;
 		CharMetrics charMetric = font->charMetrics[relativeIndex];
-
-		i32 charBaseline = (font->maxSize.h - charMetric.trueSize.h);
-		if (codepoint == 'a')
-		{
-			yPosOnScreen = baseline - charBaseline;
-		}
-		else
-		{
-			yPosOnScreen = baseline;
-		}
+		yPosOnScreen = baseline - charMetric.offset.y;
 
 		const v4 charRectOnScreen = getRect(
 		    V2(xPosOnScreen, yPosOnScreen),

@@ -32,6 +32,7 @@ typedef struct TexAtlas
 	v4 texRect[128];
 } TexAtlas;
 
+// TODO(doyle): We only use the offset and advance metric at the moment, remove?
 typedef struct FontMetrics
 {
 	i32 ascent;
@@ -43,6 +44,7 @@ typedef struct CharMetrics
 {
 	i32 advance;
 	i32 leftSideBearing;
+	// TODO(doyle): Utilise kerning
 	i32 *kerning;
 	v2i offset;
 	v2i trueSize;

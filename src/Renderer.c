@@ -1,6 +1,8 @@
 #include "Dengine/OpenGL.h"
 #include "Dengine/Renderer.h"
 
+#define RENDER_BOUNDING_BOX FALSE
+
 void renderer_entity(Renderer *renderer, Entity *entity, f32 rotate, v3 color)
 {
 	renderer_object(renderer, entity->pos, entity->size, rotate, color,
@@ -28,7 +30,7 @@ void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v3 color,
 	// TODO(doyle): Unimplemented
 	// this->shader->uniformSetVec3f("spriteColor", color);
 
-#if 1
+#if RENDER_BOUNDING_BOX
 	glBindVertexArray(renderer->vao);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
 	glBindVertexArray(0);
