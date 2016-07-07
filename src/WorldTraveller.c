@@ -39,7 +39,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	asset_loadShaderFiles(assetManager, "data/shaders/sprite.vert.glsl",
 	                      "data/shaders/sprite.frag.glsl", shaderlist_sprite);
 
-	asset_loadTTFont(assetManager, "C:/Windows/Fonts/Arial.ttf");
+	asset_loadTTFont(assetManager, "C:/Windows/Fonts/Arialbd.ttf");
 	glCheckError();
 
 	state->state          = state_active;

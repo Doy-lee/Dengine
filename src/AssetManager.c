@@ -9,7 +9,7 @@
 #include "Dengine/Platform.h"
 #include "Dengine/AssetManager.h"
 
-//#define WT_RENDER_FONT_FILE
+#define WT_RENDER_FONT_FILE
 #ifdef WT_RENDER_FONT_FILE
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <STB/stb_image_write.h>
@@ -136,7 +136,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	    CAST(GlyphBitmap *) calloc(numGlyphs, sizeof(GlyphBitmap));
 	v2i largestGlyphDimension = V2i(0, 0);
 
-	const f32 targetFontHeight = 64.0f;
+	const f32 targetFontHeight = 32.0f;
 	f32 scaleY = stbtt_ScaleForPixelHeight(&fontInfo, targetFontHeight);
 
 	i32 ascent, descent, lineGap;
@@ -218,22 +218,14 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	/*
 	 * NOTE(doyle): Use rasterised TTF bitmap-characters combine them all into
 	 * one bitmap as an atlas. We determine how many glyphs we can fit per row
-	 * by determining the largest glyph size we have. Rounding it to the nearest
-	 * multiple of 2 and dividing by our target texture size.
+	 * by determining the largest glyph size we have.
 	 *
 	 * For the amount of glyphs we fit per row, we iterate through them and
 	 * write each row of the glyph adjacent to the next until we finish writing
 	 * all pixels for the glyphs, then move onto the next set of glyphs.
 	 */
-	if ((largestGlyphDimension.w & 1) == 1)
-		largestGlyphDimension.w += 1;
-
-	if ((largestGlyphDimension.h & 1) == 1)
-		largestGlyphDimension.h += 1;
-
-	font->maxSize= largestGlyphDimension;
-
-	i32 glyphsPerRow = (MAX_TEXTURE_SIZE / font->maxSize.w) + 1;
+	font->maxSize = largestGlyphDimension;
+	i32 glyphsPerRow = (MAX_TEXTURE_SIZE / font->maxSize.w);
 
 #ifdef WT_DEBUG
 	i32 glyphsPerCol = MAX_TEXTURE_SIZE / font->maxSize.h;
