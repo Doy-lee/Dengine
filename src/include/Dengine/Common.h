@@ -28,4 +28,8 @@ typedef double f64;
 
 i32 common_strlen(const char *const string);
 
+#ifdef WT_DEBUG
+#define INVALID_CODE_PATH TRUE
+#endif
+
 #endif

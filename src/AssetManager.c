@@ -20,6 +20,10 @@ Texture *asset_getTexture(AssetManager *assetManager, const enum TexList type)
 	if (type < texlist_count)
 		return &assetManager->textures[type];
 
+#ifdef WT_DEBUG
+	ASSERT(INVALID_CODE_PATH);
+#endif
+
 	return NULL;
 }
 
@@ -28,6 +32,9 @@ TexAtlas *asset_getTextureAtlas(AssetManager *assetManager, const enum TexList t
 	if (type < texlist_count)
 		return &assetManager->texAtlas[type];
 
+#ifdef WT_DEBUG
+	ASSERT(INVALID_CODE_PATH);
+#endif
 	return NULL;
 }
 
@@ -60,6 +67,9 @@ Shader *asset_getShader(AssetManager *assetManager, const enum ShaderList type)
 	if (type < shaderlist_count)
 		return &assetManager->shaders[type];
 
+#ifdef WT_DEBUG
+	ASSERT(INVALID_CODE_PATH);
+#endif
 	return NULL;
 }
 
@@ -234,7 +244,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 		printf(
 		    "asset_loadTTFont() warning: The target font height creates a "
 		    "glyph sheet that exceeds the available space!");
-		ASSERT(1);
+
+		ASSERT(INVALID_CODE_PATH);
 	}
 #endif
 

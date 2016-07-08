@@ -30,32 +30,58 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	glCheckError();
 
 	state->state          = state_active;
-	state->tileSize       = 64;
 	state->currWorldIndex = 0;
+	state->tileSize       = 64;
 
-	/* Init world tiles */
-	i32 highestSquaredValue = 1;
-	while (squared(highestSquaredValue) < ARRAY_COUNT(state->world[0].tiles))
-		highestSquaredValue++;
+	/* Init world */
+	const i32 targetWorldWidth  = 500 * METERS_TO_PIXEL;
+	const i32 targetWorldHeight = 15 * METERS_TO_PIXEL;
+	v2i worldDimensionInTiles   = V2i(targetWorldWidth / state->tileSize,
+	                                targetWorldHeight / state->tileSize);
 
-	const i32 worldSize = highestSquaredValue - 1;
-
-	// NOTE(doyle): Origin is center of the world
 	for (i32 i = 0; i < ARRAY_COUNT(state->world); i++)
 	{
-		for (i32 y = 0; y < worldSize; y++)
-		{
-			for (i32 x = 0; x < worldSize; x++)
-			{
-				i32 packedDimension = y * worldSize + x;
-				World *world = state->world;
+		World *const world = &state->world[i];
+		world->maxEntities = 8192;
+		world->entities =
+		    CAST(Entity *) calloc(world->maxEntities, sizeof(Entity));
+		world->texType = texlist_terrain;
 
-				world[i].texType = texlist_terrain;
-				world[i].tiles[packedDimension].pos =
-				    V2(CAST(f32) x, CAST(f32) y);
+		TexAtlas *const atlas =
+		    asset_getTextureAtlas(assetManager, world->texType);
+
+		for (i32 y = 0; y < worldDimensionInTiles.y; y++)
+		{
+			for (i32 x = 0; x < worldDimensionInTiles.x; x++)
+			{
+#ifdef WT_DEBUG
+				ASSERT(worldDimensionInTiles.x * worldDimensionInTiles.y <
+				       world->maxEntities);
+#endif
+
+				world->texType = texlist_terrain;
+				Entity *entity = &world->entities[world->freeEntityIndex++];
+				entity->pos =
+				    V2(CAST(f32) x * state->tileSize,
+				       CAST(f32) y * state->tileSize);
+				entity->dPos = V2(0.0f, 0.0f);
+				entity->size =
+				    V2(CAST(f32) state->tileSize, CAST(f32) state->tileSize);
+				entity->tex = asset_getTexture(assetManager, world->texType);
+				entity->collides = FALSE;
+				entity->freeAnimIndex = 0;
+				entity->currAnimIndex = 0;
+
+				SpriteAnim worldAnimIdle = {NULL, 1, 0, 1.0f, 1.0f};
+				worldAnimIdle.rect        = (v4 *)calloc(1, sizeof(v4));
+				worldAnimIdle.rect[0]     = atlas->texRect[terraincoords_ground];
+
+				entity->anim[entity->freeAnimIndex++] = worldAnimIdle;
 			}
 		}
 	}
+
+	World *const world = &state->world[state->currWorldIndex];
 
 	/* Init hero */
 	Entity heroEnt = {V2(0.0f, 0.0f),
@@ -83,9 +109,9 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	heroEnt.anim[heroEnt.freeAnimIndex++] = heroAnimWalk;
 	heroEnt.currAnimIndex = 0;
 
-	state->heroIndex = state->freeEntityIndex;
-	state->entityList[state->freeEntityIndex++] = heroEnt;
-	Entity *hero = &state->entityList[state->heroIndex];
+	world->heroIndex = world->freeEntityIndex;
+	world->entities[world->freeEntityIndex++] = heroEnt;
+	Entity *hero = &world->entities[world->heroIndex];
 
 	Texture *heroSheet = hero->tex;
 	v2 sheetSize = V2(CAST(f32)heroSheet->width, CAST(f32)heroSheet->height);
@@ -114,7 +140,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	                 0,
 	                 0};
 	npcEnt.anim[npcEnt.freeAnimIndex++] = npcAnim;
-	state->entityList[state->freeEntityIndex++] = npcEnt;
+	world->entities[world->freeEntityIndex++] = npcEnt;
 
 	/* Init renderer */
 	Renderer *renderer = &state->renderer;
@@ -168,7 +194,8 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	   f (t) = (a/2)*t^2 + v*t + p, where p is a constant, old position
 	 */
 
-	Entity *hero = &state->entityList[state->heroIndex];
+	World *const world = &state->world[state->currWorldIndex];
+	Entity *hero = &world->entities[world->heroIndex];
 	v2 ddPos = V2(0, 0);
 
 	if (state->keys[GLFW_KEY_SPACE])
@@ -203,7 +230,8 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		ddPos = v2_scale(ddPos, 0.70710678118f);
 	}
 
-	f32 epsilon    = 20.0f;
+	// NOTE(doyle): Clipping threshold for snapping velocity to 0
+	f32 epsilon    = 15.0f;
 	v2 epsilonDpos = v2_sub(V2(epsilon, epsilon),
 	                        V2(absolute(hero->dPos.x), absolute(hero->dPos.y)));
 	if (epsilonDpos.x >= 0.0f && epsilonDpos.y >= 0.0f)
@@ -248,13 +276,15 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	v2 dPos     = v2_scale(hero->dPos, dt);
 	v2 newHeroP = v2_add(v2_add(ddPosNew, dPos), hero->pos);
 
+	// TODO(doyle): Only check collision for entities within small bounding box
+	// of the hero
 	b32 heroCollided = FALSE;
 	if (hero->collides == TRUE)
 	{
-		for (i32 i = 0; i < ARRAY_COUNT(state->entityList); i++)
+		for (i32 i = 0; i < world->maxEntities; i++)
 		{
-			if (i == state->heroIndex) continue;
-			Entity entity = state->entityList[i];
+			if (i == world->heroIndex) continue;
+			Entity entity = world->entities[i];
 			if (entity.collides)
 			{
 				v4 heroRect =
@@ -295,20 +325,13 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	AssetManager *assetManager = &state->assetManager;
 	Renderer *renderer         = &state->renderer;
 
-	/* Render background tiles */
-#if 0
 	World *const world = &state->world[state->currWorldIndex];
-	TexAtlas *const worldAtlas =
-	    asset_getTextureAtlas(assetManager, world->texType);
-	Texture *const worldTex = asset_getTexture(assetManager, world->texType);
-	v2 tileSize = (CAST(f32)state->tileSize.w, CAST(f32)state->tileSize.h);
-	renderer_backgroundTiles(&state->renderer, tileSize, world, atlas, tex);
-#endif
+
 	/* Render entities */
-	ASSERT(state->freeEntityIndex < ARRAY_COUNT(state->entityList));
-	for (i32 i = 0; i < state->freeEntityIndex; i++)
+	ASSERT(world->freeEntityIndex < world->maxEntities);
+	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
-		Entity *const entity = &state->entityList[i];
+		Entity *const entity = &world->entities[i];
 		renderer_entity(&state->renderer, entity, dt, 0.0f, V3(0, 0, 0));
 	}
 
@@ -323,7 +346,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	Font *font = &assetManager->font;
 	if (debugUpdateCounter <= 0)
 	{
-		Entity *hero = &state->entityList[state->heroIndex];
+		Entity *const hero = &world->entities[world->heroIndex];
 		snprintf(debugStrings[0], ARRAY_COUNT(debugStrings[0]),
 		         "Hero Pos: %06.2f,%06.2f", hero->pos.x, hero->pos.y);
 		numDebugStrings++;
@@ -333,7 +356,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 		numDebugStrings++;
 
 		snprintf(debugStrings[2], ARRAY_COUNT(debugStrings[2]),
-		         "FreeEntityIndex: %d", state->freeEntityIndex);
+		         "FreeEntityIndex: %d", world->freeEntityIndex);
 		numDebugStrings++;
 
 		const f32 debugUpdateRate = 0.15f;

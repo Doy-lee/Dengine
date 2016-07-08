@@ -6,7 +6,7 @@
 #include "Dengine/Renderer.h"
 
 #define NUM_KEYS 1024
-#define METERS_TO_PIXEL 100
+#define METERS_TO_PIXEL 64
 
 enum State
 {
@@ -15,15 +15,16 @@ enum State
 	state_win,
 };
 
-typedef struct Tile
-{
-	v2 pos;
-} Tile;
-
 typedef struct World
 {
-	Tile tiles[2048];
+	Entity *entities;
+	i32 maxEntities;
+
 	enum TexList texType;
+
+	i32 heroIndex;
+	i32 freeEntityIndex;
+
 } World;
 
 typedef struct GameState
@@ -32,15 +33,10 @@ typedef struct GameState
 	b32 keys[NUM_KEYS];
 
 	Renderer renderer;
-	i32 heroIndex;
 
 	World world[4];
 	i32 currWorldIndex;
 	i32 tileSize;
-
-	// TODO(doyle): Make size of list dynamic
-	Entity entityList[256];
-	i32 freeEntityIndex;
 
 	AssetManager assetManager;
 } GameState;

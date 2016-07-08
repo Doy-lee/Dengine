@@ -19,37 +19,6 @@ INTERNAL void updateBufferObject(Renderer *const renderer,
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-#if 0
-void renderer_backgroundTiles(Renderer *const renderer, const v2 tileSize,
-                              World *const world, TexAtlas *const atlas,
-                              Texture *const tex)
-{
-	RenderQuad worldQuads[ARRAY_COUNT(world->tiles)] = {0};
-	i32 quadIndex = 0;
-
-	for (i32 i = 0; i < ARRAY_COUNT(world->tiles); i++)
-	{
-		Tile tile = world->tiles[i];
-		v2 tilePosInPixel = v2_scale(tile.pos, tileSize.x);
-
-		if ((tilePosInPixel.x < renderer->size.w && tilePosInPixel.x >= 0) &&
-		    (tilePosInPixel.y < renderer->size.h && tilePosInPixel.y >= 0))
-		{
-			const v4 texRect  = atlas->texRect[terraincoords_ground];
-			const v4 tileRect = getRect(tilePosInPixel, tileSize);
-
-			RenderQuad tileQuad =
-			    renderer_createQuad(renderer, tileRect, texRect, tex);
-			worldQuads[quadIndex++] = tileQuad;
-		}
-	}
-
-	updateBufferObject(renderer, worldQuads, quadIndex);
-	renderer_object(renderer, V2(0.0f, 0.0f), renderer->size, 0.0f,
-	                V3(0, 0, 0), tex);
-}
-#endif
-
 void renderer_string(Renderer *const renderer, Font *const font,
                      const char *const string, v2 pos, f32 rotate,
                      v3 color)
@@ -114,29 +83,33 @@ void renderer_debugString(Renderer *const renderer, Font *const font,
 void renderer_entity(Renderer *renderer, Entity *entity, f32 dt, f32 rotate,
                      v3 color)
 {
-	SpriteAnim *anim = &entity->anim[entity->currAnimIndex];
-	v4 texRect       = anim->rect[anim->currRectIndex];
-
-	anim->currDuration -= dt;
-	if (anim->currDuration <= 0.0f)
+	if ((entity->pos.x < renderer->size.w && entity->pos.x >= 0) &&
+	    (entity->pos.y < renderer->size.h && entity->pos.y >= 0))
 	{
-		anim->currRectIndex++;
-		anim->currRectIndex = anim->currRectIndex % anim->numRects;
-		texRect             = anim->rect[anim->currRectIndex];
-		anim->currDuration  = anim->duration;
+		SpriteAnim *anim = &entity->anim[entity->currAnimIndex];
+		v4 texRect       = anim->rect[anim->currRectIndex];
+
+		anim->currDuration -= dt;
+		if (anim->currDuration <= 0.0f)
+		{
+			anim->currRectIndex++;
+			anim->currRectIndex = anim->currRectIndex % anim->numRects;
+			texRect             = anim->rect[anim->currRectIndex];
+			anim->currDuration  = anim->duration;
+		}
+
+		if (entity->direction == direction_east)
+		{
+			// NOTE(doyle): Flip the x coordinates to flip the tex
+			renderer_flipTexCoord(&texRect, TRUE, FALSE);
+		}
+		RenderQuad entityQuad =
+		    renderer_createDefaultQuad(renderer, texRect, entity->tex);
+		updateBufferObject(renderer, &entityQuad, 1);
+		renderer_object(renderer, entity->pos, entity->size, rotate, color,
+		                entity->tex);
 	}
 
-	if (entity->direction == direction_east)
-	{
-		// NOTE(doyle): Flip the x coordinates to flip the tex
-		renderer_flipTexCoord(&texRect, TRUE, FALSE);
-	}
-
-	RenderQuad entityQuad =
-	    renderer_createDefaultQuad(renderer, texRect, entity->tex);
-	updateBufferObject(renderer, &entityQuad, 1);
-	renderer_object(renderer, entity->pos, entity->size, rotate, color,
-	                entity->tex);
 }
 
 void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v3 color,
