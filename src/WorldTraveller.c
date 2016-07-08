@@ -304,24 +304,6 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	v2 tileSize = (CAST(f32)state->tileSize.w, CAST(f32)state->tileSize.h);
 	renderer_backgroundTiles(&state->renderer, tileSize, world, atlas, tex);
 #endif
-
-#ifdef WT_DEBUG
-	Entity *hero = &state->entityList[state->heroIndex];
-	Font *font = &assetManager->font;
-	char textBuffer[256];
-	snprintf(textBuffer, ARRAY_COUNT(textBuffer), "Hero Pos: %.2f,%.2f",
-	         hero->pos.x, hero->pos.y);
-	renderer_debugString(&state->renderer, font, textBuffer);
-
-	snprintf(textBuffer, ARRAY_COUNT(textBuffer), "Hero dPos: %.2f,%.2f",
-	         hero->dPos.x, hero->dPos.y);
-	renderer_debugString(&state->renderer, font, textBuffer);
-
-	snprintf(textBuffer, ARRAY_COUNT(textBuffer), "FreeEntityIndex: %d",
-	         state->freeEntityIndex);
-	renderer_debugString(&state->renderer, font, textBuffer);
-#endif
-
 	/* Render entities */
 	ASSERT(state->freeEntityIndex < ARRAY_COUNT(state->entityList));
 	for (i32 i = 0; i < state->freeEntityIndex; i++)
@@ -333,5 +315,35 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	// TODO(doyle): Clean up lines
 	// Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
 
+#ifdef WT_DEBUG
+	LOCAL_PERSIST f32 debugUpdateCounter     = 0.0f;
+	LOCAL_PERSIST char debugStrings[256][64] = {0};
+	LOCAL_PERSIST i32 numDebugStrings        = 0;
+
+	Font *font = &assetManager->font;
+	if (debugUpdateCounter <= 0)
+	{
+		Entity *hero = &state->entityList[state->heroIndex];
+		snprintf(debugStrings[0], ARRAY_COUNT(debugStrings[0]),
+		         "Hero Pos: %06.2f,%06.2f", hero->pos.x, hero->pos.y);
+		numDebugStrings++;
+
+		snprintf(debugStrings[1], ARRAY_COUNT(debugStrings[1]),
+		         "Hero dPos: %06.2f,%06.2f", hero->dPos.x, hero->dPos.y);
+		numDebugStrings++;
+
+		snprintf(debugStrings[2], ARRAY_COUNT(debugStrings[2]),
+		         "FreeEntityIndex: %d", state->freeEntityIndex);
+		numDebugStrings++;
+
+		const f32 debugUpdateRate = 0.15f;
+		debugUpdateCounter        = debugUpdateRate;
+	}
+
+	for (i32 i = 0; i < numDebugStrings; i++)
+		renderer_debugString(&state->renderer, font, debugStrings[i]);
+
+	debugUpdateCounter -= dt;
 	debugRenderer.init = FALSE;
+#endif
 }
