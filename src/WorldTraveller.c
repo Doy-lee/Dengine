@@ -415,6 +415,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	Font *font = &assetManager->font;
 	if (debugUpdateCounter <= 0)
 	{
+		numDebugStrings    = 0;
 		Entity *const hero = &world->entities[world->heroIndex];
 		snprintf(debugStrings[0], ARRAY_COUNT(debugStrings[0]),
 		         "Hero Pos: %06.2f,%06.2f", hero->pos.x, hero->pos.y);
