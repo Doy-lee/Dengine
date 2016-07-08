@@ -125,6 +125,11 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 		    CAST(Entity *) calloc(world->maxEntities, sizeof(Entity));
 		world->texType = texlist_terrain;
 
+		v2 worldDimensionInTilesf = V2(CAST(f32) worldDimensionInTiles.x,
+		                               CAST(f32) worldDimensionInTiles.y);
+		world->bounds = getRect(V2(0, 0), v2_scale(worldDimensionInTilesf,
+		                                           CAST(f32) state->tileSize));
+
 		TexAtlas *const atlas =
 		    asset_getTextureAtlas(assetManager, world->texType);
 
@@ -295,7 +300,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	f32 heroSpeed = CAST(f32)(22.0f * METERS_TO_PIXEL); // m/s^2
 	if (state->keys[GLFW_KEY_LEFT_SHIFT])
 	{
-		heroSpeed = CAST(f32)(22.0f * 5.0f * METERS_TO_PIXEL);
+		heroSpeed = CAST(f32)(22.0f * 10.0f * METERS_TO_PIXEL);
 	}
 	ddPos = v2_scale(ddPos, heroSpeed);
 
@@ -373,6 +378,25 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	/* Render entities */
 	ASSERT(world->freeEntityIndex < world->maxEntities);
 	v4 cameraBounds = getRect(world->cameraPos, renderer->size);
+
+	// NOTE(doyle): Lock camera if it passes the bounds of the world
+	if (cameraBounds.x <= world->bounds.x)
+	{
+		cameraBounds.x = world->bounds.x;
+		cameraBounds.z = cameraBounds.x + renderer->size.w;
+	}
+
+	// TODO(doyle): Do the Y component when we need it
+	if (cameraBounds.y >= world->bounds.y) cameraBounds.y = world->bounds.y;
+
+	if (cameraBounds.z >= world->bounds.z)
+	{
+		cameraBounds.z = world->bounds.z;
+		cameraBounds.x = cameraBounds.z - renderer->size.w;
+	}
+
+	if (cameraBounds.w <= world->bounds.w) cameraBounds.w = world->bounds.w;
+
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
 		Entity *const entity = &world->entities[i];
