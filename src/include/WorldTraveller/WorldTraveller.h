@@ -22,6 +22,8 @@ typedef struct World
 
 	enum TexList texType;
 
+	v2 cameraPos;
+
 	i32 heroIndex;
 	i32 freeEntityIndex;
 

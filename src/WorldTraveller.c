@@ -6,8 +6,9 @@
 //choose to load assets outside of WorldTraveller!
 #include <stdlib.h>
 
-INTERNAL Entity *addEntity(World *world, v2 pos, v2 size, enum EntityType type,
-                           enum Direction direction, Texture *tex, b32 collides)
+INTERNAL Entity *addEntity(World *world, v2 pos, v2 size,
+                           enum EntityType type, enum Direction direction,
+                           Texture *tex, b32 collides)
 {
 
 #ifdef WT_DEBUG
@@ -74,6 +75,42 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	state->currWorldIndex = 0;
 	state->tileSize       = 64;
 
+	/* Init renderer */
+	Renderer *renderer = &state->renderer;
+	renderer->size     = V2(CAST(f32) windowSize.x, CAST(f32) windowSize.y);
+	// NOTE(doyle): Value to map a screen coordinate to NDC coordinate
+	renderer->vertexNdcFactor =
+	    V2(1.0f / renderer->size.w, 1.0f / renderer->size.h);
+	renderer->shader = asset_getShader(assetManager, shaderlist_sprite);
+	shader_use(renderer->shader);
+
+	const mat4 projection =
+	    mat4_ortho(0.0f, renderer->size.w, 0.0f, renderer->size.h, 0.0f, 1.0f);
+	shader_uniformSetMat4fv(renderer->shader, "projection", projection);
+	glCheckError();
+
+	/* Create buffers */
+	glGenVertexArrays(1, &renderer->vao);
+	glGenBuffers(1, &renderer->vbo);
+	glCheckError();
+
+	/* Bind buffers */
+	glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
+	glBindVertexArray(renderer->vao);
+
+	/* Configure VAO */
+	const GLuint numVertexElements = 4;
+	const GLuint vertexSize        = sizeof(v4);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, numVertexElements, GL_FLOAT, GL_FALSE, vertexSize,
+	                      (GLvoid *)0);
+	glCheckError();
+
+	/* Unbind */
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+	glCheckError();
+
 	/* Init world */
 	const i32 targetWorldWidth  = 500 * METERS_TO_PIXEL;
 	const i32 targetWorldHeight = 15 * METERS_TO_PIXEL;
@@ -120,12 +157,14 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	}
 
 	World *const world = &state->world[state->currWorldIndex];
+	world->cameraPos = V2(0.0f, 0.0f);
 
 	/* Init hero entity */
 	world->heroIndex   = world->freeEntityIndex;
 
-	v2 pos               = V2(0.0f, 0.0f);
 	v2 size              = V2(58.0f, 98.0f);
+	v2 pos               = V2(((renderer->size.w * 0.5f) - (size.w * 0.5f)),
+	                          CAST(f32) state->tileSize);
 	enum EntityType type = entitytype_hero;
 	enum Direction dir   = direction_east;
 	Texture *tex         = asset_getTexture(assetManager, texlist_hero);
@@ -133,15 +172,15 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	Entity *hero = addEntity(world, pos, size, type, dir, tex, collides);
 
 	/* Add idle animation */
-	f32 duration  = 1.0f;
-	i32 numRects  = 1;
+	f32 duration      = 1.0f;
+	i32 numRects      = 1;
 	v4 *heroIdleRects = CAST(v4 *) calloc(numRects, sizeof(v4));
 	heroIdleRects[0]  = V4(746.0f, 1018.0f, 804.0f, 920.0f);
 	addAnim(hero, heroIdleRects, numRects, duration);
 
 	/* Add walking animation */
-	duration  = 0.10f;
-	numRects  = 3;
+	duration          = 0.10f;
+	numRects          = 3;
 	v4 *heroWalkRects = CAST(v4 *) calloc(numRects, sizeof(v4));
 	heroWalkRects[0]  = V4(641.0f, 1018.0f, 699.0f, 920.0f);
 	heroWalkRects[1]  = V4(746.0f, 1018.0f, 804.0f, 920.0f);
@@ -174,42 +213,6 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	npcWavingRects[0]  = V4(944.0f, 918.0f, 1010.0f, 816.0f);
 	npcWavingRects[1]  = V4(944.0f, 812.0f, 1010.0f, 710.0f);
 	addAnim(npc, npcWavingRects, numRects, duration);
-
-	/* Init renderer */
-	Renderer *renderer = &state->renderer;
-	renderer->size = V2(CAST(f32)windowSize.x, CAST(f32)windowSize.y);
-	// NOTE(doyle): Value to map a screen coordinate to NDC coordinate
-	renderer->vertexNdcFactor =
-	    V2(1.0f / renderer->size.w, 1.0f / renderer->size.h);
-	renderer->shader = asset_getShader(assetManager, shaderlist_sprite);
-	shader_use(renderer->shader);
-
-	const mat4 projection =
-	    mat4_ortho(0.0f, renderer->size.w, 0.0f, renderer->size.h, 0.0f, 1.0f);
-	shader_uniformSetMat4fv(renderer->shader, "projection", projection);
-	glCheckError();
-
-	/* Create buffers */
-	glGenVertexArrays(1, &renderer->vao);
-	glGenBuffers(1, &renderer->vbo);
-	glCheckError();
-
-	/* Bind buffers */
-	glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
-	glBindVertexArray(renderer->vao);
-
-	/* Configure VAO */
-	const GLuint numVertexElements = 4;
-	const GLuint vertexSize        = sizeof(v4);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, numVertexElements, GL_FLOAT, GL_FALSE, vertexSize,
-	                      (GLvoid *)0);
-	glCheckError();
-
-	/* Unbind */
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-	glCheckError();
 
 }
 
@@ -346,6 +349,13 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		// f'(t) = curr velocity = a*t + v, where v is old velocity
 		hero->dPos = v2_add(hero->dPos, v2_scale(ddPos, dt));
 		hero->pos  = newHeroP;
+
+		v2 offsetFromHeroToOrigin =
+		    V2((hero->pos.x - (0.5f * state->renderer.size.w)), (0.0f));
+
+		// NOTE(doyle): Hero position is offset to the center so -recenter it
+		offsetFromHeroToOrigin.x += (hero->size.x * 0.5f);
+		world->cameraPos = offsetFromHeroToOrigin;
 	}
 }
 
@@ -362,10 +372,12 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 
 	/* Render entities */
 	ASSERT(world->freeEntityIndex < world->maxEntities);
+	v4 cameraBounds = getRect(world->cameraPos, renderer->size);
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
 		Entity *const entity = &world->entities[i];
-		renderer_entity(&state->renderer, entity, dt, 0.0f, V3(0, 0, 0));
+		renderer_entity(&state->renderer, cameraBounds, entity, dt, 0.0f,
+		                V3(0, 0, 0));
 	}
 
 	// TODO(doyle): Clean up lines

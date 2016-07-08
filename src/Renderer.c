@@ -80,12 +80,18 @@ void renderer_debugString(Renderer *const renderer, Font *const font,
 	debugRenderer.stringPos.y -= (0.9f * asset_getVFontSpacing(font->metrics));
 }
 
-void renderer_entity(Renderer *renderer, Entity *entity, f32 dt, f32 rotate,
+void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity, f32 dt, f32 rotate,
                      v3 color)
 {
 	// TODO(doyle): Batch into render groups
-	if ((entity->pos.x < renderer->size.w && entity->pos.x >= 0) &&
-	    (entity->pos.y < renderer->size.h && entity->pos.y >= 0))
+
+	// NOTE(doyle): Pos + Size since the origin of an entity is it's bottom left
+	// corner. Add the two together so that the clipping point is the far right
+	// side of the entity
+	v2 rightAlignedP = v2_add(entity->pos, entity->size);
+	v2 leftAlignedP = entity->pos;
+	if ((leftAlignedP.x < cameraBounds.z && rightAlignedP.x >= cameraBounds.x) &&
+	    (leftAlignedP.y < cameraBounds.y && rightAlignedP.y >= cameraBounds.w))
 	{
 		EntityAnim *anim = &entity->anim[entity->currAnimIndex];
 		v4 texRect       = anim->rect[anim->currRectIndex];
@@ -107,8 +113,13 @@ void renderer_entity(Renderer *renderer, Entity *entity, f32 dt, f32 rotate,
 		RenderQuad entityQuad =
 		    renderer_createDefaultQuad(renderer, texRect, entity->tex);
 		updateBufferObject(renderer, &entityQuad, 1);
-		renderer_object(renderer, entity->pos, entity->size, rotate, color,
-		                entity->tex);
+
+		// NOTE(doyle): The camera origin is 0,0 in world positions
+		v2 offsetFromCamOrigin    = V2(cameraBounds.x, cameraBounds.w);
+		v2 entityRelativeToCamera = v2_sub(entity->pos, offsetFromCamOrigin);
+
+		renderer_object(renderer, entityRelativeToCamera, entity->size, rotate,
+		                color, entity->tex);
 	}
 
 }

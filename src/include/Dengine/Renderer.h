@@ -40,8 +40,8 @@ void renderer_string(Renderer *const renderer, Font *const font,
 void renderer_debugString(Renderer *const renderer, Font *const font,
                           const char *const string);
 
-void renderer_entity(Renderer *renderer, Entity *entity, f32 dt, f32 rotate,
-                     v3 color);
+void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
+                     f32 dt, f32 rotate, v3 color);
 
 void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v3 color,
                      Texture *tex);

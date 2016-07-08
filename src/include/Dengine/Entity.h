@@ -18,7 +18,6 @@ enum EntityType
 {
 	entitytype_null,
 	entitytype_hero,
-	entitytype_camera,
 	entitytype_npc,
 	entitytype_tile,
 	entitytype_count,
