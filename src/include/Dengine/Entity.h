@@ -14,7 +14,7 @@ enum Direction
 	direction_null,
 };
 
-typedef struct SpriteAnim
+typedef struct EntityAnim
 {
 	v4 *rect;
 	i32 numRects;
@@ -22,7 +22,7 @@ typedef struct SpriteAnim
 
 	f32 duration;
 	f32 currDuration;
-} SpriteAnim;
+} EntityAnim;
 
 typedef struct Entity
 {
@@ -34,7 +34,7 @@ typedef struct Entity
 	b32 collides;
 
 	// TODO(doyle): String based access
-	SpriteAnim anim[16];
+	EntityAnim anim[16];
 	i32 freeAnimIndex;
 	i32 currAnimIndex;
 } Entity;

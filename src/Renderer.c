@@ -83,10 +83,11 @@ void renderer_debugString(Renderer *const renderer, Font *const font,
 void renderer_entity(Renderer *renderer, Entity *entity, f32 dt, f32 rotate,
                      v3 color)
 {
+	// TODO(doyle): Batch into render groups
 	if ((entity->pos.x < renderer->size.w && entity->pos.x >= 0) &&
 	    (entity->pos.y < renderer->size.h && entity->pos.y >= 0))
 	{
-		SpriteAnim *anim = &entity->anim[entity->currAnimIndex];
+		EntityAnim *anim = &entity->anim[entity->currAnimIndex];
 		v4 texRect       = anim->rect[anim->currRectIndex];
 
 		anim->currDuration -= dt;

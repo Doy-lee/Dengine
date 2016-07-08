@@ -6,6 +6,45 @@
 //choose to load assets outside of WorldTraveller!
 #include <stdlib.h>
 
+INTERNAL Entity *addEntity(World *world, v2 pos, v2 size,
+                           enum Direction direction, Texture *tex, b32 collides)
+{
+
+#ifdef WT_DEBUG
+	ASSERT(tex && world);
+	ASSERT(world->freeEntityIndex < world->maxEntities);
+#endif
+
+	Entity entity    = {0};
+	entity.pos       = pos;
+	entity.size      = size;
+	entity.direction = direction;
+	entity.tex       = tex;
+	entity.collides  = collides;
+
+	world->entities[world->freeEntityIndex++] = entity;
+	Entity *result = &world->entities[world->freeEntityIndex-1];
+
+	return result;
+}
+
+INTERNAL void addAnim(Entity *entity, v4 *rects, i32 numRects, f32 duration)
+{
+
+#ifdef WT_DEBUG
+	ASSERT(rects && numRects >= 0)
+	ASSERT(entity->freeAnimIndex < ARRAY_COUNT(entity->anim));
+#endif
+
+	EntityAnim result   = {0};
+	result.rect         = rects;
+	result.numRects     = numRects;
+	result.duration     = duration;
+	result.currDuration = duration;
+
+	entity->anim[entity->freeAnimIndex++] = result;
+}
+
 void worldTraveller_gameInit(GameState *state, v2i windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
@@ -58,63 +97,54 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 				ASSERT(worldDimensionInTiles.x * worldDimensionInTiles.y <
 				       world->maxEntities);
 #endif
-
-				world->texType = texlist_terrain;
-				Entity *entity = &world->entities[world->freeEntityIndex++];
-				entity->pos =
-				    V2(CAST(f32) x * state->tileSize,
-				       CAST(f32) y * state->tileSize);
-				entity->dPos = V2(0.0f, 0.0f);
-				entity->size =
+				v2 pos = V2(CAST(f32) x * state->tileSize,
+				            CAST(f32) y * state->tileSize);
+				v2 size =
 				    V2(CAST(f32) state->tileSize, CAST(f32) state->tileSize);
-				entity->tex = asset_getTexture(assetManager, world->texType);
-				entity->collides = FALSE;
-				entity->freeAnimIndex = 0;
-				entity->currAnimIndex = 0;
+				enum Direction dir = direction_null;
+				Texture *tex = asset_getTexture(assetManager, world->texType);
+				b32 collides = FALSE;
+				Entity *tile = addEntity(world, pos, size, dir, tex, collides);
 
-				SpriteAnim worldAnimIdle = {NULL, 1, 0, 1.0f, 1.0f};
-				worldAnimIdle.rect        = (v4 *)calloc(1, sizeof(v4));
-				worldAnimIdle.rect[0]     = atlas->texRect[terraincoords_ground];
-
-				entity->anim[entity->freeAnimIndex++] = worldAnimIdle;
+				f32 duration = 1.0f;
+				i32 numRects = 1;
+				v4 *animRects = CAST(v4 *)calloc(numRects, sizeof(v4));
+				animRects[0] = atlas->texRect[terraincoords_ground];
+				addAnim(tile, animRects, numRects, duration);
 			}
 		}
 	}
 
 	World *const world = &state->world[state->currWorldIndex];
 
-	/* Init hero */
-	Entity heroEnt = {V2(0.0f, 0.0f),
-	                  V2(0.0f, 0.0f),
-	                  V2(58.0f, 98.0f),
-	                  direction_east,
-	                  asset_getTexture(assetManager, texlist_hero),
-	                  TRUE,
-	                  0,
-	                  0,
-	                  0};
+	/* Init hero entity */
+	world->heroIndex   = world->freeEntityIndex;
 
-	SpriteAnim heroAnimIdle = {NULL, 1, 0, 1.0f, 1.0f};
-	// TODO(doyle): Get rid of
-	heroAnimIdle.rect = (v4 *)calloc(1, sizeof(v4));
-	heroAnimIdle.rect[0] = V4(746.0f, 1018.0f, 804.0f, 920.0f);
-	heroEnt.anim[heroEnt.freeAnimIndex++] = heroAnimIdle;
+	v2 pos  = V2(0.0f, 0.0f);
+	v2 size = V2(58.0f, 98.0f);
+	enum Direction dir = direction_east;
+	Texture *tex       = asset_getTexture(assetManager, texlist_hero);
+	b32 collides       = TRUE;
+	Entity *hero       = addEntity(world, pos, size, dir, tex, collides);
 
-	SpriteAnim heroAnimWalk = {NULL, 3, 0, 0.10f, 0.10f};
-	// TODO(doyle): Get rid of
-	heroAnimWalk.rect = (v4 *)calloc(heroAnimWalk.numRects, sizeof(v4));
-	heroAnimWalk.rect[0] = V4(641.0f, 1018.0f, 699.0f, 920.0f);
-	heroAnimWalk.rect[1] = heroAnimIdle.rect[0];
-	heroAnimWalk.rect[2] = V4(849.0f, 1018.0f, 904.0f, 920.0f);
-	heroEnt.anim[heroEnt.freeAnimIndex++] = heroAnimWalk;
-	heroEnt.currAnimIndex = 0;
+	/* Add idle animation */
+	f32 duration  = 1.0f;
+	i32 numRects  = 1;
+	v4 *heroIdleRects = CAST(v4 *) calloc(numRects, sizeof(v4));
+	heroIdleRects[0]  = V4(746.0f, 1018.0f, 804.0f, 920.0f);
+	addAnim(hero, heroIdleRects, numRects, duration);
 
-	world->heroIndex = world->freeEntityIndex;
-	world->entities[world->freeEntityIndex++] = heroEnt;
-	Entity *hero = &world->entities[world->heroIndex];
+	/* Add walking animation */
+	duration  = 0.10f;
+	numRects  = 3;
+	v4 *heroWalkRects = CAST(v4 *) calloc(numRects, sizeof(v4));
+	heroWalkRects[0]  = V4(641.0f, 1018.0f, 699.0f, 920.0f);
+	heroWalkRects[1]  = V4(746.0f, 1018.0f, 804.0f, 920.0f);
+	heroWalkRects[2]  = V4(849.0f, 1018.0f, 904.0f, 920.0f);
+	addAnim(hero, heroWalkRects, numRects, duration);
 
 	Texture *heroSheet = hero->tex;
-	v2 sheetSize = V2(CAST(f32)heroSheet->width, CAST(f32)heroSheet->height);
+	v2 sheetSize = V2(CAST(f32) heroSheet->width, CAST(f32) heroSheet->height);
 	if (sheetSize.x != sheetSize.y)
 	{
 		printf(
@@ -124,23 +154,20 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	}
 
 	/* Create a NPC */
-	SpriteAnim npcAnim = {NULL, 2, 0, 0.3f, 0.3f};
-	// TODO(doyle): Get rid of
-	npcAnim.rect = (v4 *)calloc(2, sizeof(v4));
-	npcAnim.rect[0] = V4(944.0f, 918.0f, 1010.0f, 816.0f);
-	npcAnim.rect[1] = V4(944.0f, 812.0f, 1010.0f, 710.0f);
+	pos         = V2(300.0f, 300.0f);
+	size        = hero->size;
+	dir         = direction_null;
+	tex         = hero->tex;
+	collides    = TRUE;
+	Entity *npc = addEntity(world, pos, size, dir, tex, collides);
 
-	Entity npcEnt = {V2(300.0f, 300.0f),
-	                 V2(0.0f, 0.0f),
-	                 hero->size,
-	                 direction_null,
-	                 hero->tex,
-	                 TRUE,
-	                 0,
-	                 0,
-	                 0};
-	npcEnt.anim[npcEnt.freeAnimIndex++] = npcAnim;
-	world->entities[world->freeEntityIndex++] = npcEnt;
+	/* Add npc waving animation */
+	duration  = 0.30f;
+	numRects  = 2;
+	v4 *npcWavingRects = CAST(v4 *) calloc(numRects, sizeof(v4));
+	npcWavingRects[0]  = V4(944.0f, 918.0f, 1010.0f, 816.0f);
+	npcWavingRects[1]  = V4(944.0f, 812.0f, 1010.0f, 710.0f);
+	addAnim(npc, npcWavingRects, numRects, duration);
 
 	/* Init renderer */
 	Renderer *renderer = &state->renderer;
@@ -242,7 +269,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		// walking
 		if (hero->currAnimIndex == 1)
 		{
-			SpriteAnim *currAnim    = &hero->anim[hero->currAnimIndex];
+			EntityAnim *currAnim    = &hero->anim[hero->currAnimIndex];
 			currAnim->currDuration  = currAnim->duration;
 			currAnim->currRectIndex = 0;
 			hero->currAnimIndex     = 0;
@@ -250,7 +277,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	}
 	else if (hero->currAnimIndex == 0)
 	{
-		SpriteAnim *currAnim    = &hero->anim[hero->currAnimIndex];
+		EntityAnim *currAnim    = &hero->anim[hero->currAnimIndex];
 		currAnim->currDuration  = currAnim->duration;
 		currAnim->currRectIndex = 0;
 		hero->currAnimIndex     = 1;
