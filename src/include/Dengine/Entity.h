@@ -14,6 +14,16 @@ enum Direction
 	direction_null,
 };
 
+enum EntityType
+{
+	entitytype_null,
+	entitytype_hero,
+	entitytype_camera,
+	entitytype_npc,
+	entitytype_tile,
+	entitytype_count,
+};
+
 typedef struct EntityAnim
 {
 	v4 *rect;
@@ -29,7 +39,10 @@ typedef struct Entity
 	v2 pos;  // Position
 	v2 dPos; // Velocity
 	v2 size;
+	
+	enum EntityType type;
 	enum Direction direction;
+
 	Texture *tex;
 	b32 collides;
 

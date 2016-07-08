@@ -6,18 +6,20 @@
 //choose to load assets outside of WorldTraveller!
 #include <stdlib.h>
 
-INTERNAL Entity *addEntity(World *world, v2 pos, v2 size,
+INTERNAL Entity *addEntity(World *world, v2 pos, v2 size, enum EntityType type,
                            enum Direction direction, Texture *tex, b32 collides)
 {
 
 #ifdef WT_DEBUG
 	ASSERT(tex && world);
 	ASSERT(world->freeEntityIndex < world->maxEntities);
+	ASSERT(type < entitytype_count);
 #endif
 
 	Entity entity    = {0};
 	entity.pos       = pos;
 	entity.size      = size;
+	entity.type      = type;
 	entity.direction = direction;
 	entity.tex       = tex;
 	entity.collides  = collides;
@@ -101,10 +103,12 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 				            CAST(f32) y * state->tileSize);
 				v2 size =
 				    V2(CAST(f32) state->tileSize, CAST(f32) state->tileSize);
+				enum EntityType type = entitytype_tile;
 				enum Direction dir = direction_null;
 				Texture *tex = asset_getTexture(assetManager, world->texType);
 				b32 collides = FALSE;
-				Entity *tile = addEntity(world, pos, size, dir, tex, collides);
+				Entity *tile =
+				    addEntity(world, pos, size, type, dir, tex, collides);
 
 				f32 duration = 1.0f;
 				i32 numRects = 1;
@@ -120,12 +124,13 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	/* Init hero entity */
 	world->heroIndex   = world->freeEntityIndex;
 
-	v2 pos  = V2(0.0f, 0.0f);
-	v2 size = V2(58.0f, 98.0f);
-	enum Direction dir = direction_east;
-	Texture *tex       = asset_getTexture(assetManager, texlist_hero);
-	b32 collides       = TRUE;
-	Entity *hero       = addEntity(world, pos, size, dir, tex, collides);
+	v2 pos               = V2(0.0f, 0.0f);
+	v2 size              = V2(58.0f, 98.0f);
+	enum EntityType type = entitytype_hero;
+	enum Direction dir   = direction_east;
+	Texture *tex         = asset_getTexture(assetManager, texlist_hero);
+	b32 collides         = TRUE;
+	Entity *hero = addEntity(world, pos, size, type, dir, tex, collides);
 
 	/* Add idle animation */
 	f32 duration  = 1.0f;
@@ -156,10 +161,11 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	/* Create a NPC */
 	pos         = V2(300.0f, 300.0f);
 	size        = hero->size;
+	type        = entitytype_hero;
 	dir         = direction_null;
 	tex         = hero->tex;
 	collides    = TRUE;
-	Entity *npc = addEntity(world, pos, size, dir, tex, collides);
+	Entity *npc = addEntity(world, pos, size, type, dir, tex, collides);
 
 	/* Add npc waving animation */
 	duration  = 0.30f;
