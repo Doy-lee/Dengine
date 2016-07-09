@@ -1,18 +1,18 @@
+#include "Dengine/Platform.h"
 #include "Dengine/Debug.h"
-#include <stdlib.h>
 
 DebugState GLOBAL_debugState;
 
 void debug_init()
 {
+	GLOBAL_debugState.totalMemoryAllocated = 0;
+	GLOBAL_debugState.callCount = PLATFORM_MEM_ALLOC(debugcallcount_num, i32);
+
 	GLOBAL_debugState.numDebugStrings   = 0;
 	GLOBAL_debugState.stringUpdateTimer = 0.0f;
 	GLOBAL_debugState.stringUpdateRate  = 0.15f;
 
 	GLOBAL_debugState.stringLineGap = -1;
-
-	GLOBAL_debugState.callCount =
-	    CAST(i32 *) calloc(debugcallcount_num, sizeof(i32));
 }
 
 void debug_pushString(char *formatString, void *data, char *dataType)

@@ -2,7 +2,6 @@
 #define DENGINE_MATH_H
 
 #include <math.h>
-
 #include "Dengine/Common.h"
 
 #define squared(x) (x * x)

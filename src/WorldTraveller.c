@@ -1,14 +1,14 @@
+#include "Dengine/Platform.h"
 #include "Dengine/AssetManager.h"
 #include "Dengine/Debug.h"
+
 #include "WorldTraveller/WorldTraveller.h"
 
-//TODO(doyle): This is temporary! Maybe abstract into our platform layer, or
-//choose to load assets outside of WorldTraveller!
-#include <stdlib.h>
+// TODO(doyle): This is temporary! Maybe abstract into our platform layer, or
+// choose to load assets outside of WorldTraveller !
 
-INTERNAL Entity *addEntity(World *world, v2 pos, v2 size,
-                           enum EntityType type, enum Direction direction,
-                           Texture *tex, b32 collides)
+INTERNAL Entity *addEntity(World *world, v2 pos, v2 size, enum EntityType type,
+                           enum Direction direction, Texture *tex, b32 collides)
 {
 
 #ifdef DENGINE_DEBUG
@@ -130,8 +130,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	{
 		World *const world = &state->world[i];
 		world->maxEntities = 8192;
-		world->entities =
-		    CAST(Entity *) calloc(world->maxEntities, sizeof(Entity));
+		world->entities = PLATFORM_MEM_ALLOC(world->maxEntities, Entity);
 		world->texType = texlist_terrain;
 
 		v2 worldDimensionInTilesf = V2(CAST(f32) worldDimensionInTiles.x,
@@ -163,7 +162,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 
 				f32 duration = 1.0f;
 				i32 numRects = 1;
-				v4 *animRects = CAST(v4 *)calloc(numRects, sizeof(v4));
+				v4 *animRects = PLATFORM_MEM_ALLOC(numRects, v4);
 				animRects[0] = atlas->texRect[terraincoords_ground];
 				addAnim(tile, animRects, numRects, duration);
 			}
@@ -189,14 +188,14 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	/* Add idle animation */
 	f32 duration      = 1.0f;
 	i32 numRects      = 1;
-	v4 *heroIdleRects = CAST(v4 *) calloc(numRects, sizeof(v4));
+	v4 *heroIdleRects = PLATFORM_MEM_ALLOC(numRects, v4);
 	heroIdleRects[0]  = V4(746.0f, 1018.0f, 804.0f, 920.0f);
 	addAnim(hero, heroIdleRects, numRects, duration);
 
 	/* Add walking animation */
 	duration          = 0.10f;
 	numRects          = 3;
-	v4 *heroWalkRects = CAST(v4 *) calloc(numRects, sizeof(v4));
+	v4 *heroWalkRects = PLATFORM_MEM_ALLOC(numRects, v4);
 	heroWalkRects[0]  = V4(641.0f, 1018.0f, 699.0f, 920.0f);
 	heroWalkRects[1]  = V4(746.0f, 1018.0f, 804.0f, 920.0f);
 	heroWalkRects[2]  = V4(849.0f, 1018.0f, 904.0f, 920.0f);
@@ -224,7 +223,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	/* Add npc waving animation */
 	duration  = 0.30f;
 	numRects  = 2;
-	v4 *npcWavingRects = CAST(v4 *) calloc(numRects, sizeof(v4));
+	v4 *npcWavingRects = PLATFORM_MEM_ALLOC(numRects, v4);
 	npcWavingRects[0]  = V4(944.0f, 918.0f, 1010.0f, 816.0f);
 	npcWavingRects[1]  = V4(944.0f, 812.0f, 1010.0f, 710.0f);
 	addAnim(npc, npcWavingRects, numRects, duration);
@@ -427,6 +426,9 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	DEBUG_PUSH_STRING("glDrawArray Calls: %d",
 	                  &GLOBAL_debugState.callCount[debugcallcount_drawArrays],
 	                  "i32");
+
+	i32 debug_kbAllocated = GLOBAL_debugState.totalMemoryAllocated / 1024;
+	DEBUG_PUSH_STRING("TotalMemoryAllocated: %dkb", &debug_kbAllocated, "i32");
 	debug_stringUpdateAndRender(&state->renderer, font, dt);
 	debug_clearCallCounter();
 #endif

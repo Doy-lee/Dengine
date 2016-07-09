@@ -24,7 +24,7 @@ void renderer_string(Renderer *const renderer, Font *const font,
 {
 	i32 quadIndex = 0;
 	i32 strLen = common_strlen(string);
-	RenderQuad *stringQuads = CAST(RenderQuad *)calloc(strLen, sizeof(RenderQuad));
+	RenderQuad *stringQuads = PLATFORM_MEM_ALLOC(strLen, RenderQuad);
 
 	f32 baseline = pos.y;
 	for (i32 i = 0; i < strLen; i++)
@@ -56,7 +56,7 @@ void renderer_string(Renderer *const renderer, Font *const font,
 	updateBufferObject(renderer, stringQuads, quadIndex);
 	renderer_object(renderer, V2(0.0f, 0.0f), renderer->size, rotate, color,
 	                font->tex);
-	free(stringQuads);
+	PLATFORM_MEM_FREE(stringQuads, strLen * sizeof(RenderQuad));
 
 }
 

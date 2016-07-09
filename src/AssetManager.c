@@ -143,8 +143,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	v2i codepointRange = font->codepointRange;
 	const i32 numGlyphs = codepointRange.y - codepointRange.x;
 
-	GlyphBitmap *glyphBitmaps =
-	    CAST(GlyphBitmap *) calloc(numGlyphs, sizeof(GlyphBitmap));
+	GlyphBitmap *glyphBitmaps = PLATFORM_MEM_ALLOC(numGlyphs, GlyphBitmap);
 	v2i largestGlyphDimension = V2i(0, 0);
 
 	const f32 targetFontHeight = 20.0f;
@@ -159,8 +158,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 
 	font->metrics = CAST(FontMetrics){ascent, descent, lineGap};
 
-	font->charMetrics =
-	    CAST(CharMetrics *) calloc(numGlyphs, sizeof(CharMetrics));
+	font->charMetrics = PLATFORM_MEM_ALLOC(numGlyphs, CharMetrics);
 
 	/* Use STB_TrueType to generate a series of bitmap characters */
 	i32 glyphIndex = 0;
@@ -175,7 +173,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 		                             &height, &xOffset, &yOffset);
 
 		u8 *source       = monoBitmap;
-		u32 *colorBitmap = calloc(width * height, sizeof(u32));
+		u32 *colorBitmap = PLATFORM_MEM_ALLOC(width * height, u32);
 		u32 *dest        = colorBitmap;
 
 		// NOTE(doyle): STB generates 1 byte per pixel bitmaps, we use 4bpp, so
@@ -250,8 +248,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	}
 #endif
 
-	u32 *fontBitmap = CAST(u32 *)calloc(
-	    squared(TARGET_TEXTURE_SIZE) * TARGET_BYTES_PER_PIXEL, sizeof(u32));
+	i32 bitmapSize = squared(TARGET_TEXTURE_SIZE) * TARGET_BYTES_PER_PIXEL;
+	u32 *fontBitmap = PLATFORM_MEM_ALLOC(bitmapSize, u32);
 	const i32 pitch = MAX_TEXTURE_SIZE * TARGET_BYTES_PER_PIXEL;
 
 	// Check value to determine when a row of glyphs is completely printed
@@ -349,14 +347,19 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	stbi_write_png("out.png", MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4, fontBitmap,
 	               MAX_TEXTURE_SIZE * 4);
 #endif
+	PLATFORM_MEM_FREE(fontBitmap, bitmapSize);
 
 	font->tex = &assetManager->textures[texlist_font];
 	font->atlas = &assetManager->texAtlas[texlist_font];
 
 	for (i32 i = 0; i < numGlyphs; i++)
-		free(glyphBitmaps[i].pixels);
+	{
+		i32 glyphBitmapSizeInBytes = glyphBitmaps[i].dimensions.w *
+		                             glyphBitmaps[i].dimensions.h * sizeof(u32);
+		PLATFORM_MEM_FREE(glyphBitmaps[i].pixels, glyphBitmapSizeInBytes);
+	}
 
-	free(glyphBitmaps);
+	PLATFORM_MEM_FREE(glyphBitmaps, numGlyphs * sizeof(GlyphBitmap));
 	platform_closeFileRead(&fontFileRead);
 
 	return 0;

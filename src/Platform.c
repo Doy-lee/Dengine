@@ -22,7 +22,7 @@ i32 platform_readFileToBuffer(const char *const filePath,
 	}
 
 	// TODO(doyle): Warning we assume files less than 4GB
-	file->buffer = (void *)calloc(fileSize.LowPart, sizeof(char));
+	file->buffer = PLATFORM_MEM_ALLOC(fileSize.LowPart, char);
 	file->size = fileSize.LowPart;
 
 	DWORD numBytesRead = 0;
@@ -33,7 +33,7 @@ i32 platform_readFileToBuffer(const char *const filePath,
 	{
 		printf("ReadFile() failed: %d error number\n",
 		       status);
-		free(file->buffer);
+		PLATFORM_MEM_FREE(file->buffer, file->size);
 		return status;
 	}
 	else if (numBytesRead != file->size)
@@ -41,7 +41,7 @@ i32 platform_readFileToBuffer(const char *const filePath,
 		printf(
 		    "ReadFile() failed: Number of bytes read doesn't match file "
 		    "size\n");
-		free(file->buffer);
+		PLATFORM_MEM_FREE(file->buffer, file->size);
 		return -1;
 	}
 

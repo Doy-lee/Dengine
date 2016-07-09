@@ -15,7 +15,9 @@ enum DebugCallCount
 
 typedef struct DebugState
 {
+	i32 totalMemoryAllocated;
 	i32 *callCount;
+
 	/* Debug strings rendered in top left corner */
 	char debugStrings[256][64];
 	i32 numDebugStrings;
