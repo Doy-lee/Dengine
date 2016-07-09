@@ -423,6 +423,11 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	DEBUG_PUSH_STRING("Hero Pos: %06.2f, %06.2f", &hero->pos, "v2");
 	DEBUG_PUSH_STRING("Hero dPos: %06.2f, %06.2f", &hero->dPos, "v2");
 	DEBUG_PUSH_STRING("FreeEntityIndex: %d", &world->freeEntityIndex, "i32");
+
+	DEBUG_PUSH_STRING("glDrawArray Calls: %d",
+	                  &GLOBAL_debugState.callCount[debugcallcount_drawArrays],
+	                  "i32");
 	debug_stringUpdateAndRender(&state->renderer, font, dt);
+	debug_clearCallCounter();
 #endif
 }

@@ -1,6 +1,7 @@
 #include "Dengine/Platform.h"
 #include "Dengine/OpenGL.h"
 #include "Dengine/Renderer.h"
+#include "Dengine/Debug.h"
 
 #define RENDER_BOUNDING_BOX FALSE
 
@@ -140,6 +141,7 @@ void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v4 color,
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
 
 #ifdef DENGINE_DEBUG
+	debug_callCountIncrement(debugcallcount_drawArrays);
 #endif
 
 	glBindVertexArray(0);

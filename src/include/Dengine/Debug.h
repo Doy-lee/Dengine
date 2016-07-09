@@ -15,6 +15,7 @@ enum DebugCallCount
 
 typedef struct DebugState
 {
+	i32 *callCount;
 	/* Debug strings rendered in top left corner */
 	char debugStrings[256][64];
 	i32 numDebugStrings;
@@ -29,7 +30,20 @@ typedef struct DebugState
 
 extern DebugState GLOBAL_debugState;
 
+inline void debug_callCountIncrement(i32 id)
+{
+	ASSERT(id < debugcallcount_num);
+	GLOBAL_debugState.callCount[id]++;
+}
+
+inline void debug_clearCallCounter()
+{
+	for (i32 i = 0; i < debugcallcount_num; i++)
+		GLOBAL_debugState.callCount[i] = 0;
+}
+
 void debug_init();
 void debug_pushString(char *formatString, void *data, char *dataType);
 void debug_stringUpdateAndRender(Renderer *renderer, Font *font, f32 dt);
+
 #endif

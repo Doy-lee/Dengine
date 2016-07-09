@@ -1,4 +1,5 @@
 #include "Dengine/Debug.h"
+#include <stdlib.h>
 
 DebugState GLOBAL_debugState;
 
@@ -9,6 +10,9 @@ void debug_init()
 	GLOBAL_debugState.stringUpdateRate  = 0.15f;
 
 	GLOBAL_debugState.stringLineGap = -1;
+
+	GLOBAL_debugState.callCount =
+	    CAST(i32 *) calloc(debugcallcount_num, sizeof(i32));
 }
 
 void debug_pushString(char *formatString, void *data, char *dataType)
@@ -76,3 +80,4 @@ void debug_stringUpdateAndRender(Renderer *renderer, Font *font, f32 dt)
 
 	GLOBAL_debugState.stringPos = GLOBAL_debugState.initialStringPos;
 }
+
