@@ -48,36 +48,11 @@ INTERNAL void addAnim(Entity *entity, v4 *rects, i32 numRects, f32 duration)
 	entity->anim[entity->freeAnimIndex++] = result;
 }
 
-void worldTraveller_gameInit(GameState *state, v2i windowSize)
+INTERNAL void rendererInit(GameState *state, v2i windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
-	/* Initialise assets */
-	asset_loadTextureImage(assetManager,
-	                       "data/textures/WorldTraveller/TerraSprite1024.png",
-	                       texlist_hero);
-
-	asset_loadTextureImage(assetManager,
-	                       "data/textures/WorldTraveller/Terrain.png",
-	                       texlist_terrain);
-	TexAtlas *terrainAtlas =
-	    asset_getTextureAtlas(assetManager, texlist_terrain);
-	f32 atlasTileSize = 128.0f;
-	terrainAtlas->texRect[terraincoords_ground] =
-	    V4(384.0f, 512.0f, 384.0f + atlasTileSize, 512.0f + atlasTileSize);
-
-	asset_loadShaderFiles(assetManager, "data/shaders/sprite.vert.glsl",
-	                      "data/shaders/sprite.frag.glsl", shaderlist_sprite);
-
-	asset_loadTTFont(assetManager, "C:/Windows/Fonts/Arialbd.ttf");
-	glCheckError();
-
-	state->state          = state_active;
-	state->currWorldIndex = 0;
-	state->tileSize       = 64;
-
-	/* Init renderer */
-	Renderer *renderer = &state->renderer;
-	renderer->size     = V2(CAST(f32) windowSize.x, CAST(f32) windowSize.y);
+	Renderer *renderer         = &state->renderer;
+	renderer->size = V2(CAST(f32) windowSize.x, CAST(f32) windowSize.y);
 	// NOTE(doyle): Value to map a screen coordinate to NDC coordinate
 	renderer->vertexNdcFactor =
 	    V2(1.0f / renderer->size.w, 1.0f / renderer->size.h);
@@ -110,6 +85,38 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 	glCheckError();
+
+}
+
+void worldTraveller_gameInit(GameState *state, v2i windowSize)
+{
+	AssetManager *assetManager = &state->assetManager;
+	/* Initialise assets */
+	asset_loadTextureImage(assetManager,
+	                       "data/textures/WorldTraveller/TerraSprite1024.png",
+	                       texlist_hero);
+
+	asset_loadTextureImage(assetManager,
+	                       "data/textures/WorldTraveller/Terrain.png",
+	                       texlist_terrain);
+	TexAtlas *terrainAtlas =
+	    asset_getTextureAtlas(assetManager, texlist_terrain);
+	f32 atlasTileSize = 128.0f;
+	terrainAtlas->texRect[terraincoords_ground] =
+	    V4(384.0f, 512.0f, 384.0f + atlasTileSize, 512.0f + atlasTileSize);
+
+	asset_loadShaderFiles(assetManager, "data/shaders/sprite.vert.glsl",
+	                      "data/shaders/sprite.frag.glsl", shaderlist_sprite);
+
+	asset_loadTTFont(assetManager, "C:/Windows/Fonts/Arialbd.ttf");
+	glCheckError();
+
+	state->state          = state_active;
+	state->currWorldIndex = 0;
+	state->tileSize       = 64;
+
+	/* Init renderer */
+	rendererInit(state, windowSize);
 
 	/* Init world */
 	const i32 targetWorldWidth  = 500 * METERS_TO_PIXEL;
@@ -167,6 +174,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	/* Init hero entity */
 	world->heroIndex   = world->freeEntityIndex;
 
+	Renderer *renderer = &state->renderer;
 	v2 size              = V2(58.0f, 98.0f);
 	v2 pos               = V2(((renderer->size.w * 0.5f) - (size.w * 0.5f)),
 	                          CAST(f32) state->tileSize);
@@ -401,7 +409,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	{
 		Entity *const entity = &world->entities[i];
 		renderer_entity(&state->renderer, cameraBounds, entity, dt, 0.0f,
-		                V3(0, 0, 0));
+		                V4(1, 1, 1, 1));
 	}
 
 	// TODO(doyle): Clean up lines

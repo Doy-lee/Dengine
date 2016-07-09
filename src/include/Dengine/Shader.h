@@ -17,6 +17,8 @@ void shader_uniformSet1i(Shader *const shader, const GLchar *name,
                          const GLuint data);
 void shader_uniformSetMat4fv(Shader *const shader, const GLchar *name,
                              mat4 data);
+void shader_uniformSetVec4f(Shader *const shader, const GLchar *name,
+                            v4 data);
 
 void shader_use(const Shader *const shader);
 

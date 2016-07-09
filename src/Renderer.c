@@ -21,7 +21,7 @@ INTERNAL void updateBufferObject(Renderer *const renderer,
 
 void renderer_string(Renderer *const renderer, Font *const font,
                      const char *const string, v2 pos, f32 rotate,
-                     v3 color)
+                     v4 color)
 {
 	i32 quadIndex = 0;
 	i32 strLen = common_strlen(string);
@@ -74,14 +74,14 @@ void renderer_debugString(Renderer *const renderer, Font *const font,
 	}
 
 	f32 rotate = 0;
-	v3 color = V3(0, 0, 0);
+	v4 color = V4(0, 0, 0, 1);
 	renderer_string(renderer, font, string, debugRenderer.stringPos, rotate,
 	                color);
 	debugRenderer.stringPos.y -= (0.9f * asset_getVFontSpacing(font->metrics));
 }
 
 void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity, f32 dt, f32 rotate,
-                     v3 color)
+                     v4 color)
 {
 	// TODO(doyle): Batch into render groups
 
@@ -124,7 +124,7 @@ void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity, f32 dt
 
 }
 
-void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v3 color,
+void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v4 color,
                      Texture *tex)
 {
 	shader_use(renderer->shader);
@@ -138,12 +138,10 @@ void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v3 color,
 	mat4 scaleMatrix = mat4_scale(size.x, size.y, 1.0f);
 
 	mat4 model = mat4_mul(transMatrix, mat4_mul(rotateMatrix, scaleMatrix));
-	//mat4 model = mat4_mul(transMatrix, rotateMatrix);
 	shader_uniformSetMat4fv(renderer->shader, "model", model);
 	glCheckError();
 
-	// TODO(doyle): Unimplemented
-	// this->shader->uniformSetVec3f("spriteColor", color);
+	shader_uniformSetVec4f(renderer->shader, "spriteColor", color);
 
 #if RENDER_BOUNDING_BOX
 	glBindVertexArray(renderer->vao);
