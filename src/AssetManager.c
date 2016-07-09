@@ -8,6 +8,7 @@
 
 #include "Dengine/Platform.h"
 #include "Dengine/AssetManager.h"
+#include "Dengine/Debug.h"
 
 //#define WT_RENDER_FONT_FILE
 #ifdef WT_RENDER_FONT_FILE
@@ -20,7 +21,7 @@ Texture *asset_getTexture(AssetManager *assetManager, const enum TexList type)
 	if (type < texlist_count)
 		return &assetManager->textures[type];
 
-#ifdef WT_DEBUG
+#ifdef DENGINE_DEBUG
 	ASSERT(INVALID_CODE_PATH);
 #endif
 
@@ -32,7 +33,7 @@ TexAtlas *asset_getTextureAtlas(AssetManager *assetManager, const enum TexList t
 	if (type < texlist_count)
 		return &assetManager->texAtlas[type];
 
-#ifdef WT_DEBUG
+#ifdef DENGINE_DEBUG
 	ASSERT(INVALID_CODE_PATH);
 #endif
 	return NULL;
@@ -67,7 +68,7 @@ Shader *asset_getShader(AssetManager *assetManager, const enum ShaderList type)
 	if (type < shaderlist_count)
 		return &assetManager->shaders[type];
 
-#ifdef WT_DEBUG
+#ifdef DENGINE_DEBUG
 	ASSERT(INVALID_CODE_PATH);
 #endif
 	return NULL;
@@ -214,7 +215,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 		if (width > largestGlyphDimension.w)
 			largestGlyphDimension.w = width;
 
-#ifdef WT_DEBUG
+#ifdef DENGINE_DEBUG
 		if ((largestGlyphDimension.h - CAST(i32)targetFontHeight) >= 50)
 		{
 			printf(
@@ -237,7 +238,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	font->maxSize = largestGlyphDimension;
 	i32 glyphsPerRow = (MAX_TEXTURE_SIZE / font->maxSize.w);
 
-#ifdef WT_DEBUG
+#ifdef DENGINE_DEBUG
 	i32 glyphsPerCol = MAX_TEXTURE_SIZE / font->maxSize.h;
 	if ((glyphsPerRow * glyphsPerCol) <= numGlyphs)
 	{
@@ -278,7 +279,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 			if (verticalPixelsBlitted == 0)
 			{
 				TexAtlas *fontAtlas = &assetManager->texAtlas[texlist_font];
-#ifdef WT_DEBUG
+#ifdef DENGINE_DEBUG
 				ASSERT(activeGlyph.codepoint < ARRAY_COUNT(fontAtlas->texRect));
 #endif
 

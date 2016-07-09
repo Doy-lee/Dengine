@@ -39,8 +39,8 @@ Texture genTexture(const GLuint width, const GLuint height,
 	tex.internalFormat = GL_RGBA;
 	tex.wrapS = GL_REPEAT;
 	tex.wrapT = GL_REPEAT;
-	tex.filterMinification = GL_LINEAR;
-	tex.filterMagnification = GL_LINEAR;
+	tex.filterMinification = GL_NEAREST;
+	tex.filterMagnification = GL_NEAREST;
 
 	glGenTextures(1, &tex.id);
 	glCheckError();

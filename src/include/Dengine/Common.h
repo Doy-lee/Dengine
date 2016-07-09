@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-#define WT_DEBUG
-
 typedef uint8_t u8;
 typedef uint32_t u32;
 typedef uint64_t u64;
@@ -26,10 +24,9 @@ typedef double f64;
 #define CAST(type) (type)
 #define ASSERT(expr) if(!(expr)) { *(int *)0 = 0; }
 
-i32 common_strlen(const char *const string);
+#define DENGINE_DEBUG
 
-#ifdef WT_DEBUG
-#define INVALID_CODE_PATH TRUE
-#endif
+i32 common_strlen(const char *const string);
+i32 common_strcmp(const char *a, const char *b);
 
 #endif

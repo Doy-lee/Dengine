@@ -4,8 +4,6 @@
 
 #define RENDER_BOUNDING_BOX FALSE
 
-DebugRenderer debugRenderer = {0};
-
 INTERNAL void updateBufferObject(Renderer *const renderer,
                                  RenderQuad *const quads, const i32 numQuads)
 {
@@ -59,25 +57,6 @@ void renderer_string(Renderer *const renderer, Font *const font,
 	                font->tex);
 	free(stringQuads);
 
-}
-
-void renderer_debugString(Renderer *const renderer, Font *const font,
-                          const char *const string)
-{
-	/* Intialise debug object */
-	if (!debugRenderer.init)
-	{
-		debugRenderer.stringPos =
-		    V2(0.0f, renderer->size.y -
-		                 (1.8f * asset_getVFontSpacing(font->metrics)));
-		debugRenderer.init = TRUE;
-	}
-
-	f32 rotate = 0;
-	v4 color = V4(0, 0, 0, 1);
-	renderer_string(renderer, font, string, debugRenderer.stringPos, rotate,
-	                color);
-	debugRenderer.stringPos.y -= (0.9f * asset_getVFontSpacing(font->metrics));
 }
 
 void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity, f32 dt, f32 rotate,
@@ -159,6 +138,10 @@ void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v4 color,
 
 	glBindVertexArray(renderer->vao);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
+
+#ifdef DENGINE_DEBUG
+#endif
+
 	glBindVertexArray(0);
 
 

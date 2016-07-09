@@ -14,31 +14,13 @@ typedef struct Renderer
 	v2 size;
 } Renderer;
 
-typedef struct DebugRenderer
-{
-	b32 init;
-	v2 stringPos;
-
-} DebugRenderer;
-
 typedef struct RenderQuad
 {
 	v4 vertex[4];
 } RenderQuad;
 
-extern DebugRenderer debugRenderer;
-
-#if 0
-void renderer_backgroundTiles(Renderer *const renderer, const v2 tileSize,
-                              World *const world, TexAtlas *const atlasTexture,
-                              Texture *const tex);
-#endif
-
 void renderer_string(Renderer *const renderer, Font *const font,
                      const char *const string, v2 pos, f32 rotate, v4 color);
-
-void renderer_debugString(Renderer *const renderer, Font *const font,
-                          const char *const string);
 
 void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
                      f32 dt, f32 rotate, v4 color);

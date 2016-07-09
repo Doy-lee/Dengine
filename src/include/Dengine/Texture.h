@@ -1,8 +1,8 @@
 #ifndef DENGINE_TEXTURE_H
 #define DENGINE_TEXTURE_H
 
-#include "Dengine/Common.h"
 #include "Dengine/OpenGL.h"
+#include "Dengine/Common.h"
 
 #define TARGET_TEXTURE_SIZE 1024
 #define TARGET_BYTES_PER_PIXEL 4

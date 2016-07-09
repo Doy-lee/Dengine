@@ -2,6 +2,7 @@
 #include "Dengine/AssetManager.h"
 #include "Dengine/Renderer.h"
 #include "Dengine/Math.h"
+#include "Dengine/Debug.h"
 
 #include "WorldTraveller/WorldTraveller.h"
 
@@ -74,6 +75,10 @@ int main()
 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glCullFace(GL_BACK);
+
+#ifdef DENGINE_DEBUG
+	debug_init();
+#endif
 
 	GameState worldTraveller = {0};
 	worldTraveller_gameInit(&worldTraveller, frameBufferSize);

@@ -6,3 +6,16 @@ i32 common_strlen(const char *const string)
 	while (string[result]) result++;
 	return result;
 }
+
+i32 common_strcmp(const char *a, const char *b)
+{
+	while (*a == *b)
+	{
+		if (!*a)
+			return 0;
+		a++;
+		b++;
+	}
+
+	return ((*a < *b) ? -1 : 1);
+}

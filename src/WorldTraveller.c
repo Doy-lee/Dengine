@@ -1,5 +1,5 @@
 #include "Dengine/AssetManager.h"
-#include "Dengine/Math.h"
+#include "Dengine/Debug.h"
 #include "WorldTraveller/WorldTraveller.h"
 
 //TODO(doyle): This is temporary! Maybe abstract into our platform layer, or
@@ -11,7 +11,7 @@ INTERNAL Entity *addEntity(World *world, v2 pos, v2 size,
                            Texture *tex, b32 collides)
 {
 
-#ifdef WT_DEBUG
+#ifdef DENGINE_DEBUG
 	ASSERT(tex && world);
 	ASSERT(world->freeEntityIndex < world->maxEntities);
 	ASSERT(type < entitytype_count);
@@ -34,7 +34,7 @@ INTERNAL Entity *addEntity(World *world, v2 pos, v2 size,
 INTERNAL void addAnim(Entity *entity, v4 *rects, i32 numRects, f32 duration)
 {
 
-#ifdef WT_DEBUG
+#ifdef DENGINE_DEBUG
 	ASSERT(rects && numRects >= 0)
 	ASSERT(entity->freeAnimIndex < ARRAY_COUNT(entity->anim));
 #endif
@@ -102,8 +102,10 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	TexAtlas *terrainAtlas =
 	    asset_getTextureAtlas(assetManager, texlist_terrain);
 	f32 atlasTileSize = 128.0f;
+	const i32 texSize = 1024;
+	v2 texOrigin = V2(0, CAST(f32)(texSize - 128));
 	terrainAtlas->texRect[terraincoords_ground] =
-	    V4(384.0f, 512.0f, 384.0f + atlasTileSize, 512.0f + atlasTileSize);
+	    V4(texOrigin.x, texOrigin.y, texOrigin.x + atlasTileSize, texOrigin.y - atlasTileSize);
 
 	asset_loadShaderFiles(assetManager, "data/shaders/sprite.vert.glsl",
 	                      "data/shaders/sprite.frag.glsl", shaderlist_sprite);
@@ -144,7 +146,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 		{
 			for (i32 x = 0; x < worldDimensionInTiles.x; x++)
 			{
-#ifdef WT_DEBUG
+#ifdef DENGINE_DEBUG
 				ASSERT(worldDimensionInTiles.x * worldDimensionInTiles.y <
 				       world->maxEntities);
 #endif
@@ -415,36 +417,12 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	// TODO(doyle): Clean up lines
 	// Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
 
-#ifdef WT_DEBUG
-	LOCAL_PERSIST f32 debugUpdateCounter     = 0.0f;
-	LOCAL_PERSIST char debugStrings[256][64] = {0};
-	LOCAL_PERSIST i32 numDebugStrings        = 0;
-
+#ifdef DENGINE_DEBUG
 	Font *font = &assetManager->font;
-	if (debugUpdateCounter <= 0)
-	{
-		numDebugStrings    = 0;
-		Entity *const hero = &world->entities[world->heroIndex];
-		snprintf(debugStrings[0], ARRAY_COUNT(debugStrings[0]),
-		         "Hero Pos: %06.2f,%06.2f", hero->pos.x, hero->pos.y);
-		numDebugStrings++;
-
-		snprintf(debugStrings[1], ARRAY_COUNT(debugStrings[1]),
-		         "Hero dPos: %06.2f,%06.2f", hero->dPos.x, hero->dPos.y);
-		numDebugStrings++;
-
-		snprintf(debugStrings[2], ARRAY_COUNT(debugStrings[2]),
-		         "FreeEntityIndex: %d", world->freeEntityIndex);
-		numDebugStrings++;
-
-		const f32 debugUpdateRate = 0.15f;
-		debugUpdateCounter        = debugUpdateRate;
-	}
-
-	for (i32 i = 0; i < numDebugStrings; i++)
-		renderer_debugString(&state->renderer, font, debugStrings[i]);
-
-	debugUpdateCounter -= dt;
-	debugRenderer.init = FALSE;
+	Entity *hero = &world->entities[world->heroIndex];
+	DEBUG_PUSH_STRING("Hero Pos: %06.2f, %06.2f", &hero->pos, "v2");
+	DEBUG_PUSH_STRING("Hero dPos: %06.2f, %06.2f", &hero->dPos, "v2");
+	DEBUG_PUSH_STRING("FreeEntityIndex: %d", &world->freeEntityIndex, "i32");
+	debug_stringUpdateAndRender(&state->renderer, font, dt);
 #endif
 }

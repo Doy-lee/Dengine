@@ -122,6 +122,7 @@
   <ItemGroup>
     <ClCompile Include="src\AssetManager.c" />
     <ClCompile Include="src\Common.c" />
+    <ClCompile Include="src\Debug.c" />
     <ClCompile Include="src\dengine.c" />
     <ClCompile Include="src\Platform.c" />
     <ClCompile Include="src\Renderer.c" />
@@ -137,6 +138,7 @@
     <None Include="data\shaders\sprite.vert.glsl" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\include\Dengine\Debug.h" />
     <ClInclude Include="src\include\Dengine\Platform.h" />
     <ClInclude Include="src\include\Dengine\AssetManager.h" />
     <ClInclude Include="src\include\Dengine\Common.h" />
