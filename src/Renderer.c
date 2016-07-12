@@ -18,50 +18,65 @@ INTERNAL void updateBufferObject(Renderer *const renderer,
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-void renderer_string(Renderer *const renderer, Font *const font,
-                     const char *const string, v2 pos, f32 rotate,
-                     v4 color)
+void renderer_string(Renderer *const renderer, v4 cameraBounds,
+                     Font *const font, const char *const string, v2 pos,
+                     f32 rotate, v4 color)
 {
-	i32 quadIndex = 0;
-	i32 strLen = common_strlen(string);
-	RenderQuad *stringQuads = PLATFORM_MEM_ALLOC(strLen, RenderQuad);
-
-	f32 baseline = pos.y;
-	for (i32 i = 0; i < strLen; i++)
+	i32 strLen       = common_strlen(string);
+	// TODO(doyle): Slightly incorrect string length in pixels calculation,
+	// because we use the advance metric of each character for length not
+	// maximum character size in rendering
+	v2 rightAlignedP =
+	    v2_add(pos, V2((CAST(f32) font->maxSize.w * CAST(f32) strLen),
+	                   CAST(f32) font->maxSize.h));
+	v2 leftAlignedP  = pos;
+	if ((leftAlignedP.x < cameraBounds.z && rightAlignedP.x >= cameraBounds.x) &&
+	    (leftAlignedP.y < cameraBounds.y && rightAlignedP.y >= cameraBounds.w))
 	{
-		// NOTE(doyle): Atlas packs fonts tightly, so offset the codepoint to
-		// its actual atlas index, i.e. we skip the first 31 glyphs
-		i32 codepoint = string[i];
-		i32 relativeIndex = codepoint - font->codepointRange.x;
-		CharMetrics charMetric = font->charMetrics[relativeIndex];
-		pos.y = baseline - charMetric.offset.y;
+		i32 quadIndex           = 0;
+		RenderQuad *stringQuads = PLATFORM_MEM_ALLOC(strLen, RenderQuad);
 
-		const v4 charRectOnScreen = getRect(
-		    pos, V2(CAST(f32) font->maxSize.w, CAST(f32) font->maxSize.h));
+		v2 offsetFromCamOrigin    = V2(cameraBounds.x, cameraBounds.w);
+		v2 entityRelativeToCamera = v2_sub(pos, offsetFromCamOrigin);
 
-		pos.x += charMetric.advance;
-		
-		/* Get texture out */
-		v4 charTexRect = font->atlas->texRect[relativeIndex];
-		renderer_flipTexCoord(&charTexRect, FALSE, TRUE);
+		pos          = entityRelativeToCamera;
+		f32 baseline = pos.y;
+		for (i32 i = 0; i < strLen; i++)
+		{
+			// NOTE(doyle): Atlas packs fonts tightly, so offset the codepoint
+			// to
+			// its actual atlas index, i.e. we skip the first 31 glyphs
+			i32 codepoint          = string[i];
+			i32 relativeIndex      = codepoint - font->codepointRange.x;
+			CharMetrics charMetric = font->charMetrics[relativeIndex];
+			pos.y                  = baseline - charMetric.offset.y;
 
-		RenderQuad charQuad = renderer_createQuad(renderer, charRectOnScreen,
-		                                          charTexRect, font->tex);
-		stringQuads[quadIndex++] = charQuad;
+			const v4 charRectOnScreen = getRect(
+			    pos, V2(CAST(f32) font->maxSize.w, CAST(f32) font->maxSize.h));
+
+			pos.x += charMetric.advance;
+
+			/* Get texture out */
+			v4 charTexRect = font->atlas->texRect[relativeIndex];
+			renderer_flipTexCoord(&charTexRect, FALSE, TRUE);
+
+			RenderQuad charQuad = renderer_createQuad(
+			    renderer, charRectOnScreen, charTexRect, font->tex);
+			stringQuads[quadIndex++] = charQuad;
+		}
+
+		// NOTE(doyle): We render at the renderer's size because we create quads
+		// relative to the window size, hence we also render at the origin since
+		// we're rendering a window sized buffer
+		updateBufferObject(renderer, stringQuads, quadIndex);
+		renderer_object(renderer, V2(0.0f, 0.0f), renderer->size, rotate, color,
+		                font->tex);
+		PLATFORM_MEM_FREE(stringQuads, strLen * sizeof(RenderQuad));
 	}
-
-	// NOTE(doyle): We render at the renderer's size because we create quads
-	// relative to the window size, hence we also render at the origin since
-	// we're rendering a window sized buffer
-	updateBufferObject(renderer, stringQuads, quadIndex);
-	renderer_object(renderer, V2(0.0f, 0.0f), renderer->size, rotate, color,
-	                font->tex);
-	PLATFORM_MEM_FREE(stringQuads, strLen * sizeof(RenderQuad));
-
 }
 
-void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity, f32 dt, f32 rotate,
-                     v4 color)
+void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
+                     f32 dt, f32 rotate, v4 color)
 {
 	// TODO(doyle): Batch into render groups
 
@@ -101,7 +116,6 @@ void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity, f32 dt
 		renderer_object(renderer, entityRelativeToCamera, entity->size, rotate,
 		                color, entity->tex);
 	}
-
 }
 
 void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v4 color,

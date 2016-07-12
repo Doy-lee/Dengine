@@ -201,23 +201,13 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	heroWalkRects[2]  = V4(849.0f, 1018.0f, 904.0f, 920.0f);
 	addAnim(hero, heroWalkRects, numRects, duration);
 
-	Texture *heroSheet = hero->tex;
-	v2 sheetSize = V2(CAST(f32) heroSheet->width, CAST(f32) heroSheet->height);
-	if (sheetSize.x != sheetSize.y)
-	{
-		printf(
-		    "worldTraveller_gameInit() warning: Sprite sheet is not square: "
-		    "%dx%dpx\n",
-		    CAST(i32) sheetSize.w, CAST(i32) sheetSize.h);
-	}
-
 	/* Create a NPC */
-	pos         = V2(300.0f, 300.0f);
+	pos         = V2((renderer->size.w / 3.0f), CAST(f32) state->tileSize);
 	size        = hero->size;
-	type        = entitytype_hero;
+	type        = entitytype_npc;
 	dir         = direction_null;
 	tex         = hero->tex;
-	collides    = TRUE;
+	collides    = FALSE;
 	Entity *npc = addEntity(world, pos, size, type, dir, tex, collides);
 
 	/* Add npc waving animation */
@@ -227,6 +217,32 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	npcWavingRects[0]  = V4(944.0f, 918.0f, 1010.0f, 816.0f);
 	npcWavingRects[1]  = V4(944.0f, 812.0f, 1010.0f, 710.0f);
 	addAnim(npc, npcWavingRects, numRects, duration);
+
+	/* Create a Mob */
+	pos         = V2(renderer->size.w - (renderer->size.w / 3.0f),
+	                 CAST(f32) state->tileSize);
+	size        = hero->size;
+	type        = entitytype_mob;
+	dir         = direction_west;
+	tex         = hero->tex;
+	collides    = TRUE;
+	Entity *mob = addEntity(world, pos, size, type, dir, tex, collides);
+
+	/* Add mob idle animation */
+	duration         = 1.0f;
+	numRects         = 1;
+	v4 *mobIdleRects = PLATFORM_MEM_ALLOC(numRects, v4);
+	mobIdleRects[0]  = heroIdleRects[0];
+	addAnim(mob, mobIdleRects, numRects, duration);
+
+	/* Add mob walking animation */
+	duration         = 0.10f;
+	numRects         = 3;
+	v4 *mobWalkRects = PLATFORM_MEM_ALLOC(numRects, v4);
+	mobWalkRects[0]  = heroWalkRects[0];
+	mobWalkRects[1]  = heroWalkRects[1];
+	mobWalkRects[2]  = heroWalkRects[2];
+	addAnim(mob, mobWalkRects, numRects, duration);
 
 }
 
@@ -406,18 +422,63 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 
 	if (cameraBounds.w <= world->bounds.w) cameraBounds.w = world->bounds.w;
 
+	Font *font = &assetManager->font;
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
 		Entity *const entity = &world->entities[i];
 		renderer_entity(&state->renderer, cameraBounds, entity, dt, 0.0f,
 		                V4(1, 1, 1, 1));
+
+#ifdef DENGINE_DEBUG
+		v4 color = V4(1, 1, 1, 1);
+		char *debugString = NULL;
+		switch(entity->type)
+		{
+			case entitytype_mob:
+				color = V4(1, 0, 0, 1);
+				debugString = "MOB";
+			    break;
+
+			case entitytype_hero:
+				color = V4(0, 0, 1.0f, 1);
+				debugString = "HERO";
+			    break;
+
+			case entitytype_npc:
+				color = V4(0, 1.0f, 0, 1);
+				debugString = "NPC";
+			    break;
+
+			default:
+			    break;
+		}
+
+		if (debugString)
+		{
+			v2 strPos = v2_add(entity->pos, entity->size);
+			i32 indexOfLowerAInMetrics = 'a' - font->codepointRange.x;
+			strPos.y += font->charMetrics[indexOfLowerAInMetrics].offset.y;
+
+			renderer_string(&state->renderer, cameraBounds, font, debugString,
+			                strPos, 0, color);
+
+			f32 stringLineGap = 1.1f * asset_getVFontSpacing(font->metrics);
+			strPos.y -= GLOBAL_debugState.stringLineGap;
+
+			char entityPosStr[256];
+			snprintf(entityPosStr, ARRAY_COUNT(entityPosStr), "%06.2f, %06.2f",
+			         entity->pos.x, entity->pos.y);
+			renderer_string(&state->renderer, cameraBounds, font, entityPosStr,
+			                strPos, 0, color);
+		}
+#endif
+
 	}
 
 	// TODO(doyle): Clean up lines
 	// Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
 
 #ifdef DENGINE_DEBUG
-	Font *font = &assetManager->font;
 	Entity *hero = &world->entities[world->heroIndex];
 	DEBUG_PUSH_STRING("Hero Pos: %06.2f, %06.2f", &hero->pos, "v2");
 	DEBUG_PUSH_STRING("Hero dPos: %06.2f, %06.2f", &hero->dPos, "v2");

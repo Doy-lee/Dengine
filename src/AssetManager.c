@@ -48,6 +48,15 @@ const i32 asset_loadTextureImage(AssetManager *assetManager,
 	u8 *image =
 	    stbi_load(path, &imgWidth, &imgHeight, &bytesPerPixel, 0);
 
+#ifdef DENGINE_DEBUG
+	if (imgWidth != imgHeight)
+	{
+		printf(
+		    "worldTraveller_gameInit() warning: Sprite sheet is not square: "
+		    "%dx%dpx\n", imgWidth, imgHeight);
+	}
+#endif
+
 	if (!image)
 	{
 		printf("stdbi_load() failed: %s\n", stbi_failure_reason());

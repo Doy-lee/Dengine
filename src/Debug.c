@@ -58,8 +58,8 @@ void debug_stringUpdateAndRender(Renderer *renderer, Font *font, f32 dt)
 	{
 		f32 rotate = 0;
 		v4 color   = V4(0, 0, 0, 1);
-		renderer_string(renderer, font, GLOBAL_debugState.debugStrings[i],
-		                GLOBAL_debugState.stringPos, rotate, color);
+		renderer_staticString(renderer, font, GLOBAL_debugState.debugStrings[i],
+		                      GLOBAL_debugState.stringPos, rotate, color);
 		GLOBAL_debugState.stringPos.y -=
 		    (0.9f * GLOBAL_debugState.stringLineGap);
 	}

@@ -19,8 +19,17 @@ typedef struct RenderQuad
 	v4 vertex[4];
 } RenderQuad;
 
-void renderer_string(Renderer *const renderer, Font *const font,
-                     const char *const string, v2 pos, f32 rotate, v4 color);
+void renderer_string(Renderer *const renderer, v4 cameraBounds,
+                     Font *const font, const char *const string, v2 pos,
+                     f32 rotate, v4 color);
+
+inline void renderer_staticString(Renderer *const renderer, Font *const font,
+                                  const char *const string, v2 pos, f32 rotate,
+                                  v4 color)
+{
+	renderer_string(renderer, V4(0, renderer->size.h, renderer->size.w, 0),
+	                font, string, pos, rotate, color);
+}
 
 void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
                      f32 dt, f32 rotate, v4 color);

@@ -19,6 +19,7 @@ enum EntityType
 	entitytype_null,
 	entitytype_hero,
 	entitytype_npc,
+	entitytype_mob,
 	entitytype_tile,
 	entitytype_count,
 };
