@@ -299,7 +299,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	// NOTE(doyle): Clipping threshold for snapping velocity to 0
 	f32 epsilon    = 15.0f;
 	v2 epsilonDpos = v2_sub(V2(epsilon, epsilon),
-	                        V2(absolute(hero->dPos.x), absolute(hero->dPos.y)));
+	                        V2(ABS(hero->dPos.x), ABS(hero->dPos.y)));
 	if (epsilonDpos.x >= 0.0f && epsilonDpos.y >= 0.0f)
 	{
 		hero->dPos = V2(0.0f, 0.0f);
@@ -338,7 +338,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	   acceleration     = (a/2) * (t^2)
 	   old velocity     =                 (v*t)
 	 */
-	v2 ddPosNew = v2_scale(v2_scale(ddPos, 0.5f), squared(dt));
+	v2 ddPosNew = v2_scale(v2_scale(ddPos, 0.5f), SQUARED(dt));
 	v2 dPos     = v2_scale(hero->dPos, dt);
 	v2 newHeroP = v2_add(v2_add(ddPosNew, dPos), hero->pos);
 
@@ -426,7 +426,17 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
 		Entity *const entity = &world->entities[i];
-		renderer_entity(&state->renderer, cameraBounds, entity, dt, 0.0f,
+		f32 rotate = 0.0f;
+		switch (entity->type)
+		{
+			case entitytype_hero:
+				//rotate = DEGREES_TO_RADIANS(90.0f);
+				break;
+			default:
+				break;
+		}
+
+		renderer_entity(&state->renderer, cameraBounds, entity, dt, rotate,
 		                V4(1, 1, 1, 1));
 
 #ifdef DENGINE_DEBUG
@@ -472,7 +482,6 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 			                strPos, 0, color);
 		}
 #endif
-
 	}
 
 	// TODO(doyle): Clean up lines

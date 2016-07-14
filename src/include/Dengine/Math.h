@@ -4,8 +4,10 @@
 #include <math.h>
 #include "Dengine/Common.h"
 
-#define squared(x) (x * x)
-#define absolute(x) ((x) > 0 ? (x) : -(x))
+#define MATH_PI 3.14159265359f
+#define SQUARED(x) (x * x)
+#define ABS(x) ((x) > 0 ? (x) : -(x))
+#define DEGREES_TO_RADIANS(x) (x * (MATH_PI / 180.0f))
 
 /* VECTORS */
 typedef union v2i
@@ -199,17 +201,17 @@ INTERNAL inline mat4 mat4_rotate(const f32 radians, const f32 x, const f32 y,
 	f32 sinVal = sinf(radians);
 	f32 cosVal = cosf(radians);
 
-	result.e[0][0] = (cosVal + (squared(x) * (1.0f - cosVal)));
+	result.e[0][0] = (cosVal + (SQUARED(x) * (1.0f - cosVal)));
 	result.e[0][1] = ((y * z * (1.0f - cosVal)) + (z * sinVal));
 	result.e[0][2] = ((z * x * (1.0f - cosVal)) - (y * sinVal));
 
 	result.e[1][0] = ((x * y * (1.0f - cosVal)) - (z * sinVal));
-	result.e[1][1] = (cosVal + (squared(y) * (1.0f - cosVal)));
+	result.e[1][1] = (cosVal + (SQUARED(y) * (1.0f - cosVal)));
 	result.e[1][2] = ((z * y * (1.0f - cosVal)) + (x * sinVal));
 
 	result.e[2][0] = ((x * z * (1.0f - cosVal)) + (y * sinVal));
 	result.e[2][1] = ((y * z * (1.0f - cosVal)) - (x * sinVal));
-	result.e[2][2] = (cosVal + (squared(z) * (1.0f - cosVal)));
+	result.e[2][2] = (cosVal + (SQUARED(z) * (1.0f - cosVal)));
 
 	result.e[3][3] = 1;
 
@@ -270,8 +272,8 @@ INTERNAL inline v4 getRect(v2 origin, v2 size)
 
 INTERNAL inline v2 getRectSize(v4 rect)
 {
-	f32 width  = absolute(rect.x - rect.z);
-	f32 height = absolute(rect.y - rect.w);
+	f32 width  = ABS(rect.x - rect.z);
+	f32 height = ABS(rect.y - rect.w);
 
 	v2 result = V2(width, height);
 

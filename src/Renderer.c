@@ -123,7 +123,12 @@ void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v4 color,
 {
 	shader_use(renderer->shader);
 	mat4 transMatrix  = mat4_translate(pos.x, pos.y, 0.0f);
-	mat4 rotateMatrix = mat4_rotate(rotate, 0.0f, 0.0f, 1.0f);
+
+	// NOTE(doyle): Rotate from the center of the object, not its' origin (i.e.
+	// top left)
+	mat4 rotateMatrix = mat4_translate((size.x * 0.5f), (size.y * 0.5f), 0.0f);
+	rotateMatrix = mat4_mul(rotateMatrix, mat4_rotate(rotate, 0.0f, 0.0f, 1.0f));
+	rotateMatrix = mat4_mul(rotateMatrix, mat4_translate((size.x * -0.5f), (size.y * -0.5f), 0.0f));
 
 	// NOTE(doyle): We draw everything as a unit square in OGL. Scale it to size
 	// TODO(doyle): We should have a notion of hitbox size and texture size

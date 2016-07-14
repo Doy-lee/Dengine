@@ -257,7 +257,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	}
 #endif
 
-	i32 bitmapSize = squared(TARGET_TEXTURE_SIZE) * TARGET_BYTES_PER_PIXEL;
+	i32 bitmapSize = SQUARED(TARGET_TEXTURE_SIZE) * TARGET_BYTES_PER_PIXEL;
 	u32 *fontBitmap = PLATFORM_MEM_ALLOC(bitmapSize, u32);
 	const i32 pitch = MAX_TEXTURE_SIZE * TARGET_BYTES_PER_PIXEL;
 
