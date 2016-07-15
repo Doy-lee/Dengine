@@ -23,12 +23,16 @@ void renderer_string(Renderer *const renderer, v4 cameraBounds,
                      f32 rotate, v4 color)
 {
 	i32 strLen       = common_strlen(string);
+	// TODO(doyle): Scale, not too important .. but rudimentary infrastructure
+	// laid out here
+	f32 scale = 1.0f;
+
 	// TODO(doyle): Slightly incorrect string length in pixels calculation,
 	// because we use the advance metric of each character for length not
 	// maximum character size in rendering
 	v2 rightAlignedP =
-	    v2_add(pos, V2((CAST(f32) font->maxSize.w * CAST(f32) strLen),
-	                   CAST(f32) font->maxSize.h));
+	    v2_add(pos, V2(scale *(CAST(f32) font->maxSize.w * CAST(f32) strLen),
+	                   scale * CAST(f32) font->maxSize.h));
 	v2 leftAlignedP  = pos;
 	if ((leftAlignedP.x < cameraBounds.z && rightAlignedP.x >= cameraBounds.x) &&
 	    (leftAlignedP.y < cameraBounds.y && rightAlignedP.y >= cameraBounds.w))
@@ -49,12 +53,12 @@ void renderer_string(Renderer *const renderer, v4 cameraBounds,
 			i32 codepoint          = string[i];
 			i32 relativeIndex      = codepoint - font->codepointRange.x;
 			CharMetrics charMetric = font->charMetrics[relativeIndex];
-			pos.y                  = baseline - charMetric.offset.y;
+			pos.y                  = baseline - (scale * charMetric.offset.y);
 
 			const v4 charRectOnScreen = getRect(
-			    pos, V2(CAST(f32) font->maxSize.w, CAST(f32) font->maxSize.h));
+			    pos, V2(scale * CAST(f32) font->maxSize.w, scale * CAST(f32) font->maxSize.h));
 
-			pos.x += charMetric.advance;
+			pos.x += scale * charMetric.advance;
 
 			/* Get texture out */
 			v4 charTexRect = font->atlas->texRect[relativeIndex];

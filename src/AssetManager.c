@@ -266,7 +266,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 
 	i32 startingGlyphIndex = 0;
 	i32 glyphsRemaining = numGlyphs;
-	i32 glyphsOnCurrRow = glyphsPerRow;
+	i32 glyphsOnCurrRow =
+	    (glyphsPerRow < glyphsRemaining) ? glyphsPerRow : glyphsRemaining;
 
 	// TODO(doyle): We copy over the bitmap direct to the font sheet, should we
 	// align the baselines up so we don't need to do baseline adjusting at
