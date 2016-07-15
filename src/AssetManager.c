@@ -155,7 +155,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	GlyphBitmap *glyphBitmaps = PLATFORM_MEM_ALLOC(numGlyphs, GlyphBitmap);
 	v2i largestGlyphDimension = V2i(0, 0);
 
-	const f32 targetFontHeight = 20.0f;
+	const f32 targetFontHeight = 15.0f;
 	f32 scaleY = stbtt_ScaleForPixelHeight(&fontInfo, targetFontHeight);
 
 	i32 ascent, descent, lineGap;

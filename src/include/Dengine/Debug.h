@@ -5,7 +5,7 @@
 
 #define INVALID_CODE_PATH TRUE
 #define DEBUG_PUSH_STRING(formatString, data, type)                            \
-	debug_pushString(formatString, CAST(void *) data, type)
+	debug_pushString(formatString, CAST(void *)&data, type)
 
 enum DebugCallCount
 {

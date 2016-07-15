@@ -8,6 +8,7 @@
 #define SQUARED(x) (x * x)
 #define ABS(x) ((x) > 0 ? (x) : -(x))
 #define DEGREES_TO_RADIANS(x) (x * (MATH_PI / 180.0f))
+#define SQRT(x) (sqrtf(x))
 
 /* VECTORS */
 typedef union v2i
@@ -135,6 +136,15 @@ INTERNAL inline v##num##i v##num##i_add(const v##num##i a, const v##num##i b) \
 } \
 
 DEFINE_VECTOR_INT_MATH(2);
+
+INTERNAL inline f32 v2_magnitude(const v2 a, const v2 b)
+{
+	f32 x = b.x - a.x;
+	f32 y = b.y - a.y;
+	f32 inner = (SQUARED(x) + SQUARED(y));
+	f32 result = SQRT(inner);
+	return result;
+}
 
 INTERNAL inline v3 v3_cross(const v3 a, const v3 b)
 {

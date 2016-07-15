@@ -175,10 +175,9 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	/* Init hero entity */
 	world->heroIndex   = world->freeEntityIndex;
 
-	Renderer *renderer = &state->renderer;
+	Renderer *renderer   = &state->renderer;
 	v2 size              = V2(58.0f, 98.0f);
-	v2 pos               = V2(((renderer->size.w * 0.5f) - (size.w * 0.5f)),
-	                          CAST(f32) state->tileSize);
+	v2 pos               = V2(size.x, CAST(f32) state->tileSize);
 	enum EntityType type = entitytype_hero;
 	enum Direction dir   = direction_east;
 	Texture *tex         = asset_getTexture(assetManager, texlist_hero);
@@ -202,7 +201,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	addAnim(hero, heroWalkRects, numRects, duration);
 
 	/* Create a NPC */
-	pos         = V2((renderer->size.w / 3.0f), CAST(f32) state->tileSize);
+	pos         = V2(hero->pos.x * 3, CAST(f32) state->tileSize);
 	size        = hero->size;
 	type        = entitytype_npc;
 	dir         = direction_null;
@@ -397,13 +396,14 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 
 	AssetManager *assetManager = &state->assetManager;
 	Renderer *renderer         = &state->renderer;
+	World *const world         = &state->world[state->currWorldIndex];
+	Entity *hero               = &world->entities[world->heroIndex];
+#ifdef DENGINE_DEBUG
+	Font *font                 = &assetManager->font;
+#endif
 
-	World *const world = &state->world[state->currWorldIndex];
-
-	/* Render entities */
-	ASSERT(world->freeEntityIndex < world->maxEntities);
+	/* Recalculate rendering bounds */
 	v4 cameraBounds = getRect(world->cameraPos, renderer->size);
-
 	// NOTE(doyle): Lock camera if it passes the bounds of the world
 	if (cameraBounds.x <= world->bounds.x)
 	{
@@ -422,9 +422,12 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 
 	if (cameraBounds.w <= world->bounds.w) cameraBounds.w = world->bounds.w;
 
-	Font *font = &assetManager->font;
+	/* Render and update loop */
+	ASSERT(world->freeEntityIndex < world->maxEntities);
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
+
+		/* Render entities */
 		Entity *const entity = &world->entities[i];
 		f32 rotate = 0.0f;
 		switch (entity->type)
@@ -438,34 +441,64 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 
 		renderer_entity(&state->renderer, cameraBounds, entity, dt, rotate,
 		                V4(1, 1, 1, 1));
+		// TODO(doyle): Clean up lines
+		// Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
+
+		/* Game logic */
+		if (entity->type == entitytype_hero) continue;
+		else if (entity->type == entitytype_mob)
+		{
+			// TODO(doyle): Currently calculated in pixels, how about meaningful
+			// game units?
+			f32 distance = v2_magnitude(hero->pos, entity->pos);
+#ifdef DENGINE_DEBUG
+			DEBUG_PUSH_STRING("Hero to Entity Magnitude: %06.2f", distance,
+			                  "f32");
+#endif
+			if (distance <= 500.0f)
+			{
+#ifdef DENGINE_DEBUG
+				v4 color        = V4(1.0f, 0, 0, 1);
+				char *battleStr = "IN-BATTLE RANGE";
+				f32 strLenInPixels =
+				    CAST(f32)(font->maxSize.w * common_strlen(battleStr));
+				v2 strPos =
+				    V2((renderer->size.w * 0.5f) - (strLenInPixels * 0.5f),
+				       renderer->size.h - 300.0f);
+				renderer_staticString(&state->renderer, font, battleStr, strPos,
+				                      0, color);
+#endif
+			}
+		}
 
 #ifdef DENGINE_DEBUG
-		v4 color = V4(1, 1, 1, 1);
+		/* Render debug markers on entities */
+		v4 color          = V4(1, 1, 1, 1);
 		char *debugString = NULL;
-		switch(entity->type)
+		switch (entity->type)
 		{
-			case entitytype_mob:
-				color = V4(1, 0, 0, 1);
-				debugString = "MOB";
-			    break;
+		case entitytype_mob:
+			color       = V4(1, 0, 0, 1);
+			debugString = "MOB";
+			break;
 
-			case entitytype_hero:
-				color = V4(0, 0, 1.0f, 1);
-				debugString = "HERO";
-			    break;
+		case entitytype_hero:
+			color       = V4(0, 0, 1.0f, 1);
+			debugString = "HERO";
+			break;
 
-			case entitytype_npc:
-				color = V4(0, 1.0f, 0, 1);
-				debugString = "NPC";
-			    break;
+		case entitytype_npc:
+			color       = V4(0, 1.0f, 0, 1);
+			debugString = "NPC";
+			break;
 
-			default:
-			    break;
+		default:
+			break;
 		}
 
 		if (debugString)
 		{
-			v2 strPos = v2_add(entity->pos, entity->size);
+			v2 strPos                  = v2_add(entity->pos, entity->size);
 			i32 indexOfLowerAInMetrics = 'a' - font->codepointRange.x;
 			strPos.y += font->charMetrics[indexOfLowerAInMetrics].offset.y;
 
@@ -480,25 +513,29 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 			         entity->pos.x, entity->pos.y);
 			renderer_string(&state->renderer, cameraBounds, font, entityPosStr,
 			                strPos, 0, color);
+
+			strPos.y -= GLOBAL_debugState.stringLineGap;
+			char entityIDStr[256];
+			snprintf(entityIDStr, ARRAY_COUNT(entityIDStr), "ID: %4d/%d", i,
+			         world->maxEntities);
+			renderer_string(&state->renderer, cameraBounds, font, entityIDStr,
+			                strPos, 0, color);
 		}
 #endif
 	}
 
-	// TODO(doyle): Clean up lines
-	// Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
-
 #ifdef DENGINE_DEBUG
-	Entity *hero = &world->entities[world->heroIndex];
-	DEBUG_PUSH_STRING("Hero Pos: %06.2f, %06.2f", &hero->pos, "v2");
-	DEBUG_PUSH_STRING("Hero dPos: %06.2f, %06.2f", &hero->dPos, "v2");
-	DEBUG_PUSH_STRING("FreeEntityIndex: %d", &world->freeEntityIndex, "i32");
+	/* Render debug info stack */
+	DEBUG_PUSH_STRING("Hero Pos: %06.2f, %06.2f", hero->pos, "v2");
+	DEBUG_PUSH_STRING("Hero dPos: %06.2f, %06.2f", hero->dPos, "v2");
+	DEBUG_PUSH_STRING("FreeEntityIndex: %d", world->freeEntityIndex, "i32");
 
 	DEBUG_PUSH_STRING("glDrawArray Calls: %d",
-	                  &GLOBAL_debugState.callCount[debugcallcount_drawArrays],
+	                  GLOBAL_debugState.callCount[debugcallcount_drawArrays],
 	                  "i32");
 
 	i32 debug_kbAllocated = GLOBAL_debugState.totalMemoryAllocated / 1024;
-	DEBUG_PUSH_STRING("TotalMemoryAllocated: %dkb", &debug_kbAllocated, "i32");
+	DEBUG_PUSH_STRING("TotalMemoryAllocated: %dkb", debug_kbAllocated, "i32");
 	debug_stringUpdateAndRender(&state->renderer, font, dt);
 	debug_clearCallCounter();
 #endif
