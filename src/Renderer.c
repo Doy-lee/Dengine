@@ -18,6 +18,125 @@ INTERNAL void updateBufferObject(Renderer *const renderer,
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
+INTERNAL RenderQuad createTexQuad(Renderer *renderer, v4 quadRect, v4 texRect,
+                                  Texture *tex)
+{
+	// NOTE(doyle): Draws a series of triangles (three-sided polygons) using
+	// vertices v0, v1, v2, then v2, v1, v3 (note the order)
+	RenderQuad result = {0};
+
+	/* Convert screen coordinates to normalised device coordinates */
+	v4 quadRectNdc = quadRect;
+	quadRectNdc.e[0] *= renderer->vertexNdcFactor.w;
+	quadRectNdc.e[1] *= renderer->vertexNdcFactor.h;
+	quadRectNdc.e[2] *= renderer->vertexNdcFactor.w;
+	quadRectNdc.e[3] *= renderer->vertexNdcFactor.h;
+
+	/* Convert texture coordinates to normalised texture coordinates */
+	v4 texRectNdc = texRect;
+	if (tex)
+	{
+		v2 texNdcFactor = V2(1.0f / tex->width, 1.0f / tex->height);
+		texRectNdc.e[0] *= texNdcFactor.w;
+		texRectNdc.e[1] *= texNdcFactor.h;
+		texRectNdc.e[2] *= texNdcFactor.w;
+		texRectNdc.e[3] *= texNdcFactor.h;
+	}
+
+	/* Form the quad */
+	result.vertex[0] = V4(quadRectNdc.x, quadRectNdc.y, texRectNdc.x,
+	                      texRectNdc.y); // Top left
+	result.vertex[1] = V4(quadRectNdc.x, quadRectNdc.w, texRectNdc.x,
+	                      texRectNdc.w); // Bottom left
+	result.vertex[2] = V4(quadRectNdc.z, quadRectNdc.y, texRectNdc.z,
+	                      texRectNdc.y); // Top right
+	result.vertex[3] = V4(quadRectNdc.z, quadRectNdc.w, texRectNdc.z,
+	                      texRectNdc.w); // Bottom right
+	return result;
+}
+
+INTERNAL inline RenderQuad createQuad(Renderer *renderer, v4 quadRect)
+{
+	v4 texRect = V4(0, 0, 0, 0);
+	RenderQuad result =
+	    createTexQuad(renderer, quadRect, texRect, NULL);
+	return result;
+}
+
+INTERNAL inline RenderQuad
+createDefaultTexQuad(Renderer *renderer, v4 texRect, Texture *tex)
+{
+	RenderQuad result = {0};
+	v4 defaultQuad    = V4(0.0f, renderer->size.h, renderer->size.w, 0.0f);
+	result            = createTexQuad(renderer, defaultQuad, texRect, tex);
+	return result;
+}
+
+INTERNAL void renderObject(Renderer *renderer, v2 pos, v2 size, f32 rotate,
+                           v4 color, Texture *tex)
+{
+	mat4 transMatrix  = mat4_translate(pos.x, pos.y, 0.0f);
+	// NOTE(doyle): Rotate from the center of the object, not its' origin (i.e.
+	// top left)
+	mat4 rotateMatrix = mat4_translate((size.x * 0.5f), (size.y * 0.5f), 0.0f);
+	rotateMatrix = mat4_mul(rotateMatrix, mat4_rotate(rotate, 0.0f, 0.0f, 1.0f));
+	rotateMatrix = mat4_mul(rotateMatrix, mat4_translate((size.x * -0.5f), (size.y * -0.5f), 0.0f));
+
+	// NOTE(doyle): We draw everything as a unit square in OGL. Scale it to size
+	// TODO(doyle): We should have a notion of hitbox size and texture size
+	// we're going to render so we can draw textures that may be bigger than the
+	// entity, (slightly) but keep a consistent bounding box
+	mat4 scaleMatrix = mat4_scale(size.x, size.y, 1.0f);
+	mat4 model = mat4_mul(transMatrix, mat4_mul(rotateMatrix, scaleMatrix));
+
+	/* Load transformation matrix */
+	shader_use(renderer->shader);
+	shader_uniformSetMat4fv(renderer->shader, "model", model);
+	glCheckError();
+
+	/* Set color modulation value */
+	shader_uniformSetVec4f(renderer->shader, "spriteColor", color);
+
+	/* Send draw calls */
+#if RENDER_BOUNDING_BOX
+	glBindVertexArray(renderer->vao);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
+	glBindVertexArray(0);
+#endif
+
+	if (tex)
+	{
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, tex->id);
+		shader_uniformSet1i(renderer->shader, "tex", 0);
+	}
+
+	glBindVertexArray(renderer->vao);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
+
+#ifdef DENGINE_DEBUG
+	debug_callCountIncrement(debugcallcount_drawArrays);
+#endif
+
+	/* Unbind */
+	glBindVertexArray(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glCheckError();
+}
+
+void renderer_rect(Renderer *const renderer, v4 cameraBounds, v2 pos, v2 size,
+                   f32 rotate, Texture *tex, v4 texRect, v4 color)
+{
+	v4 quadRect     = math_getRect(pos, size);
+	RenderQuad quad = createTexQuad(renderer, quadRect, texRect, tex);
+	updateBufferObject(renderer, &quad, 1);
+
+	// NOTE(doyle): Get the origin of cameraBounds in world space, bottom left
+	v2 offsetFromCamOrigin  = V2(cameraBounds.x, cameraBounds.w);
+	v2 rectRelativeToCamera = v2_sub(pos, offsetFromCamOrigin);
+	renderObject(renderer, rectRelativeToCamera, size, rotate, color, tex);
+}
+
 void renderer_string(Renderer *const renderer, v4 cameraBounds,
                      Font *const font, const char *const string, v2 pos,
                      f32 rotate, v4 color)
@@ -48,15 +167,15 @@ void renderer_string(Renderer *const renderer, v4 cameraBounds,
 		for (i32 i = 0; i < strLen; i++)
 		{
 			// NOTE(doyle): Atlas packs fonts tightly, so offset the codepoint
-			// to
-			// its actual atlas index, i.e. we skip the first 31 glyphs
+			// to its actual atlas index, i.e. we skip the first 31 glyphs
 			i32 codepoint          = string[i];
 			i32 relativeIndex      = codepoint - font->codepointRange.x;
 			CharMetrics charMetric = font->charMetrics[relativeIndex];
 			pos.y                  = baseline - (scale * charMetric.offset.y);
 
-			const v4 charRectOnScreen = getRect(
-			    pos, V2(scale * CAST(f32) font->maxSize.w, scale * CAST(f32) font->maxSize.h));
+			const v4 charRectOnScreen =
+			    math_getRect(pos, V2(scale * CAST(f32) font->maxSize.w,
+			                         scale * CAST(f32) font->maxSize.h));
 
 			pos.x += scale * charMetric.advance;
 
@@ -64,8 +183,8 @@ void renderer_string(Renderer *const renderer, v4 cameraBounds,
 			v4 charTexRect = font->atlas->texRect[relativeIndex];
 			renderer_flipTexCoord(&charTexRect, FALSE, TRUE);
 
-			RenderQuad charQuad = renderer_createQuad(
-			    renderer, charRectOnScreen, charTexRect, font->tex);
+			RenderQuad charQuad = createTexQuad(renderer, charRectOnScreen,
+			                                    charTexRect, font->tex);
 			stringQuads[quadIndex++] = charQuad;
 		}
 
@@ -73,7 +192,7 @@ void renderer_string(Renderer *const renderer, v4 cameraBounds,
 		// relative to the window size, hence we also render at the origin since
 		// we're rendering a window sized buffer
 		updateBufferObject(renderer, stringQuads, quadIndex);
-		renderer_object(renderer, V2(0.0f, 0.0f), renderer->size, rotate, color,
+		renderObject(renderer, V2(0.0f, 0.0f), renderer->size, rotate, color,
 		                font->tex);
 		PLATFORM_MEM_FREE(stringQuads, strLen * sizeof(RenderQuad));
 	}
@@ -110,97 +229,13 @@ void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
 			renderer_flipTexCoord(&texRect, TRUE, FALSE);
 		}
 		RenderQuad entityQuad =
-		    renderer_createDefaultQuad(renderer, texRect, entity->tex);
+		    createDefaultTexQuad(renderer, texRect, entity->tex);
 		updateBufferObject(renderer, &entityQuad, 1);
 
-		// NOTE(doyle): The camera origin is 0,0 in world positions
 		v2 offsetFromCamOrigin    = V2(cameraBounds.x, cameraBounds.w);
 		v2 entityRelativeToCamera = v2_sub(entity->pos, offsetFromCamOrigin);
 
-		renderer_object(renderer, entityRelativeToCamera, entity->size, rotate,
-		                color, entity->tex);
+		renderObject(renderer, entityRelativeToCamera, entity->size, rotate,
+		             color, entity->tex);
 	}
-}
-
-void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v4 color,
-                     Texture *tex)
-{
-	shader_use(renderer->shader);
-	mat4 transMatrix  = mat4_translate(pos.x, pos.y, 0.0f);
-
-	// NOTE(doyle): Rotate from the center of the object, not its' origin (i.e.
-	// top left)
-	mat4 rotateMatrix = mat4_translate((size.x * 0.5f), (size.y * 0.5f), 0.0f);
-	rotateMatrix = mat4_mul(rotateMatrix, mat4_rotate(rotate, 0.0f, 0.0f, 1.0f));
-	rotateMatrix = mat4_mul(rotateMatrix, mat4_translate((size.x * -0.5f), (size.y * -0.5f), 0.0f));
-
-	// NOTE(doyle): We draw everything as a unit square in OGL. Scale it to size
-	// TODO(doyle): We should have a notion of hitbox size and texture size
-	// we're going to render so we can draw textures that may be bigger than the
-	// entity, (slightly) but keep a consistent bounding box
-	mat4 scaleMatrix = mat4_scale(size.x, size.y, 1.0f);
-
-	mat4 model = mat4_mul(transMatrix, mat4_mul(rotateMatrix, scaleMatrix));
-	shader_uniformSetMat4fv(renderer->shader, "model", model);
-	glCheckError();
-
-	shader_uniformSetVec4f(renderer->shader, "spriteColor", color);
-
-#if RENDER_BOUNDING_BOX
-	glBindVertexArray(renderer->vao);
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
-	glBindVertexArray(0);
-#endif
-
-	glActiveTexture(GL_TEXTURE0);
-
-	if (tex)
-	{
-		glBindTexture(GL_TEXTURE_2D, tex->id);
-		shader_uniformSet1i(renderer->shader, "tex", 0);
-	}
-
-	glBindVertexArray(renderer->vao);
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
-
-#ifdef DENGINE_DEBUG
-	debug_callCountIncrement(debugcallcount_drawArrays);
-#endif
-
-	glBindVertexArray(0);
-
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glCheckError();
-}
-
-RenderQuad renderer_createQuad(Renderer *renderer, v4 quadRect, v4 texRect,
-                               Texture *tex)
-{
-	// NOTE(doyle): Draws a series of triangles (three-sided polygons) using
-	// vertices v0, v1, v2, then v2, v1, v3 (note the order)
-	RenderQuad result = {0};
-
-	v4 quadRectNdc = quadRect;
-	quadRectNdc.e[0] *= renderer->vertexNdcFactor.w;
-	quadRectNdc.e[1] *= renderer->vertexNdcFactor.h;
-	quadRectNdc.e[2] *= renderer->vertexNdcFactor.w;
-	quadRectNdc.e[3] *= renderer->vertexNdcFactor.h;
-
-	v2 texNdcFactor = V2(1.0f / tex->width, 1.0f / tex->height);
-	v4 texRectNdc   = texRect;
-	texRectNdc.e[0] *= texNdcFactor.w;
-	texRectNdc.e[1] *= texNdcFactor.h;
-	texRectNdc.e[2] *= texNdcFactor.w;
-	texRectNdc.e[3] *= texNdcFactor.h;
-
-	result.vertex[0] = V4(quadRectNdc.x, quadRectNdc.y, texRectNdc.x,
-	                      texRectNdc.y); // Top left
-	result.vertex[1] = V4(quadRectNdc.x, quadRectNdc.w, texRectNdc.x,
-	                      texRectNdc.w); // Bottom left
-	result.vertex[2] = V4(quadRectNdc.z, quadRectNdc.y, texRectNdc.z,
-	                      texRectNdc.y); // Top right
-	result.vertex[3] = V4(quadRectNdc.z, quadRectNdc.w, texRectNdc.z,
-	                      texRectNdc.w); // Bottom right
-	return result;
 }

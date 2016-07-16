@@ -19,6 +19,12 @@ typedef struct RenderQuad
 	v4 vertex[4];
 } RenderQuad;
 
+// TODO(doyle): Clean up lines
+// Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
+
+void renderer_rect(Renderer *const renderer, v4 cameraBounds, v2 pos, v2 size,
+                   f32 rotate, Texture *tex, v4 texRect, v4 color);
+
 void renderer_string(Renderer *const renderer, v4 cameraBounds,
                      Font *const font, const char *const string, v2 pos,
                      f32 rotate, v4 color);
@@ -33,12 +39,6 @@ inline void renderer_staticString(Renderer *const renderer, Font *const font,
 
 void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
                      f32 dt, f32 rotate, v4 color);
-
-void renderer_object(Renderer *renderer, v2 pos, v2 size, f32 rotate, v4 color,
-                     Texture *tex);
-
-RenderQuad renderer_createQuad(Renderer *renderer, v4 quadRect, v4 texRect,
-                                    Texture *tex);
 
 INTERNAL inline void renderer_flipTexCoord(v4 *texCoords, b32 flipX, b32 flipY)
 {
@@ -56,14 +56,4 @@ INTERNAL inline void renderer_flipTexCoord(v4 *texCoords, b32 flipX, b32 flipY)
 		texCoords->w = tmp.y;
 	}
 }
-
-INTERNAL inline RenderQuad renderer_createDefaultQuad(Renderer *renderer,
-                                                      v4 texRect, Texture *tex)
-{
-	RenderQuad result = {0};
-	v4 defaultQuad = V4(0.0f, renderer->size.h, renderer->size.w, 0.0f);
-	result = renderer_createQuad(renderer, defaultQuad, texRect, tex);
-	return result;
-}
-
 #endif

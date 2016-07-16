@@ -54,7 +54,7 @@ typedef struct Entity
 
 INTERNAL inline v4 getEntityScreenRect(Entity entity)
 {
-	v4 result = getRect(entity.pos, entity.size);
+	v4 result = math_getRect(entity.pos, entity.size);
 	return result;
 }
 

@@ -92,6 +92,12 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
 	/* Initialise assets */
+	/* Create empty 1x1 4bpp black texture */
+	u32 bitmap       = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
+	Texture emptyTex = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
+	assetManager->textures[texlist_empty] = emptyTex;
+
+	/* Load textures */
 	asset_loadTextureImage(assetManager,
 	                       "data/textures/WorldTraveller/TerraSprite1024.png",
 	                       texlist_hero);
@@ -105,10 +111,13 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	const i32 texSize = 1024;
 	v2 texOrigin = V2(0, CAST(f32)(texSize - 128));
 	terrainAtlas->texRect[terraincoords_ground] =
-	    V4(texOrigin.x, texOrigin.y, texOrigin.x + atlasTileSize, texOrigin.y - atlasTileSize);
+	    V4(texOrigin.x, texOrigin.y, texOrigin.x + atlasTileSize,
+	       texOrigin.y - atlasTileSize);
 
+	/* Load shaders */
 	asset_loadShaderFiles(assetManager, "data/shaders/sprite.vert.glsl",
-	                      "data/shaders/sprite.frag.glsl", shaderlist_sprite);
+	                      "data/shaders/sprite.frag.glsl",
+	                      shaderlist_sprite);
 
 	asset_loadTTFont(assetManager, "C:/Windows/Fonts/Arialbd.ttf");
 	glCheckError();
@@ -135,8 +144,9 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 
 		v2 worldDimensionInTilesf = V2(CAST(f32) worldDimensionInTiles.x,
 		                               CAST(f32) worldDimensionInTiles.y);
-		world->bounds = getRect(V2(0, 0), v2_scale(worldDimensionInTilesf,
-		                                           CAST(f32) state->tileSize));
+		world->bounds =
+		    math_getRect(V2(0, 0), v2_scale(worldDimensionInTilesf,
+		                                    CAST(f32) state->tileSize));
 
 		TexAtlas *const atlas =
 		    asset_getTextureAtlas(assetManager, world->texType);
@@ -403,7 +413,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 #endif
 
 	/* Recalculate rendering bounds */
-	v4 cameraBounds = getRect(world->cameraPos, renderer->size);
+	v4 cameraBounds = math_getRect(world->cameraPos, renderer->size);
 	// NOTE(doyle): Lock camera if it passes the bounds of the world
 	if (cameraBounds.x <= world->bounds.x)
 	{
@@ -441,12 +451,9 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 
 		renderer_entity(&state->renderer, cameraBounds, entity, dt, rotate,
 		                V4(1, 1, 1, 1));
-		// TODO(doyle): Clean up lines
-		// Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
 
 		/* Game logic */
-		if (entity->type == entitytype_hero) continue;
-		else if (entity->type == entitytype_mob)
+		if (entity->type == entitytype_mob)
 		{
 			// TODO(doyle): Currently calculated in pixels, how about meaningful
 			// game units?
@@ -468,6 +475,11 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 				renderer_staticString(&state->renderer, font, battleStr, strPos,
 				                      0, color);
 #endif
+				Texture *emptyTex =
+				    asset_getTexture(assetManager, texlist_empty);
+				renderer_rect(renderer, cameraBounds, hero->pos,
+				              V2(distance, 100.0f), 0, emptyTex, V4(0, 1, 1, 0),
+				              V4(1, 0, 0, 1));
 			}
 		}
 

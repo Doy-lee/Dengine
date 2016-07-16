@@ -28,8 +28,8 @@ INTERNAL GLint getGLFormat(i32 bytesPerPixel, b32 srgb)
 	}
 }
 
-Texture genTexture(const GLuint width, const GLuint height,
-                   const GLint bytesPerPixel, const u8 *const image)
+Texture texture_gen(const GLuint width, const GLuint height,
+                    const GLint bytesPerPixel, const u8 *const image)
 {
 	// TODO(doyle): Let us set the parameters gl params as well
 	glCheckError();

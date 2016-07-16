@@ -269,7 +269,7 @@ INTERNAL inline v4 mat4_mul_v4(const mat4 a, const v4 b)
 	return result;
 }
 
-INTERNAL inline v4 getRect(v2 origin, v2 size)
+INTERNAL inline v4 math_getRect(v2 origin, v2 size)
 {
 	v2 upperLeftBound  = v2_add(origin, V2(0.0f, size.y));
 	v2 lowerRightBound = v2_add(origin, V2(size.x, 0.0f));
@@ -280,7 +280,7 @@ INTERNAL inline v4 getRect(v2 origin, v2 size)
 	return result;
 }
 
-INTERNAL inline v2 getRectSize(v4 rect)
+INTERNAL inline v2 math_getRectSize(v4 rect)
 {
 	f32 width  = ABS(rect.x - rect.z);
 	f32 height = ABS(rect.y - rect.w);

@@ -63,8 +63,8 @@ const i32 asset_loadTextureImage(AssetManager *assetManager,
 		return -1;
 	}
 
-	Texture tex = genTexture(CAST(GLuint)(imgWidth), CAST(GLuint)(imgHeight),
-	                         CAST(GLint)(bytesPerPixel), image);
+	Texture tex = texture_gen(CAST(GLuint)(imgWidth), CAST(GLuint)(imgHeight),
+	                          CAST(GLint)(bytesPerPixel), image);
 	glCheckError();
 	stbi_image_free(image);
 
@@ -111,6 +111,30 @@ INTERNAL GLuint createShaderFromPath(const char *const path, GLuint shadertype)
 	return result;
 }
 
+INTERNAL i32 shaderLoadProgram(Shader *const shader, const GLuint vertexShader,
+                               const GLuint fragmentShader)
+{
+	shader->id = glCreateProgram();
+	glAttachShader(shader->id, vertexShader);
+	glAttachShader(shader->id, fragmentShader);
+	glLinkProgram(shader->id);
+
+	glDeleteShader(fragmentShader);
+	glDeleteShader(vertexShader);
+
+	GLint success;
+	GLchar infoLog[512];
+	glGetProgramiv(shader->id, GL_LINK_STATUS, &success);
+	if (!success)
+	{
+		glGetProgramInfoLog(shader->id, 512, NULL, infoLog);
+		printf("glLinkProgram failed: %s\n", infoLog);
+		return -1;
+	}
+
+	return 0;
+}
+
 const i32 asset_loadShaderFiles(AssetManager *assetManager,
                                 const char *const vertexPath,
                                 const char *const fragmentPath,
@@ -121,7 +145,7 @@ const i32 asset_loadShaderFiles(AssetManager *assetManager,
 	    createShaderFromPath(fragmentPath, GL_FRAGMENT_SHADER);
 
 	Shader shader;
-	i32 result = shader_loadProgram(&shader, vertexShader, fragmentShader);
+	i32 result = shaderLoadProgram(&shader, vertexShader, fragmentShader);
 	if (result)
 		return result;
 
@@ -295,13 +319,13 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 				    V2(CAST(f32)(glyphIndex * font->maxSize.w), CAST(f32) row);
 #if 1
 				fontAtlas->texRect[atlasIndex++] =
-				    getRect(origin, V2(CAST(f32) font->maxSize.w,
-				                       CAST(f32) font->maxSize.h));
+				    math_getRect(origin, V2(CAST(f32) font->maxSize.w,
+				                            CAST(f32) font->maxSize.h));
 #else
 				v2i fontSize =
 				    font->charMetrics[activeGlyph.codepoint - 32].trueSize;
-				fontAtlas->texRect[atlasIndex++] =
-				    getRect(origin, V2(CAST(f32)fontSize.x, CAST(f32)fontSize.y));
+				fontAtlas->texRect[atlasIndex++] = math_getRect(
+				    origin, V2(CAST(f32) fontSize.x, CAST(f32) fontSize.y));
 #endif
 			}
 
@@ -348,8 +372,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 		}
 	}
 
-	Texture tex = genTexture(MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4,
-	                         CAST(u8 *)fontBitmap);
+	Texture tex = texture_gen(MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4,
+	                          CAST(u8 *) fontBitmap);
 	assetManager->textures[texlist_font] = tex;
 
 #ifdef WT_RENDER_FONT_FILE

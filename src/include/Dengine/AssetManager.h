@@ -8,6 +8,7 @@
 
 enum TexList
 {
+	texlist_empty,
 	texlist_hero,
 	texlist_terrain,
 	texlist_font,

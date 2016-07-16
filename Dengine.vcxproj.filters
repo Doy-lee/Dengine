@@ -49,8 +49,8 @@
   <ItemGroup>
     <None Include="data\shaders\default.vert.glsl" />
     <None Include="data\shaders\default.frag.glsl" />
-    <None Include="data\shaders\sprite.vert.glsl" />
     <None Include="data\shaders\sprite.frag.glsl" />
+    <None Include="data\shaders\sprite.vert.glsl" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\include\Dengine\Common.h">

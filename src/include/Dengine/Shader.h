@@ -9,10 +9,6 @@ typedef struct Shader
 	GLuint id;
 } Shader;
 
-const i32 shader_loadProgram(Shader *const shader,
-                             const GLuint vertexShader,
-                             const GLuint fragmentShader);
-
 void shader_uniformSet1i(Shader *const shader, const GLchar *name,
                          const GLuint data);
 void shader_uniformSetMat4fv(Shader *const shader, const GLchar *name,
