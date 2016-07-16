@@ -477,9 +477,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 #endif
 				Texture *emptyTex =
 				    asset_getTexture(assetManager, texlist_empty);
-				renderer_rect(renderer, cameraBounds, hero->pos,
-				              V2(distance, 100.0f), 0, emptyTex, V4(0, 1, 1, 0),
-				              V4(1, 0, 0, 1));
+				v2 heroCenter = v2_add(hero->pos, v2_scale(hero->size, 0.5f));
+				renderer_rect(renderer, cameraBounds, heroCenter,
+				              V2(distance, 10.0f), 0, emptyTex, V4(0, 1, 1, 0),
+				              V4(1, 0, 0, 0.5f));
 			}
 		}
 

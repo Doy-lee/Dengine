@@ -127,8 +127,7 @@ INTERNAL void renderObject(Renderer *renderer, v2 pos, v2 size, f32 rotate,
 void renderer_rect(Renderer *const renderer, v4 cameraBounds, v2 pos, v2 size,
                    f32 rotate, Texture *tex, v4 texRect, v4 color)
 {
-	v4 quadRect     = math_getRect(pos, size);
-	RenderQuad quad = createTexQuad(renderer, quadRect, texRect, tex);
+	RenderQuad quad = createDefaultTexQuad(renderer, texRect, tex);
 	updateBufferObject(renderer, &quad, 1);
 
 	// NOTE(doyle): Get the origin of cameraBounds in world space, bottom left
