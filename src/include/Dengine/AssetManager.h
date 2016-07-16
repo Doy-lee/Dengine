@@ -27,6 +27,17 @@ enum TerrainCoords
 	terraincoords_count,
 };
 
+enum HeroCoords
+{
+	herocoords_idle,
+	herocoords_walkA,
+	herocoords_walkB,
+	herocoords_head,
+	herocoords_waveA,
+	herocoords_waveB,
+	herocoords_count,
+};
+
 typedef struct TexAtlas
 {
 	// TODO(doyle): String hash based lookup
@@ -67,9 +78,9 @@ typedef struct Font
 // TODO(doyle): Switch to hash based lookup
 typedef struct AssetManager
 {
-	Texture textures[256];
-	TexAtlas texAtlas[256];
-	Shader shaders[256];
+	Texture textures[32];
+	TexAtlas texAtlas[32];
+	Shader shaders[32];
 	Font font;
 } AssetManager;
 

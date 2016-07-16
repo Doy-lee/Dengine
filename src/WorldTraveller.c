@@ -101,6 +101,13 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	asset_loadTextureImage(assetManager,
 	                       "data/textures/WorldTraveller/TerraSprite1024.png",
 	                       texlist_hero);
+	TexAtlas *heroAtlas = asset_getTextureAtlas(assetManager, texlist_hero);
+	heroAtlas->texRect[herocoords_idle]  = V4(746.0f, 1018.0f, 804.0f, 920.0f);
+	heroAtlas->texRect[herocoords_walkA] = V4(641.0f, 1018.0f, 699.0f, 920.0f);
+	heroAtlas->texRect[herocoords_walkB] = V4(849.0f, 1018.0f, 904.0f, 920.0f);
+	heroAtlas->texRect[herocoords_head]  = V4(108.0f, 1024.0f, 159.0f, 975.0f);
+	heroAtlas->texRect[herocoords_waveA] = V4(944.0f, 918.0f, 1010.0f, 816.0f);
+	heroAtlas->texRect[herocoords_waveB] = V4(944.0f, 812.0f, 1010.0f, 710.0f);
 
 	asset_loadTextureImage(assetManager,
 	                       "data/textures/WorldTraveller/Terrain.png",
@@ -198,16 +205,16 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	f32 duration      = 1.0f;
 	i32 numRects      = 1;
 	v4 *heroIdleRects = PLATFORM_MEM_ALLOC(numRects, v4);
-	heroIdleRects[0]  = V4(746.0f, 1018.0f, 804.0f, 920.0f);
+	heroIdleRects[0]  = heroAtlas->texRect[herocoords_idle];
 	addAnim(hero, heroIdleRects, numRects, duration);
 
 	/* Add walking animation */
 	duration          = 0.10f;
 	numRects          = 3;
 	v4 *heroWalkRects = PLATFORM_MEM_ALLOC(numRects, v4);
-	heroWalkRects[0]  = V4(641.0f, 1018.0f, 699.0f, 920.0f);
-	heroWalkRects[1]  = V4(746.0f, 1018.0f, 804.0f, 920.0f);
-	heroWalkRects[2]  = V4(849.0f, 1018.0f, 904.0f, 920.0f);
+	heroWalkRects[0]  = heroAtlas->texRect[herocoords_walkA];
+	heroWalkRects[1]  = heroAtlas->texRect[herocoords_idle];
+	heroWalkRects[2]  = heroAtlas->texRect[herocoords_walkB];
 	addAnim(hero, heroWalkRects, numRects, duration);
 
 	/* Create a NPC */
@@ -223,8 +230,8 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	duration  = 0.30f;
 	numRects  = 2;
 	v4 *npcWavingRects = PLATFORM_MEM_ALLOC(numRects, v4);
-	npcWavingRects[0]  = V4(944.0f, 918.0f, 1010.0f, 816.0f);
-	npcWavingRects[1]  = V4(944.0f, 812.0f, 1010.0f, 710.0f);
+	npcWavingRects[0]  = heroAtlas->texRect[herocoords_waveA];
+	npcWavingRects[1]  = heroAtlas->texRect[herocoords_waveB];
 	addAnim(npc, npcWavingRects, numRects, duration);
 
 	/* Create a Mob */
@@ -432,7 +439,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 
 	if (cameraBounds.w <= world->bounds.w) cameraBounds.w = world->bounds.w;
 
-	/* Render and update loop */
+	/* Render entity and logic loop */
 	ASSERT(world->freeEntityIndex < world->maxEntities);
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
@@ -536,6 +543,22 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 		}
 #endif
 	}
+
+	TexAtlas *heroAtlas  = asset_getTextureAtlas(assetManager, texlist_hero);
+	v4 heroAvatarTexRect = heroAtlas->texRect[herocoords_head];
+	v2 heroAvatarSize    = math_getRectSize(heroAvatarTexRect);
+	v2 heroAvatarP =
+	    V2(10.0f, (renderer->size.h * 0.5f) - (0.5f * heroAvatarSize.h));
+	renderer_rect(renderer, cameraBounds, heroAvatarP, heroAvatarSize, 0,
+	              hero->tex, heroAvatarTexRect, V4(1, 1, 1, 1));
+
+	v4 color            = V4(0, 0, 1.0f, 1);
+	char *heroAvatarStr = "HP: 100/100";
+	f32 strLenInPixels =
+	    CAST(f32)(font->maxSize.w * common_strlen(heroAvatarStr));
+	v2 strPos = V2(heroAvatarP.x, heroAvatarP.y - (0.5f * heroAvatarSize.h));
+	renderer_staticString(&state->renderer, font, heroAvatarStr, strPos, 0,
+	                      color);
 
 #ifdef DENGINE_DEBUG
 	/* Render debug info stack */
