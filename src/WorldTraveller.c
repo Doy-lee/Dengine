@@ -500,8 +500,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 				Texture *emptyTex =
 				    asset_getTexture(assetManager, texlist_empty);
 				v2 heroCenter = v2_add(hero->pos, v2_scale(hero->size, 0.5f));
+
+				RenderTex renderTex = {emptyTex, V4(0, 1, 1, 0)};
 				renderer_rect(renderer, cameraBounds, heroCenter,
-				              V2(distance, 10.0f), 0, emptyTex, V4(0, 1, 1, 0),
+				              V2(distance, 10.0f), 0, renderTex,
 				              V4(1, 0, 0, 0.5f));
 			}
 		}
@@ -574,8 +576,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	v2 heroAvatarSize    = math_getRectSize(heroAvatarTexRect);
 	v2 heroAvatarP =
 	    V2(10.0f, (renderer->size.h * 0.5f) - (0.5f * heroAvatarSize.h));
+
+	RenderTex heroRenderTex = {hero->tex, heroAvatarTexRect};
 	renderer_rect(renderer, cameraBounds, heroAvatarP, heroAvatarSize, 0,
-	              hero->tex, heroAvatarTexRect, V4(1, 1, 1, 1));
+	              heroRenderTex, V4(1, 1, 1, 1));
 
 	v4 color            = V4(0, 0, 1.0f, 1);
 	char *heroAvatarStr = "HP: 100/100";

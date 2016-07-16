@@ -14,6 +14,12 @@ typedef struct Renderer
 	v2 size;
 } Renderer;
 
+typedef struct RenderTex
+{
+	Texture *tex;
+	v4 texRect;
+} RenderTex;
+
 typedef struct RenderQuad
 {
 	v4 vertex[4];
@@ -23,7 +29,7 @@ typedef struct RenderQuad
 // Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
 
 void renderer_rect(Renderer *const renderer, v4 cameraBounds, v2 pos, v2 size,
-                   f32 rotate, Texture *tex, v4 texRect, v4 color);
+                   f32 rotate, RenderTex renderTex, v4 color);
 
 void renderer_string(Renderer *const renderer, v4 cameraBounds,
                      Font *const font, const char *const string, v2 pos,

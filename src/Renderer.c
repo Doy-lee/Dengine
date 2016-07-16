@@ -18,8 +18,8 @@ INTERNAL void updateBufferObject(Renderer *const renderer,
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-INTERNAL RenderQuad createTexQuad(Renderer *renderer, v4 quadRect, v4 texRect,
-                                  Texture *tex)
+INTERNAL RenderQuad createTexQuad(Renderer *renderer, v4 quadRect,
+                                  RenderTex renderTex)
 {
 	// NOTE(doyle): Draws a series of triangles (three-sided polygons) using
 	// vertices v0, v1, v2, then v2, v1, v3 (note the order)
@@ -33,10 +33,11 @@ INTERNAL RenderQuad createTexQuad(Renderer *renderer, v4 quadRect, v4 texRect,
 	quadRectNdc.e[3] *= renderer->vertexNdcFactor.h;
 
 	/* Convert texture coordinates to normalised texture coordinates */
-	v4 texRectNdc = texRect;
-	if (tex)
+	v4 texRectNdc = renderTex.texRect;
+	if (renderTex.tex)
 	{
-		v2 texNdcFactor = V2(1.0f / tex->width, 1.0f / tex->height);
+		v2 texNdcFactor =
+		    V2(1.0f / renderTex.tex->width, 1.0f / renderTex.tex->height);
 		texRectNdc.e[0] *= texNdcFactor.w;
 		texRectNdc.e[1] *= texNdcFactor.h;
 		texRectNdc.e[2] *= texNdcFactor.w;
@@ -55,20 +56,12 @@ INTERNAL RenderQuad createTexQuad(Renderer *renderer, v4 quadRect, v4 texRect,
 	return result;
 }
 
-INTERNAL inline RenderQuad createQuad(Renderer *renderer, v4 quadRect)
-{
-	v4 texRect = V4(0, 0, 0, 0);
-	RenderQuad result =
-	    createTexQuad(renderer, quadRect, texRect, NULL);
-	return result;
-}
-
 INTERNAL inline RenderQuad
-createDefaultTexQuad(Renderer *renderer, v4 texRect, Texture *tex)
+createDefaultTexQuad(Renderer *renderer, RenderTex renderTex)
 {
 	RenderQuad result = {0};
 	v4 defaultQuad    = V4(0.0f, renderer->size.h, renderer->size.w, 0.0f);
-	result            = createTexQuad(renderer, defaultQuad, texRect, tex);
+	result            = createTexQuad(renderer, defaultQuad, renderTex);
 	return result;
 }
 
@@ -125,15 +118,16 @@ INTERNAL void renderObject(Renderer *renderer, v2 pos, v2 size, f32 rotate,
 }
 
 void renderer_rect(Renderer *const renderer, v4 cameraBounds, v2 pos, v2 size,
-                   f32 rotate, Texture *tex, v4 texRect, v4 color)
+                   f32 rotate, RenderTex renderTex, v4 color)
 {
-	RenderQuad quad = createDefaultTexQuad(renderer, texRect, tex);
+	RenderQuad quad = createDefaultTexQuad(renderer, renderTex);
 	updateBufferObject(renderer, &quad, 1);
 
 	// NOTE(doyle): Get the origin of cameraBounds in world space, bottom left
 	v2 offsetFromCamOrigin  = V2(cameraBounds.x, cameraBounds.w);
 	v2 rectRelativeToCamera = v2_sub(pos, offsetFromCamOrigin);
-	renderObject(renderer, rectRelativeToCamera, size, rotate, color, tex);
+	renderObject(renderer, rectRelativeToCamera, size, rotate, color,
+	             renderTex.tex);
 }
 
 void renderer_string(Renderer *const renderer, v4 cameraBounds,
@@ -181,9 +175,10 @@ void renderer_string(Renderer *const renderer, v4 cameraBounds,
 			/* Get texture out */
 			v4 charTexRect = font->atlas->texRect[relativeIndex];
 			renderer_flipTexCoord(&charTexRect, FALSE, TRUE);
+			RenderTex renderTex = {font->tex, charTexRect};
 
-			RenderQuad charQuad = createTexQuad(renderer, charRectOnScreen,
-			                                    charTexRect, font->tex);
+			RenderQuad charQuad =
+			    createTexQuad(renderer, charRectOnScreen, renderTex);
 			stringQuads[quadIndex++] = charQuad;
 		}
 
@@ -227,8 +222,9 @@ void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
 			// NOTE(doyle): Flip the x coordinates to flip the tex
 			renderer_flipTexCoord(&texRect, TRUE, FALSE);
 		}
+		RenderTex renderTex = {entity->tex, texRect};
 		RenderQuad entityQuad =
-		    createDefaultTexQuad(renderer, texRect, entity->tex);
+		    createDefaultTexQuad(renderer, renderTex);
 		updateBufferObject(renderer, &entityQuad, 1);
 
 		v2 offsetFromCamOrigin    = V2(cameraBounds.x, cameraBounds.w);
