@@ -1,19 +1,16 @@
 #ifndef WORLDTRAVELLER_GAME_H
 #define WORLDTRAVELLER_GAME_H
 
+#include "Dengine/AssetManager.h"
 #include "Dengine/Common.h"
 #include "Dengine/Entity.h"
+#include "Dengine/Math.h"
 #include "Dengine/Renderer.h"
 
 #define NUM_KEYS 1024
 #define METERS_TO_PIXEL 64
 
-enum State
-{
-	state_active,
-	state_menu,
-	state_win,
-};
+enum State;
 
 typedef struct World
 {
@@ -27,7 +24,6 @@ typedef struct World
 
 	i32 heroIndex;
 	i32 freeEntityIndex;
-
 } World;
 
 typedef struct GameState
@@ -43,7 +39,6 @@ typedef struct GameState
 
 	AssetManager assetManager;
 } GameState;
-
 
 void worldTraveller_gameInit(GameState *state, v2i windowSize);
 void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt);

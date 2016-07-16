@@ -1,11 +1,14 @@
-#include "Dengine/Platform.h"
-#include "Dengine/AssetManager.h"
-#include "Dengine/Debug.h"
-
 #include "WorldTraveller/WorldTraveller.h"
 
-// TODO(doyle): This is temporary! Maybe abstract into our platform layer, or
-// choose to load assets outside of WorldTraveller !
+#include "Dengine/Debug.h"
+#include "Dengine/Platform.h"
+
+enum State
+{
+	state_active,
+	state_menu,
+	state_win,
+};
 
 INTERNAL Entity *addEntity(World *world, v2 pos, v2 size, enum EntityType type,
                            enum Direction direction, Texture *tex, b32 collides)

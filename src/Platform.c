@@ -1,7 +1,37 @@
+#include <Windows.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "Dengine/Platform.h"
+#include "Dengine/Debug.h"
+
+void platform_memoryFree(void *data, i32 numBytes)
+{
+	if (data) free(data);
+
+#ifdef DENGINE_DEBUG
+	GLOBAL_debugState.totalMemoryAllocated -= numBytes;
+#endif
+}
+
+void *platform_memoryAlloc(i32 numBytes)
+{
+	void *result = calloc(1, numBytes);
+
+#ifdef DENGINE_DEBUG
+	if (result)
+		GLOBAL_debugState.totalMemoryAllocated += numBytes;
+#endif
+	return result;
+}
+
+void platform_closeFileRead(PlatformFileRead *file)
+{
+	PLATFORM_MEM_FREE(file->buffer, file->size);
+}
 
 i32 platform_readFileToBuffer(const char *const filePath,
-                                       PlatformFileRead *file)
+                              PlatformFileRead *file)
 {
 	HANDLE fileHandle = CreateFile(filePath, GENERIC_READ, FILE_SHARE_READ,
 	                               NULL, OPEN_ALWAYS, 0, NULL);

@@ -1,9 +1,31 @@
-#include "Dengine/Platform.h"
-#include "Dengine/OpenGL.h"
 #include "Dengine/Renderer.h"
 #include "Dengine/Debug.h"
+#include "Dengine/OpenGL.h"
+#include "Dengine/Platform.h"
 
 #define RENDER_BOUNDING_BOX FALSE
+
+typedef struct RenderQuad
+{
+	v4 vertex[4];
+} RenderQuad;
+
+INTERNAL inline void flipTexCoord(v4 *texCoords, b32 flipX, b32 flipY)
+{
+	if (flipX)
+	{
+		v4 tmp       = *texCoords;
+		texCoords->x = tmp.z;
+		texCoords->z = tmp.x;
+	}
+
+	if (flipY)
+	{
+		v4 tmp       = *texCoords;
+		texCoords->y = tmp.w;
+		texCoords->w = tmp.y;
+	}
+}
 
 INTERNAL void updateBufferObject(Renderer *const renderer,
                                  RenderQuad *const quads, const i32 numQuads)
@@ -174,7 +196,7 @@ void renderer_string(Renderer *const renderer, v4 cameraBounds,
 
 			/* Get texture out */
 			v4 charTexRect = font->atlas->texRect[relativeIndex];
-			renderer_flipTexCoord(&charTexRect, FALSE, TRUE);
+			flipTexCoord(&charTexRect, FALSE, TRUE);
 			RenderTex renderTex = {font->tex, charTexRect};
 
 			RenderQuad charQuad =
@@ -220,7 +242,7 @@ void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
 		if (entity->direction == direction_east)
 		{
 			// NOTE(doyle): Flip the x coordinates to flip the tex
-			renderer_flipTexCoord(&texRect, TRUE, FALSE);
+			flipTexCoord(&texRect, TRUE, FALSE);
 		}
 		RenderTex renderTex = {entity->tex, texRect};
 		RenderQuad entityQuad =

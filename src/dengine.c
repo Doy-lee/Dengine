@@ -1,8 +1,9 @@
 #if 1
 #include "Dengine/AssetManager.h"
-#include "Dengine/Renderer.h"
-#include "Dengine/Math.h"
+#include "Dengine/Common.h"
 #include "Dengine/Debug.h"
+#include "Dengine/Math.h"
+#include "Dengine/OpenGL.h"
 
 #include "WorldTraveller/WorldTraveller.h"
 
@@ -136,8 +137,8 @@ int main()
 			f32 framesPerSecond = 1.0f / secondsElapsed;
 
 			char textBuffer[256];
-			snprintf(textBuffer, ARRAY_COUNT(textBuffer), "Dengine | %f ms/f | %f fps", msPerFrame,
-			         framesPerSecond);
+			snprintf(textBuffer, ARRAY_COUNT(textBuffer),
+			         "Dengine | %f ms/f | %f fps", msPerFrame, framesPerSecond);
 
 			glfwSetWindowTitle(window, textBuffer);
 			titleUpdateFrequencyInSeconds = 0.5f;

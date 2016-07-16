@@ -1,8 +1,9 @@
 #ifndef DENGINE_ENTITY_H
 #define DENGINE_ENTITY_H
 
-#include "Dengine/Texture.h"
+#include "Dengine/Common.h"
 #include "Dengine/Math.h"
+#include "Dengine/Texture.h"
 
 enum Direction
 {

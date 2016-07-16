@@ -138,6 +138,7 @@
     <None Include="data\shaders\sprite.vert.glsl" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\include\Dengine\Assets.h" />
     <ClInclude Include="src\include\Dengine\Debug.h" />
     <ClInclude Include="src\include\Dengine\Platform.h" />
     <ClInclude Include="src\include\Dengine\AssetManager.h" />

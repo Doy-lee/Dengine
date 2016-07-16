@@ -1,6 +1,9 @@
 #ifndef DENGINE_DEBUG_H
 #define DENGINE_DEBUG_H
 
+#include "Dengine/Assets.h"
+#include "Dengine/Common.h"
+#include "Dengine/Math.h"
 #include "Dengine/Renderer.h"
 
 #define INVALID_CODE_PATH TRUE

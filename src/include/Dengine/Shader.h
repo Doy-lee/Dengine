@@ -1,8 +1,8 @@
 #ifndef DENGINE_SHADER_H
 #define DENGINE_SHADER_H
 
-#include "Dengine/OpenGL.h"
 #include "Dengine/Math.h"
+#include "Dengine/OpenGL.h"
 
 typedef struct Shader
 {

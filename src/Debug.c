@@ -1,5 +1,5 @@
-#include "Dengine/Platform.h"
 #include "Dengine/Debug.h"
+#include "Dengine/Platform.h"
 
 DebugState GLOBAL_debugState;
 
