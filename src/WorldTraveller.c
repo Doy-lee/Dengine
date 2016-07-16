@@ -578,16 +578,15 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	    V2(10.0f, (renderer->size.h * 0.5f) - (0.5f * heroAvatarSize.h));
 
 	RenderTex heroRenderTex = {hero->tex, heroAvatarTexRect};
-	renderer_rect(renderer, cameraBounds, heroAvatarP, heroAvatarSize, 0,
-	              heroRenderTex, V4(1, 1, 1, 1));
+	renderer_staticRect(renderer, heroAvatarP, heroAvatarSize, 0, heroRenderTex,
+	                    V4(1, 1, 1, 1));
 
-	v4 color            = V4(0, 0, 1.0f, 1);
 	char *heroAvatarStr = "HP: 100/100";
 	f32 strLenInPixels =
 	    CAST(f32)(font->maxSize.w * common_strlen(heroAvatarStr));
 	v2 strPos = V2(heroAvatarP.x, heroAvatarP.y - (0.5f * heroAvatarSize.h));
 	renderer_staticString(&state->renderer, font, heroAvatarStr, strPos, 0,
-	                      color);
+	                      V4(0, 0, 1, 1));
 
 #ifdef DENGINE_DEBUG
 	/* Render debug info stack */
