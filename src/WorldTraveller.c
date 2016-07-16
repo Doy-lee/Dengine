@@ -25,6 +25,21 @@ INTERNAL Entity *addEntity(World *world, v2 pos, v2 size, enum EntityType type,
 	entity.tex       = tex;
 	entity.collides  = collides;
 
+	switch(type)
+	{
+		case entitytype_hero:
+		case entitytype_mob:
+	    {
+			entity.stats = PLATFORM_MEM_ALLOC(1, EntityStats);
+			entity.stats->maxHealth = 100;
+			entity.stats->health = entity.stats->maxHealth;
+		    break;
+	    }
+		
+		default:
+			break;
+	}
+
 	world->entities[world->freeEntityIndex++] = entity;
 	Entity *result = &world->entities[world->freeEntityIndex-1];
 
@@ -497,22 +512,22 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 		char *debugString = NULL;
 		switch (entity->type)
 		{
-		case entitytype_mob:
+			case entitytype_mob:
 			color       = V4(1, 0, 0, 1);
 			debugString = "MOB";
 			break;
 
-		case entitytype_hero:
+			case entitytype_hero:
 			color       = V4(0, 0, 1.0f, 1);
 			debugString = "HERO";
 			break;
 
-		case entitytype_npc:
+			case entitytype_npc:
 			color       = V4(0, 1.0f, 0, 1);
 			debugString = "NPC";
 			break;
 
-		default:
+			default:
 			break;
 		}
 
@@ -528,18 +543,28 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 			f32 stringLineGap = 1.1f * asset_getVFontSpacing(font->metrics);
 			strPos.y -= GLOBAL_debugState.stringLineGap;
 
-			char entityPosStr[256];
+			char entityPosStr[128];
 			snprintf(entityPosStr, ARRAY_COUNT(entityPosStr), "%06.2f, %06.2f",
 			         entity->pos.x, entity->pos.y);
 			renderer_string(&state->renderer, cameraBounds, font, entityPosStr,
 			                strPos, 0, color);
 
 			strPos.y -= GLOBAL_debugState.stringLineGap;
-			char entityIDStr[256];
+			char entityIDStr[32];
 			snprintf(entityIDStr, ARRAY_COUNT(entityIDStr), "ID: %4d/%d", i,
 			         world->maxEntities);
 			renderer_string(&state->renderer, cameraBounds, font, entityIDStr,
 			                strPos, 0, color);
+
+			if (entity->stats)
+			{
+				strPos.y -= GLOBAL_debugState.stringLineGap;
+				char entityHealth[32];
+				snprintf(entityHealth, ARRAY_COUNT(entityHealth), "HP: %3.0f/%3.0f",
+				         entity->stats->health, entity->stats->maxHealth);
+				renderer_string(&state->renderer, cameraBounds, font,
+				                entityHealth, strPos, 0, color);
+			}
 		}
 #endif
 	}

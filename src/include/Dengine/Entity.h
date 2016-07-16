@@ -34,6 +34,12 @@ typedef struct EntityAnim
 	f32 currDuration;
 } EntityAnim;
 
+typedef struct EntityStats
+{
+	f32 maxHealth;
+	f32 health;
+} EntityStats;
+
 typedef struct Entity
 {
 	v2 pos;  // Position
@@ -50,6 +56,8 @@ typedef struct Entity
 	EntityAnim anim[16];
 	i32 freeAnimIndex;
 	i32 currAnimIndex;
+
+	EntityStats *stats;
 } Entity;
 
 INTERNAL inline v4 getEntityScreenRect(Entity entity)
