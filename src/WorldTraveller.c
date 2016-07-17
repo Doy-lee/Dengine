@@ -130,12 +130,16 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	                       "data/textures/WorldTraveller/TerraSprite1024.png",
 	                       texlist_hero);
 	TexAtlas *heroAtlas = asset_getTextureAtlas(assetManager, texlist_hero);
-	heroAtlas->texRect[herocoords_idle]  = V4(746.0f, 1018.0f, 804.0f, 920.0f);
-	heroAtlas->texRect[herocoords_walkA] = V4(641.0f, 1018.0f, 699.0f, 920.0f);
-	heroAtlas->texRect[herocoords_walkB] = V4(849.0f, 1018.0f, 904.0f, 920.0f);
-	heroAtlas->texRect[herocoords_head]  = V4(108.0f, 1024.0f, 159.0f, 975.0f);
-	heroAtlas->texRect[herocoords_waveA] = V4(944.0f, 918.0f, 1010.0f, 816.0f);
-	heroAtlas->texRect[herocoords_waveB] = V4(944.0f, 812.0f, 1010.0f, 710.0f);
+	heroAtlas->texRect[herorects_idle]       = V4(746, 1018, 804, 920);
+	heroAtlas->texRect[herorects_walkA]      = V4(641, 1018, 699, 920);
+	heroAtlas->texRect[herorects_walkB]      = V4(849, 1018, 904, 920);
+	heroAtlas->texRect[herorects_head]       = V4(108, 1024, 159, 975);
+	heroAtlas->texRect[herorects_waveA]      = V4(944, 918, 1010, 816);
+	heroAtlas->texRect[herorects_waveB]      = V4(944, 812, 1010, 710);
+	heroAtlas->texRect[herorects_battlePose] = V4(8, 910, 71, 814);
+	heroAtlas->texRect[herorects_castA]      = V4(428, 910, 493, 814);
+	heroAtlas->texRect[herorects_castB]      = V4(525, 919, 590, 816);
+	heroAtlas->texRect[herorects_castC]      = V4(640, 916, 698, 816);
 
 	asset_loadTextureImage(assetManager,
 	                       "data/textures/WorldTraveller/Terrain.png",
@@ -233,7 +237,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	f32 duration      = 1.0f;
 	i32 numRects      = 1;
 	v4 *heroIdleRects = PLATFORM_MEM_ALLOC(numRects, v4);
-	heroIdleRects[0]  = heroAtlas->texRect[herocoords_idle];
+	heroIdleRects[0]  = heroAtlas->texRect[herorects_idle];
 	addAnim(hero, entityanimid_idle, heroIdleRects, numRects, duration);
 	hero->currAnimIndex = entityanimid_idle;
 
@@ -241,18 +245,36 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	duration          = 0.10f;
 	numRects          = 3;
 	v4 *heroWalkRects = PLATFORM_MEM_ALLOC(numRects, v4);
-	heroWalkRects[0]  = heroAtlas->texRect[herocoords_walkA];
-	heroWalkRects[1]  = heroAtlas->texRect[herocoords_idle];
-	heroWalkRects[2]  = heroAtlas->texRect[herocoords_walkB];
+	heroWalkRects[0]  = heroAtlas->texRect[herorects_walkA];
+	heroWalkRects[1]  = heroAtlas->texRect[herorects_idle];
+	heroWalkRects[2]  = heroAtlas->texRect[herorects_walkB];
 	addAnim(hero, entityanimid_walk, heroWalkRects, numRects, duration);
 
 	/* Add hero waving animation */
 	duration          = 0.30f;
 	numRects          = 2;
 	v4 *heroWaveRects = PLATFORM_MEM_ALLOC(numRects, v4);
-	heroWaveRects[0]  = heroAtlas->texRect[herocoords_waveA];
-	heroWaveRects[1]  = heroAtlas->texRect[herocoords_waveB];
+	heroWaveRects[0]  = heroAtlas->texRect[herorects_waveA];
+	heroWaveRects[1]  = heroAtlas->texRect[herorects_waveB];
 	addAnim(hero, entityanimid_wave, heroWaveRects, numRects, duration);
+
+	/* Add hero battle stance animation */
+	duration          = 1.0f;
+	numRects          = 1;
+	v4 *heroBattlePoseRects = PLATFORM_MEM_ALLOC(numRects, v4);
+	heroBattlePoseRects[0]   = heroAtlas->texRect[herorects_battlePose];
+	addAnim(hero, entityanimid_battlePose, heroBattlePoseRects, numRects,
+	        duration);
+
+	/* Add hero battle tackle animation */
+	duration            = 0.30f;
+	numRects            = 3;
+	v4 *heroTackleRects = PLATFORM_MEM_ALLOC(numRects, v4);
+	heroTackleRects[0]  = heroAtlas->texRect[herorects_castA];
+	heroTackleRects[1]  = heroAtlas->texRect[herorects_castB];
+	heroTackleRects[2]  = heroAtlas->texRect[herorects_castC];
+	addAnim(hero, entityanimid_tackle, heroTackleRects, numRects,
+	        duration);
 
 	/* Create a NPC */
 	pos         = V2(hero->pos.x * 3, CAST(f32) state->tileSize);
@@ -267,8 +289,8 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	duration           = 0.30f;
 	numRects           = 2;
 	v4 *npcWavingRects = PLATFORM_MEM_ALLOC(numRects, v4);
-	npcWavingRects[0]  = heroAtlas->texRect[herocoords_waveA];
-	npcWavingRects[1]  = heroAtlas->texRect[herocoords_waveB];
+	npcWavingRects[0]  = heroAtlas->texRect[herorects_waveA];
+	npcWavingRects[1]  = heroAtlas->texRect[herorects_waveB];
 	addAnim(npc, entityanimid_wave, npcWavingRects, numRects, duration);
 	npc->currAnimIndex = entityanimid_wave;
 
@@ -300,11 +322,21 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	addAnim(mob, entityanimid_walk, mobWalkRects, numRects, duration);
 }
 
-INTERNAL inline void resetActiveEntityAnim(Entity *entity)
+INTERNAL inline void setActiveEntityAnim(Entity *entity,
+                                         enum EntityAnimId animId)
 {
+#ifdef DENGINE_DEBUG
+	ASSERT(animId < entityanimid_count);
+	ASSERT(entity->anim[animId].rect);
+#endif
+
+	/* Reset current anim data */
 	EntityAnim *currAnim = &entity->anim[entity->currAnimIndex];
 	currAnim->currDuration  = currAnim->duration;
 	currAnim->currRectIndex = 0;
+
+	/* Set entity active animation */
+	entity->currAnimIndex = animId;
 }
 
 INTERNAL void parseInput(GameState *state, const f32 dt)
@@ -353,15 +385,14 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	if (state->keys[GLFW_KEY_SPACE] && !spaceBarWasDown)
 	{
 		spaceBarWasDown = TRUE;
-		resetActiveEntityAnim(hero);
+		i32 newAnimId = entityanimid_invalid;
+
 		if (hero->currAnimIndex == entityanimid_idle)
-		{
-			hero->currAnimIndex = entityanimid_wave;
-		}
+			newAnimId = entityanimid_tackle;
 		else
-		{
-			hero->currAnimIndex = entityanimid_idle;
-		}
+			newAnimId = entityanimid_idle;
+
+		setActiveEntityAnim(hero, newAnimId);
 	}
 	else if (!state->keys[GLFW_KEY_SPACE])
 	{
@@ -386,14 +417,12 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		hero->dPos = V2(0.0f, 0.0f);
 		if (hero->currAnimIndex == entityanimid_walk)
 		{
-			resetActiveEntityAnim(hero);
-			hero->currAnimIndex = entityanimid_idle;
+			setActiveEntityAnim(hero, entityanimid_idle);
 		}
 	}
 	else if (hero->currAnimIndex == entityanimid_idle)
 	{
-		resetActiveEntityAnim(hero);
-		hero->currAnimIndex     = entityanimid_walk;
+		setActiveEntityAnim(hero, entityanimid_walk);
 	}
 
 	f32 heroSpeed = CAST(f32)(22.0f * METERS_TO_PIXEL); // m/s^2
@@ -463,6 +492,21 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	}
 }
 
+INTERNAL void updateEntityAnim(Entity *entity, f32 dt)
+{
+	EntityAnim *anim = &entity->anim[entity->currAnimIndex];
+	v4 texRect       = anim->rect[anim->currRectIndex];
+
+	anim->currDuration -= dt;
+	if (anim->currDuration <= 0.0f)
+	{
+		anim->currRectIndex++;
+		anim->currRectIndex = anim->currRectIndex % anim->numRects;
+		texRect             = anim->rect[anim->currRectIndex];
+		anim->currDuration  = anim->duration;
+	}
+}
+
 void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 {
 	/* Update */
@@ -501,21 +545,28 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	ASSERT(world->freeEntityIndex < world->maxEntities);
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
-
 		/* Render entities */
 		Entity *const entity = &world->entities[i];
-		f32 rotate = 0.0f;
+		updateEntityAnim(entity, dt);
+
+		v2 entityRenderSize = entity->size;
 		switch (entity->type)
 		{
 			case entitytype_hero:
-				//rotate = DEGREES_TO_RADIANS(90.0f);
-				break;
+			case entitytype_mob:
+			    // NOTE(doyle): If dynamic entity, allow animations to exceed
+			    // the actual hitbox of character
+			    EntityAnim *anim = &entity->anim[entity->currAnimIndex];
+			    v4 texRect       = anim->rect[anim->currRectIndex];
+			    entityRenderSize = math_getRectSize(texRect);
+			    break;
 			default:
 				break;
 		}
 
-		renderer_entity(&state->renderer, cameraBounds, entity, dt, rotate,
-		                V4(1, 1, 1, 1));
+		f32 rotate = 0.0f;
+		renderer_entity(&state->renderer, cameraBounds, entity,
+		                entityRenderSize, rotate, V4(1, 1, 1, 1));
 
 		/* Game logic */
 
@@ -557,6 +608,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 #ifdef DENGINE_DEBUG
 				ASSERT(entity->stats)
 #endif
+				setActiveEntityAnim(hero, entityanimid_battlePose);
 
 				hero->stats->actionTimer -= dt * hero->stats->actionSpdMul;
 				entity->stats->actionTimer -= dt * entity->stats->actionSpdMul;
@@ -656,7 +708,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	}
 
 	TexAtlas *heroAtlas  = asset_getTextureAtlas(assetManager, texlist_hero);
-	v4 heroAvatarTexRect = heroAtlas->texRect[herocoords_head];
+	v4 heroAvatarTexRect = heroAtlas->texRect[herorects_head];
 	v2 heroAvatarSize    = math_getRectSize(heroAvatarTexRect);
 	v2 heroAvatarP =
 	    V2(10.0f, (renderer->size.h * 0.5f) - (0.5f * heroAvatarSize.h));

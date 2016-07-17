@@ -25,15 +25,19 @@ enum TerrainCoords
 	terraincoords_count,
 };
 
-enum HeroCoords
+enum HeroRects
 {
-	herocoords_idle,
-	herocoords_walkA,
-	herocoords_walkB,
-	herocoords_head,
-	herocoords_waveA,
-	herocoords_waveB,
-	herocoords_count,
+	herorects_idle,
+	herorects_walkA,
+	herorects_walkB,
+	herorects_head,
+	herorects_waveA,
+	herorects_waveB,
+	herorects_battlePose,
+	herorects_castA,
+	herorects_castB,
+	herorects_castC,
+	herorects_count,
 };
 
 typedef struct TexAtlas

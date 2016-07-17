@@ -215,7 +215,7 @@ void renderer_string(Renderer *const renderer, v4 cameraBounds,
 }
 
 void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
-                     f32 dt, f32 rotate, v4 color)
+                     v2 entityRenderSize, f32 rotate, v4 color)
 {
 	// TODO(doyle): Batch into render groups
 
@@ -227,24 +227,16 @@ void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
 	if ((leftAlignedP.x < cameraBounds.z && rightAlignedP.x >= cameraBounds.x) &&
 	    (leftAlignedP.y < cameraBounds.y && rightAlignedP.y >= cameraBounds.w))
 	{
-		EntityAnim *anim = &entity->anim[entity->currAnimIndex];
-		v4 texRect       = anim->rect[anim->currRectIndex];
-
-		anim->currDuration -= dt;
-		if (anim->currDuration <= 0.0f)
-		{
-			anim->currRectIndex++;
-			anim->currRectIndex = anim->currRectIndex % anim->numRects;
-			texRect             = anim->rect[anim->currRectIndex];
-			anim->currDuration  = anim->duration;
-		}
+		EntityAnim *anim    = &entity->anim[entity->currAnimIndex];
+		v4 animTexRect      = anim->rect[anim->currRectIndex];
 
 		if (entity->direction == direction_east)
 		{
 			// NOTE(doyle): Flip the x coordinates to flip the tex
-			flipTexCoord(&texRect, TRUE, FALSE);
+			flipTexCoord(&animTexRect, TRUE, FALSE);
 		}
-		RenderTex renderTex = {entity->tex, texRect};
+
+		RenderTex renderTex = {entity->tex, animTexRect};
 		RenderQuad entityQuad =
 		    createDefaultTexQuad(renderer, renderTex);
 		updateBufferObject(renderer, &entityQuad, 1);
@@ -252,7 +244,7 @@ void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
 		v2 offsetFromCamOrigin    = V2(cameraBounds.x, cameraBounds.w);
 		v2 entityRelativeToCamera = v2_sub(entity->pos, offsetFromCamOrigin);
 
-		renderObject(renderer, entityRelativeToCamera, entity->size, rotate,
-		             color, entity->tex);
+		renderObject(renderer, entityRelativeToCamera, entityRenderSize,
+		             rotate, color, entity->tex);
 	}
 }

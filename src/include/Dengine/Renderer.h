@@ -51,6 +51,6 @@ inline void renderer_staticString(Renderer *const renderer, Font *const font,
 }
 
 void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
-                     f32 dt, f32 rotate, v4 color);
+                     v2 entityRenderSize, f32 rotate, v4 color);
 
 #endif

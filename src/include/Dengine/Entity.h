@@ -30,7 +30,10 @@ enum EntityAnimId
 	entityanimid_idle,
 	entityanimid_walk,
 	entityanimid_wave,
+	entityanimid_battlePose,
+	entityanimid_tackle,
 	entityanimid_count,
+	entityanimid_invalid,
 };
 
 typedef struct EntityAnim
