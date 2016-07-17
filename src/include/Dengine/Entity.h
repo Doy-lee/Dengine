@@ -61,7 +61,7 @@ typedef struct Entity
 	v2 pos;  // Position
 	v2 dPos; // Velocity
 	v2 size;
-	
+
 	enum EntityType type;
 	enum Direction direction;
 

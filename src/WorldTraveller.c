@@ -169,15 +169,15 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	rendererInit(state, windowSize);
 
 	/* Init world */
-	const i32 targetWorldWidth  = 500 * METERS_TO_PIXEL;
-	const i32 targetWorldHeight = 15 * METERS_TO_PIXEL;
+	const i32 targetWorldWidth  = 100 * METERS_TO_PIXEL;
+	const i32 targetWorldHeight = 10 * METERS_TO_PIXEL;
 	v2 worldDimensionInTiles    = V2i(targetWorldWidth / state->tileSize,
 	                               targetWorldHeight / state->tileSize);
 
 	for (i32 i = 0; i < ARRAY_COUNT(state->world); i++)
 	{
 		World *const world = &state->world[i];
-		world->maxEntities = 8192;
+		world->maxEntities = 16384;
 		world->entities = PLATFORM_MEM_ALLOC(world->maxEntities, Entity);
 		world->texType = texlist_terrain;
 
@@ -382,16 +382,6 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		ddPos.y = -1.0f;
 	}
 
-	if (state->keys[GLFW_KEY_SPACE] && !spaceBarWasDown)
-	{
-		spaceBarWasDown = TRUE;
-		setActiveEntityAnim(hero, entityanimid_tackle);
-	}
-	else if (!state->keys[GLFW_KEY_SPACE])
-	{
-		spaceBarWasDown = FALSE;
-	}
-
 	if (ddPos.x != 0.0f && ddPos.y != 0.0f)
 	{
 		// NOTE(doyle): Cheese it and pre-compute the vector for diagonal using
@@ -400,8 +390,28 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		ddPos = v2_scale(ddPos, 0.70710678118f);
 	}
 
+	if (state->keys[GLFW_KEY_SPACE] && !spaceBarWasDown)
+	{
+		if (!(hero->currAnimId == entityanimid_tackle &&
+		      hero->currAnimCyclesCompleted == 0))
+		{
+			spaceBarWasDown = TRUE;
+			setActiveEntityAnim(hero, entityanimid_tackle);
+
+			hero->dPos.x += (1.0f * METERS_TO_PIXEL);
+			if (hero->direction == direction_east)
+				ddPos.x = 1.0f;
+			else
+				ddPos.x = -1.0f;
+		}
+	}
+	else if (!state->keys[GLFW_KEY_SPACE])
+	{
+		spaceBarWasDown = FALSE;
+	}
+
 	// NOTE(doyle): Clipping threshold for snapping velocity to 0
-	f32 epsilon    = 15.0f;
+	f32 epsilon    = 0.5f;
 	v2 epsilonDpos = v2_sub(V2(epsilon, epsilon),
 	                        V2(ABS(hero->dPos.x), ABS(hero->dPos.y)));
 
@@ -418,13 +428,11 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		setActiveEntityAnim(hero, entityanimid_walk);
 	}
 
-	f32 heroSpeed = CAST(f32)(22.0f * METERS_TO_PIXEL); // m/s^2
+	f32 heroSpeed = 6.2f * METERS_TO_PIXEL;
 	if (state->keys[GLFW_KEY_LEFT_SHIFT])
-	{
 		heroSpeed = CAST(f32)(22.0f * 10.0f * METERS_TO_PIXEL);
-	}
-	ddPos = v2_scale(ddPos, heroSpeed);
 
+	ddPos = v2_scale(ddPos, heroSpeed);
 	// TODO(doyle): Counteracting force on player's acceleration is arbitrary
     ddPos = v2_sub(ddPos, v2_scale(hero->dPos, 5.5f));
 
@@ -568,7 +576,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 					if (entity->currAnimId == entityanimid_tackle)
 					{
 						setActiveEntityAnim(entity, entityanimid_idle);
-					}
+					    hero->dPos.x -= (1.0f * METERS_TO_PIXEL);
+				    }
 			    }
 			    break;
 			default:

@@ -8,7 +8,7 @@
 #include "Dengine/Renderer.h"
 
 #define NUM_KEYS 1024
-#define METERS_TO_PIXEL 64
+#define METERS_TO_PIXEL 240
 
 enum State;
 
