@@ -227,7 +227,7 @@ void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
 	if ((leftAlignedP.x < cameraBounds.z && rightAlignedP.x >= cameraBounds.x) &&
 	    (leftAlignedP.y < cameraBounds.y && rightAlignedP.y >= cameraBounds.w))
 	{
-		EntityAnim *anim    = &entity->anim[entity->currAnimIndex];
+		EntityAnim *anim    = &entity->anim[entity->currAnimId];
 		v4 animTexRect      = anim->rect[anim->currRectIndex];
 
 		if (entity->direction == direction_east)

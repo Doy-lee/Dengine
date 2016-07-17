@@ -239,7 +239,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	v4 *heroIdleRects = PLATFORM_MEM_ALLOC(numRects, v4);
 	heroIdleRects[0]  = heroAtlas->texRect[herorects_idle];
 	addAnim(hero, entityanimid_idle, heroIdleRects, numRects, duration);
-	hero->currAnimIndex = entityanimid_idle;
+	hero->currAnimId = entityanimid_idle;
 
 	/* Add walking animation */
 	duration          = 0.10f;
@@ -267,7 +267,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	        duration);
 
 	/* Add hero battle tackle animation */
-	duration            = 0.30f;
+	duration            = 0.09f;
 	numRects            = 3;
 	v4 *heroTackleRects = PLATFORM_MEM_ALLOC(numRects, v4);
 	heroTackleRects[0]  = heroAtlas->texRect[herorects_castA];
@@ -292,7 +292,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	npcWavingRects[0]  = heroAtlas->texRect[herorects_waveA];
 	npcWavingRects[1]  = heroAtlas->texRect[herorects_waveB];
 	addAnim(npc, entityanimid_wave, npcWavingRects, numRects, duration);
-	npc->currAnimIndex = entityanimid_wave;
+	npc->currAnimId = entityanimid_wave;
 
 	/* Create a Mob */
 	pos         = V2(renderer->size.w - (renderer->size.w / 3.0f),
@@ -310,7 +310,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	v4 *mobIdleRects = PLATFORM_MEM_ALLOC(numRects, v4);
 	mobIdleRects[0]  = heroIdleRects[0];
 	addAnim(mob, entityanimid_idle, mobIdleRects, numRects, duration);
-	mob->currAnimIndex = entityanimid_idle;
+	mob->currAnimId = entityanimid_idle;
 
 	/* Add mob walking animation */
 	duration         = 0.10f;
@@ -331,12 +331,13 @@ INTERNAL inline void setActiveEntityAnim(Entity *entity,
 #endif
 
 	/* Reset current anim data */
-	EntityAnim *currAnim = &entity->anim[entity->currAnimIndex];
+	EntityAnim *currAnim    = &entity->anim[entity->currAnimId];
 	currAnim->currDuration  = currAnim->duration;
 	currAnim->currRectIndex = 0;
 
 	/* Set entity active animation */
-	entity->currAnimIndex = animId;
+	entity->currAnimId = animId;
+	entity->currAnimCyclesCompleted = 0;
 }
 
 INTERNAL void parseInput(GameState *state, const f32 dt)
@@ -366,6 +367,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		ddPos.x = 1.0f;
 		hero->direction = direction_east;
 	}
+
 	if (state->keys[GLFW_KEY_LEFT])
 	{
 		ddPos.x = -1.0f;
@@ -385,14 +387,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	if (state->keys[GLFW_KEY_SPACE] && !spaceBarWasDown)
 	{
 		spaceBarWasDown = TRUE;
-		i32 newAnimId = entityanimid_invalid;
-
-		if (hero->currAnimIndex == entityanimid_idle)
-			newAnimId = entityanimid_tackle;
-		else
-			newAnimId = entityanimid_idle;
-
-		setActiveEntityAnim(hero, newAnimId);
+		setActiveEntityAnim(hero, entityanimid_tackle);
 	}
 	else if (!state->keys[GLFW_KEY_SPACE])
 	{
@@ -415,12 +410,12 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	if (epsilonDpos.x >= 0.0f && epsilonDpos.y >= 0.0f)
 	{
 		hero->dPos = V2(0.0f, 0.0f);
-		if (hero->currAnimIndex == entityanimid_walk)
+		if (hero->currAnimId == entityanimid_walk)
 		{
 			setActiveEntityAnim(hero, entityanimid_idle);
 		}
 	}
-	else if (hero->currAnimIndex == entityanimid_idle)
+	else if (hero->currAnimId == entityanimid_idle)
 	{
 		setActiveEntityAnim(hero, entityanimid_walk);
 	}
@@ -494,13 +489,15 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 
 INTERNAL void updateEntityAnim(Entity *entity, f32 dt)
 {
-	EntityAnim *anim = &entity->anim[entity->currAnimIndex];
+	EntityAnim *anim = &entity->anim[entity->currAnimId];
 	v4 texRect       = anim->rect[anim->currRectIndex];
 
 	anim->currDuration -= dt;
 	if (anim->currDuration <= 0.0f)
 	{
-		anim->currRectIndex++;
+		if (++anim->currRectIndex >= anim->numRects)
+			entity->currAnimCyclesCompleted++;
+
 		anim->currRectIndex = anim->currRectIndex % anim->numRects;
 		texRect             = anim->rect[anim->currRectIndex];
 		anim->currDuration  = anim->duration;
@@ -547,18 +544,34 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	{
 		/* Render entities */
 		Entity *const entity = &world->entities[i];
+		u32 oldAnimCycleCount = entity->currAnimCyclesCompleted;
 		updateEntityAnim(entity, dt);
 
 		v2 entityRenderSize = entity->size;
 		switch (entity->type)
 		{
-			case entitytype_hero:
 			case entitytype_mob:
+				break;
+
+			case entitytype_hero:
+#ifdef DENGINE_DEBUG
+			    DEBUG_PUSH_STRING("HeroAnimCycleCount: %d",
+			                      entity->currAnimCyclesCompleted, "i32");
+#endif
+
 			    // NOTE(doyle): If dynamic entity, allow animations to exceed
 			    // the actual hitbox of character
-			    EntityAnim *anim = &entity->anim[entity->currAnimIndex];
+			    EntityAnim *anim = &entity->anim[entity->currAnimId];
 			    v4 texRect       = anim->rect[anim->currRectIndex];
 			    entityRenderSize = math_getRectSize(texRect);
+
+				if (oldAnimCycleCount != entity->currAnimCyclesCompleted)
+				{
+					if (entity->currAnimId == entityanimid_tackle)
+					{
+						setActiveEntityAnim(entity, entityanimid_idle);
+					}
+			    }
 			    break;
 			default:
 				break;

@@ -70,7 +70,8 @@ typedef struct Entity
 
 	// TODO(doyle): String based access
 	EntityAnim anim[16];
-	i32 currAnimIndex;
+	i32 currAnimId;
+	u32 currAnimCyclesCompleted;
 
 	EntityStats *stats;
 } Entity;
