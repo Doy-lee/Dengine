@@ -10,6 +10,12 @@ enum State
 	state_win,
 };
 
+INTERNAL void attackEntity(Entity *attacker, Entity *defender)
+{
+	// TODO(doyle): Use attacker stats in battle equations
+	defender->stats->health--;
+}
+
 INTERNAL Entity *addEntity(World *world, v2 pos, v2 size, enum EntityType type,
                            enum Direction direction, Texture *tex, b32 collides)
 {
@@ -52,12 +58,13 @@ INTERNAL Entity *addEntity(World *world, v2 pos, v2 size, enum EntityType type,
 	return result;
 }
 
-INTERNAL void addAnim(Entity *entity, v4 *rects, i32 numRects, f32 duration)
+INTERNAL void addAnim(Entity *entity, enum EntityAnimId animId, v4 *rects,
+                      i32 numRects, f32 duration)
 {
 
 #ifdef DENGINE_DEBUG
 	ASSERT(rects && numRects >= 0)
-	ASSERT(entity->freeAnimIndex < ARRAY_COUNT(entity->anim));
+	ASSERT(animId < entityanimid_count);
 #endif
 
 	EntityAnim result   = {0};
@@ -66,7 +73,7 @@ INTERNAL void addAnim(Entity *entity, v4 *rects, i32 numRects, f32 duration)
 	result.duration     = duration;
 	result.currDuration = duration;
 
-	entity->anim[entity->freeAnimIndex++] = result;
+	entity->anim[animId] = result;
 }
 
 INTERNAL void rendererInit(GameState *state, v2i windowSize)
@@ -202,7 +209,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 				i32 numRects = 1;
 				v4 *animRects = PLATFORM_MEM_ALLOC(numRects, v4);
 				animRects[0] = atlas->texRect[terraincoords_ground];
-				addAnim(tile, animRects, numRects, duration);
+				addAnim(tile, entityanimid_idle, animRects, numRects, duration);
 			}
 		}
 	}
@@ -227,7 +234,8 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	i32 numRects      = 1;
 	v4 *heroIdleRects = PLATFORM_MEM_ALLOC(numRects, v4);
 	heroIdleRects[0]  = heroAtlas->texRect[herocoords_idle];
-	addAnim(hero, heroIdleRects, numRects, duration);
+	addAnim(hero, entityanimid_idle, heroIdleRects, numRects, duration);
+	hero->currAnimIndex = entityanimid_idle;
 
 	/* Add walking animation */
 	duration          = 0.10f;
@@ -236,7 +244,15 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	heroWalkRects[0]  = heroAtlas->texRect[herocoords_walkA];
 	heroWalkRects[1]  = heroAtlas->texRect[herocoords_idle];
 	heroWalkRects[2]  = heroAtlas->texRect[herocoords_walkB];
-	addAnim(hero, heroWalkRects, numRects, duration);
+	addAnim(hero, entityanimid_walk, heroWalkRects, numRects, duration);
+
+	/* Add hero waving animation */
+	duration          = 0.30f;
+	numRects          = 2;
+	v4 *heroWaveRects = PLATFORM_MEM_ALLOC(numRects, v4);
+	heroWaveRects[0]  = heroAtlas->texRect[herocoords_waveA];
+	heroWaveRects[1]  = heroAtlas->texRect[herocoords_waveB];
+	addAnim(hero, entityanimid_wave, heroWaveRects, numRects, duration);
 
 	/* Create a NPC */
 	pos         = V2(hero->pos.x * 3, CAST(f32) state->tileSize);
@@ -248,12 +264,13 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	Entity *npc = addEntity(world, pos, size, type, dir, tex, collides);
 
 	/* Add npc waving animation */
-	duration  = 0.30f;
-	numRects  = 2;
+	duration           = 0.30f;
+	numRects           = 2;
 	v4 *npcWavingRects = PLATFORM_MEM_ALLOC(numRects, v4);
 	npcWavingRects[0]  = heroAtlas->texRect[herocoords_waveA];
 	npcWavingRects[1]  = heroAtlas->texRect[herocoords_waveB];
-	addAnim(npc, npcWavingRects, numRects, duration);
+	addAnim(npc, entityanimid_wave, npcWavingRects, numRects, duration);
+	npc->currAnimIndex = entityanimid_wave;
 
 	/* Create a Mob */
 	pos         = V2(renderer->size.w - (renderer->size.w / 3.0f),
@@ -270,7 +287,8 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	numRects         = 1;
 	v4 *mobIdleRects = PLATFORM_MEM_ALLOC(numRects, v4);
 	mobIdleRects[0]  = heroIdleRects[0];
-	addAnim(mob, mobIdleRects, numRects, duration);
+	addAnim(mob, entityanimid_idle, mobIdleRects, numRects, duration);
+	mob->currAnimIndex = entityanimid_idle;
 
 	/* Add mob walking animation */
 	duration         = 0.10f;
@@ -279,8 +297,14 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	mobWalkRects[0]  = heroWalkRects[0];
 	mobWalkRects[1]  = heroWalkRects[1];
 	mobWalkRects[2]  = heroWalkRects[2];
-	addAnim(mob, mobWalkRects, numRects, duration);
+	addAnim(mob, entityanimid_walk, mobWalkRects, numRects, duration);
+}
 
+INTERNAL inline void resetActiveEntityAnim(Entity *entity)
+{
+	EntityAnim *currAnim = &entity->anim[entity->currAnimIndex];
+	currAnim->currDuration  = currAnim->duration;
+	currAnim->currRectIndex = 0;
 }
 
 INTERNAL void parseInput(GameState *state, const f32 dt)
@@ -298,12 +322,12 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	 */
 
 	World *const world = &state->world[state->currWorldIndex];
-	Entity *hero = &world->entities[world->heroIndex];
-	v2 ddPos = V2(0, 0);
+	Entity *hero       = &world->entities[world->heroIndex];
+	v2 ddPos           = V2(0, 0);
 
-	if (state->keys[GLFW_KEY_SPACE])
-	{
-	}
+	// TODO(doyle): As we need to handle more key spam input, we want to track
+	// if a button ended down
+	LOCAL_PERSIST b32 spaceBarWasDown = FALSE;
 
 	if (state->keys[GLFW_KEY_RIGHT])
 	{
@@ -320,9 +344,28 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	{
 		ddPos.y = 1.0f;
 	}
+
 	if (state->keys[GLFW_KEY_DOWN])
 	{
 		ddPos.y = -1.0f;
+	}
+
+	if (state->keys[GLFW_KEY_SPACE] && !spaceBarWasDown)
+	{
+		spaceBarWasDown = TRUE;
+		resetActiveEntityAnim(hero);
+		if (hero->currAnimIndex == entityanimid_idle)
+		{
+			hero->currAnimIndex = entityanimid_wave;
+		}
+		else
+		{
+			hero->currAnimIndex = entityanimid_idle;
+		}
+	}
+	else if (!state->keys[GLFW_KEY_SPACE])
+	{
+		spaceBarWasDown = FALSE;
 	}
 
 	if (ddPos.x != 0.0f && ddPos.y != 0.0f)
@@ -337,26 +380,20 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	f32 epsilon    = 15.0f;
 	v2 epsilonDpos = v2_sub(V2(epsilon, epsilon),
 	                        V2(ABS(hero->dPos.x), ABS(hero->dPos.y)));
+
 	if (epsilonDpos.x >= 0.0f && epsilonDpos.y >= 0.0f)
 	{
 		hero->dPos = V2(0.0f, 0.0f);
-		// TODO(doyle): Change index to use some meaningful name like a string
-		// or enum for referencing animations, in this case 0 is idle and 1 is
-		// walking
-		if (hero->currAnimIndex == 1)
+		if (hero->currAnimIndex == entityanimid_walk)
 		{
-			EntityAnim *currAnim    = &hero->anim[hero->currAnimIndex];
-			currAnim->currDuration  = currAnim->duration;
-			currAnim->currRectIndex = 0;
-			hero->currAnimIndex     = 0;
+			resetActiveEntityAnim(hero);
+			hero->currAnimIndex = entityanimid_idle;
 		}
 	}
-	else if (hero->currAnimIndex == 0)
+	else if (hero->currAnimIndex == entityanimid_idle)
 	{
-		EntityAnim *currAnim    = &hero->anim[hero->currAnimIndex];
-		currAnim->currDuration  = currAnim->duration;
-		currAnim->currRectIndex = 0;
-		hero->currAnimIndex     = 1;
+		resetActiveEntityAnim(hero);
+		hero->currAnimIndex     = entityanimid_walk;
 	}
 
 	f32 heroSpeed = CAST(f32)(22.0f * METERS_TO_PIXEL); // m/s^2
@@ -513,23 +550,32 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 
 				RenderTex renderTex = {emptyTex, V4(0, 1, 1, 0)};
 				renderer_rect(renderer, cameraBounds, heroCenter,
-				              V2(distance, 10.0f), 0, renderTex,
-				              V4(1, 0, 0, 0.5f));
+				              V2(distance, 5.0f), 0, renderTex,
+				              V4(1, 0, 0, 0.25f));
 
 				/* Update action timer */
 #ifdef DENGINE_DEBUG
 				ASSERT(entity->stats)
 #endif
+
 				hero->stats->actionTimer -= dt * hero->stats->actionSpdMul;
 				entity->stats->actionTimer -= dt * entity->stats->actionSpdMul;
-				if (hero->stats->actionTimer <= 0)
+
+				if (hero->stats->health > 0)
 				{
-					hero->stats->actionTimer = hero->stats->actionRate;
+					if (hero->stats->actionTimer <= 0)
+					{
+						//attackEntity(hero, entity);
+						hero->stats->actionTimer = hero->stats->actionRate;
+					}
 				}
 
-				if (entity->stats->actionTimer <= 0)
+				if (entity->stats->health > 0)
 				{
-					entity->stats->actionTimer = entity->stats->actionRate;
+					if (entity->stats->actionTimer <= 0)
+					{
+						entity->stats->actionTimer = entity->stats->actionRate;
+					}
 				}
 			}
 			else

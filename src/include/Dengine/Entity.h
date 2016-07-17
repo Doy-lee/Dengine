@@ -25,6 +25,14 @@ enum EntityType
 	entitytype_count,
 };
 
+enum EntityAnimId
+{
+	entityanimid_idle,
+	entityanimid_walk,
+	entityanimid_wave,
+	entityanimid_count,
+};
+
 typedef struct EntityAnim
 {
 	v4 *rect;
@@ -59,7 +67,6 @@ typedef struct Entity
 
 	// TODO(doyle): String based access
 	EntityAnim anim[16];
-	i32 freeAnimIndex;
 	i32 currAnimIndex;
 
 	EntityStats *stats;
