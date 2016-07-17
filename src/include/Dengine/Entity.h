@@ -39,6 +39,10 @@ typedef struct EntityStats
 {
 	f32 maxHealth;
 	f32 health;
+
+	f32 actionRate;
+	f32 actionTimer;
+	f32 actionSpdMul;
 } EntityStats;
 
 typedef struct Entity

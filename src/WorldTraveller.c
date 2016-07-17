@@ -36,6 +36,9 @@ INTERNAL Entity *addEntity(World *world, v2 pos, v2 size, enum EntityType type,
 			entity.stats = PLATFORM_MEM_ALLOC(1, EntityStats);
 			entity.stats->maxHealth = 100;
 			entity.stats->health = entity.stats->maxHealth;
+			entity.stats->actionRate = 100;
+			entity.stats->actionTimer = entity.stats->actionRate;
+			entity.stats->actionSpdMul = 100;
 		    break;
 	    }
 		
@@ -478,6 +481,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 		                V4(1, 1, 1, 1));
 
 		/* Game logic */
+
+		// TODO(doyle): Undefined behaviour when multiple entities on screen
 		if (entity->type == entitytype_mob)
 		{
 			// TODO(doyle): Currently calculated in pixels, how about meaningful
@@ -487,7 +492,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 			DEBUG_PUSH_STRING("Hero to Entity Magnitude: %06.2f", distance,
 			                  "f32");
 #endif
-			if (distance <= 500.0f)
+			f32 battleThreshold = 500.0f;
+			if (distance <= battleThreshold)
 			{
 #ifdef DENGINE_DEBUG
 				v4 color        = V4(1.0f, 0, 0, 1);
@@ -500,6 +506,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 				renderer_staticString(&state->renderer, font, battleStr, strPos,
 				                      0, color);
 #endif
+				/* Render targetting reticule */
 				Texture *emptyTex =
 				    asset_getTexture(assetManager, texlist_empty);
 				v2 heroCenter = v2_add(hero->pos, v2_scale(hero->size, 0.5f));
@@ -508,6 +515,27 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 				renderer_rect(renderer, cameraBounds, heroCenter,
 				              V2(distance, 10.0f), 0, renderTex,
 				              V4(1, 0, 0, 0.5f));
+
+				/* Update action timer */
+#ifdef DENGINE_DEBUG
+				ASSERT(entity->stats)
+#endif
+				hero->stats->actionTimer -= dt * hero->stats->actionSpdMul;
+				entity->stats->actionTimer -= dt * entity->stats->actionSpdMul;
+				if (hero->stats->actionTimer <= 0)
+				{
+					hero->stats->actionTimer = hero->stats->actionRate;
+				}
+
+				if (entity->stats->actionTimer <= 0)
+				{
+					entity->stats->actionTimer = entity->stats->actionRate;
+				}
+			}
+			else
+			{
+				entity->stats->actionTimer = entity->stats->actionRate;
+				hero->stats->actionTimer   = hero->stats->actionRate;
 			}
 		}
 
@@ -569,6 +597,13 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 				         entity->stats->health, entity->stats->maxHealth);
 				renderer_string(&state->renderer, cameraBounds, font,
 				                entityHealth, strPos, 0, color);
+
+				strPos.y -= GLOBAL_debugState.stringLineGap;
+				char entityTimer[32];
+				snprintf(entityTimer, ARRAY_COUNT(entityTimer), "ATB: %3.0f/%3.0f",
+				         entity->stats->actionTimer, entity->stats->actionRate);
+				renderer_string(&state->renderer, cameraBounds, font,
+				                entityTimer, strPos, 0, color);
 			}
 		}
 #endif
