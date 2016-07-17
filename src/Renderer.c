@@ -183,7 +183,7 @@ void renderer_string(Renderer *const renderer, v4 cameraBounds,
 		{
 			// NOTE(doyle): Atlas packs fonts tightly, so offset the codepoint
 			// to its actual atlas index, i.e. we skip the first 31 glyphs
-			i32 codepoint          = string[i];
+			i32 codepoint     = string[i];
 			i32 relativeIndex = CAST(i32)(codepoint - font->codepointRange.x);
 			CharMetrics charMetric = font->charMetrics[relativeIndex];
 			pos.y                  = baseline - (scale * charMetric.offset.y);

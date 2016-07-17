@@ -398,11 +398,16 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			spaceBarWasDown = TRUE;
 			setActiveEntityAnim(hero, entityanimid_tackle);
 
-			hero->dPos.x += (1.0f * METERS_TO_PIXEL);
 			if (hero->direction == direction_east)
+			{
 				ddPos.x = 1.0f;
+				hero->dPos.x += (1.0f * METERS_TO_PIXEL);
+			}
 			else
+			{
 				ddPos.x = -1.0f;
+				hero->dPos.x -= (1.0f * METERS_TO_PIXEL);
+			}
 		}
 	}
 	else if (!state->keys[GLFW_KEY_SPACE])
@@ -544,54 +549,42 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 
 	if (cameraBounds.w <= world->bounds.w) cameraBounds.w = world->bounds.w;
 
-	/* Render entity and logic loop */
+	/* Update and render entity loop */
 	ASSERT(world->freeEntityIndex < world->maxEntities);
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
-		/* Render entities */
-		Entity *const entity = &world->entities[i];
+		/* Game logic */
+		Entity *const entity  = &world->entities[i];
 		u32 oldAnimCycleCount = entity->currAnimCyclesCompleted;
 		updateEntityAnim(entity, dt);
 
 		v2 entityRenderSize = entity->size;
-		switch (entity->type)
+		if (entity->type == entitytype_hero)
 		{
-			case entitytype_mob:
-				break;
-
-			case entitytype_hero:
 #ifdef DENGINE_DEBUG
-			    DEBUG_PUSH_STRING("HeroAnimCycleCount: %d",
-			                      entity->currAnimCyclesCompleted, "i32");
+			DEBUG_PUSH_STRING("HeroAnimCycleCount: %d",
+			                  entity->currAnimCyclesCompleted, "i32");
 #endif
+			// NOTE(doyle): If dynamic entity, allow animations to exceed
+			// the actual hitbox of character
+			EntityAnim *anim = &entity->anim[entity->currAnimId];
+			v4 texRect       = anim->rect[anim->currRectIndex];
+			entityRenderSize = math_getRectSize(texRect);
 
-			    // NOTE(doyle): If dynamic entity, allow animations to exceed
-			    // the actual hitbox of character
-			    EntityAnim *anim = &entity->anim[entity->currAnimId];
-			    v4 texRect       = anim->rect[anim->currRectIndex];
-			    entityRenderSize = math_getRectSize(texRect);
-
-				if (oldAnimCycleCount != entity->currAnimCyclesCompleted)
+			if (oldAnimCycleCount != entity->currAnimCyclesCompleted)
+			{
+				if (entity->currAnimId == entityanimid_tackle)
 				{
-					if (entity->currAnimId == entityanimid_tackle)
-					{
-						setActiveEntityAnim(entity, entityanimid_idle);
-					    hero->dPos.x -= (1.0f * METERS_TO_PIXEL);
-				    }
-			    }
-			    break;
-			default:
-				break;
+					setActiveEntityAnim(entity, entityanimid_idle);
+					if (hero->direction == direction_east)
+						hero->dPos.x -= (1.0f * METERS_TO_PIXEL);
+					else
+						hero->dPos.x += (1.0f * METERS_TO_PIXEL);
+				}
+			}
 		}
-
-		f32 rotate = 0.0f;
-		renderer_entity(&state->renderer, cameraBounds, entity,
-		                entityRenderSize, rotate, V4(1, 1, 1, 1));
-
-		/* Game logic */
-
 		// TODO(doyle): Undefined behaviour when multiple entities on screen
-		if (entity->type == entitytype_mob)
+		else if (entity->type == entitytype_mob)
 		{
 			// TODO(doyle): Currently calculated in pixels, how about meaningful
 			// game units?
@@ -656,6 +649,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 				hero->stats->actionTimer   = hero->stats->actionRate;
 			}
 		}
+
+		f32 rotate = 0.0f;
+		renderer_entity(&state->renderer, cameraBounds, entity,
+		                entityRenderSize, rotate, V4(1, 1, 1, 1));
 
 #ifdef DENGINE_DEBUG
 		/* Render debug markers on entities */
