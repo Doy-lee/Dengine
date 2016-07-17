@@ -37,10 +37,11 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-	v2i windowSize = V2i(1600, 900);
+	i32 windowWidth = 1600;
+	i32 windowHeight = 900;
 
 	GLFWwindow *window =
-	    glfwCreateWindow(windowSize.x, windowSize.y, "Dengine", NULL, NULL);
+	    glfwCreateWindow(windowWidth, windowHeight, "Dengine", NULL, NULL);
 
 	if (!window)
 	{
@@ -62,9 +63,9 @@ int main()
 	// regardless of success. Catch it once by calling glGetError
 	glGetError();
 
-	v2i frameBufferSize = V2i(0, 0);
-	glfwGetFramebufferSize(window, &frameBufferSize.w, &frameBufferSize.h);
-	glViewport(0, 0, frameBufferSize.x, frameBufferSize.y);
+	i32 frameBufferWidth, frameBufferHeight;
+	glfwGetFramebufferSize(window, &frameBufferWidth, &frameBufferHeight);
+	glViewport(0, 0, frameBufferWidth, frameBufferHeight);
 
 	glfwSetKeyCallback(window, key_callback);
 	glfwSetCursorPosCallback(window, mouse_callback);
@@ -82,7 +83,8 @@ int main()
 #endif
 
 	GameState worldTraveller = {0};
-	worldTraveller_gameInit(&worldTraveller, frameBufferSize);
+	worldTraveller_gameInit(&worldTraveller,
+	                        V2i(frameBufferWidth, frameBufferHeight));
 
 	glfwSetWindowUserPointer(window, CAST(void *)(&worldTraveller));
 

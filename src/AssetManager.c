@@ -156,7 +156,7 @@ const i32 asset_loadShaderFiles(AssetManager *assetManager,
 /* Individual glyph bitmap generated from STB used for creating a font sheet */
 typedef struct GlyphBitmap
 {
-	v2i dimensions;
+	v2 dimensions;
 	u32 *pixels;
 	i32 codepoint;
 } GlyphBitmap;
@@ -173,11 +173,11 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	/* Initialise Assetmanager Font */
 	Font *font = &assetManager->font;
 	font->codepointRange = V2i(32, 127);
-	v2i codepointRange = font->codepointRange;
-	const i32 numGlyphs = codepointRange.y - codepointRange.x;
+	v2 codepointRange = font->codepointRange;
+	const i32 numGlyphs = CAST(i32)(codepointRange.y - codepointRange.x);
 
 	GlyphBitmap *glyphBitmaps = PLATFORM_MEM_ALLOC(numGlyphs, GlyphBitmap);
-	v2i largestGlyphDimension = V2i(0, 0);
+	v2 largestGlyphDimension = V2(0, 0);
 
 	const f32 targetFontHeight = 15.0f;
 	f32 scaleY = stbtt_ScaleForPixelHeight(&fontInfo, targetFontHeight);
@@ -195,8 +195,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 
 	/* Use STB_TrueType to generate a series of bitmap characters */
 	i32 glyphIndex = 0;
-	for (i32 codepoint = codepointRange.x; codepoint < codepointRange.y;
-	     codepoint++)
+	for (i32 codepoint = CAST(i32) codepointRange.x;
+	     codepoint < CAST(i32) codepointRange.y; codepoint++)
 	{
 		// NOTE(doyle): ScaleX if not specified, is then calculated based on the
 		// ScaleY component
@@ -241,10 +241,10 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 		glyphBitmaps[glyphIndex].codepoint  = codepoint;
 		glyphBitmaps[glyphIndex++].pixels   = colorBitmap;
 
-		if (height > largestGlyphDimension.h)
-			largestGlyphDimension.h = height;
-		if (width > largestGlyphDimension.w)
-			largestGlyphDimension.w = width;
+		if (height > CAST(f32)largestGlyphDimension.h)
+			largestGlyphDimension.h = CAST(f32)height;
+		if (width > CAST(f32)largestGlyphDimension.w)
+			largestGlyphDimension.w = CAST(f32)width;
 
 #ifdef DENGINE_DEBUG
 		if ((largestGlyphDimension.h - CAST(i32)targetFontHeight) >= 50)
@@ -267,10 +267,10 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	 * all pixels for the glyphs, then move onto the next set of glyphs.
 	 */
 	font->maxSize = largestGlyphDimension;
-	i32 glyphsPerRow = (MAX_TEXTURE_SIZE / font->maxSize.w);
+	i32 glyphsPerRow = (MAX_TEXTURE_SIZE / CAST(i32)font->maxSize.w);
 
 #ifdef DENGINE_DEBUG
-	i32 glyphsPerCol = MAX_TEXTURE_SIZE / font->maxSize.h;
+	i32 glyphsPerCol = MAX_TEXTURE_SIZE / CAST(i32)font->maxSize.h;
 	if ((glyphsPerRow * glyphsPerCol) <= numGlyphs)
 	{
 		printf(
@@ -330,14 +330,14 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 			}
 
 			/* Copy over exactly one row of pixels */
-			i32 numPixelsToPad = font->maxSize.w;
+			i32 numPixelsToPad = CAST(i32)font->maxSize.w;
 			if (verticalPixelsBlitted < activeGlyph.dimensions.h)
 			{
 				const i32 srcPitch =
-				    activeGlyph.dimensions.w * verticalPixelsBlitted;
+				    CAST(i32) activeGlyph.dimensions.w * verticalPixelsBlitted;
 				const u32 *src = activeGlyph.pixels + srcPitch;
 
-				const i32 numPixelsToCopy = activeGlyph.dimensions.w;
+				const i32 numPixelsToCopy = CAST(i32)activeGlyph.dimensions.w;
 
 				for (i32 count = 0; count < numPixelsToCopy; count++)
 					*destRow++ = *src++;
@@ -348,7 +348,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 				 * (NULL/mixes up rows), instead just advance the final bitmap
 				 * pointer by the remaining distance
 				 */
-				numPixelsToPad = font->maxSize.w - activeGlyph.dimensions.w;
+				numPixelsToPad =
+				    CAST(i32)(font->maxSize.w - activeGlyph.dimensions.w);
 			}
 			destRow += numPixelsToPad;
 		}
@@ -388,8 +389,9 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 
 	for (i32 i = 0; i < numGlyphs; i++)
 	{
-		i32 glyphBitmapSizeInBytes = glyphBitmaps[i].dimensions.w *
-		                             glyphBitmaps[i].dimensions.h * sizeof(u32);
+		i32 glyphBitmapSizeInBytes = CAST(i32) glyphBitmaps[i].dimensions.w *
+		                             CAST(i32) glyphBitmaps[i].dimensions.h *
+		                             sizeof(u32);
 		PLATFORM_MEM_FREE(glyphBitmaps[i].pixels, glyphBitmapSizeInBytes);
 	}
 

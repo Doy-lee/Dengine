@@ -60,8 +60,8 @@ typedef struct CharMetrics
 	i32 leftSideBearing;
 	// TODO(doyle): Utilise kerning
 	i32 *kerning;
-	v2i offset;
-	v2i trueSize;
+	v2 offset;
+	v2 trueSize;
 } CharMetrics;
 
 typedef struct Font
@@ -72,8 +72,8 @@ typedef struct Font
 	FontMetrics metrics;
 	CharMetrics *charMetrics;
 
-	v2i codepointRange;
-	v2i maxSize;
+	v2 codepointRange;
+	v2 maxSize;
 
 } Font;
 #endif

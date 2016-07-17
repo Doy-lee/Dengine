@@ -76,11 +76,11 @@ INTERNAL void addAnim(Entity *entity, enum EntityAnimId animId, v4 *rects,
 	entity->anim[animId] = result;
 }
 
-INTERNAL void rendererInit(GameState *state, v2i windowSize)
+INTERNAL void rendererInit(GameState *state, v2 windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
 	Renderer *renderer         = &state->renderer;
-	renderer->size = V2(CAST(f32) windowSize.x, CAST(f32) windowSize.y);
+	renderer->size             = windowSize;
 	// NOTE(doyle): Value to map a screen coordinate to NDC coordinate
 	renderer->vertexNdcFactor =
 	    V2(1.0f / renderer->size.w, 1.0f / renderer->size.h);
@@ -116,7 +116,7 @@ INTERNAL void rendererInit(GameState *state, v2i windowSize)
 
 }
 
-void worldTraveller_gameInit(GameState *state, v2i windowSize)
+void worldTraveller_gameInit(GameState *state, v2 windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
 	/* Initialise assets */
@@ -171,8 +171,8 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	/* Init world */
 	const i32 targetWorldWidth  = 500 * METERS_TO_PIXEL;
 	const i32 targetWorldHeight = 15 * METERS_TO_PIXEL;
-	v2i worldDimensionInTiles   = V2i(targetWorldWidth / state->tileSize,
-	                                targetWorldHeight / state->tileSize);
+	v2 worldDimensionInTiles    = V2i(targetWorldWidth / state->tileSize,
+	                               targetWorldHeight / state->tileSize);
 
 	for (i32 i = 0; i < ARRAY_COUNT(state->world); i++)
 	{
@@ -181,10 +181,8 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 		world->entities = PLATFORM_MEM_ALLOC(world->maxEntities, Entity);
 		world->texType = texlist_terrain;
 
-		v2 worldDimensionInTilesf = V2(CAST(f32) worldDimensionInTiles.x,
-		                               CAST(f32) worldDimensionInTiles.y);
 		world->bounds =
-		    math_getRect(V2(0, 0), v2_scale(worldDimensionInTilesf,
+		    math_getRect(V2(0, 0), v2_scale(worldDimensionInTiles,
 		                                    CAST(f32) state->tileSize));
 
 		TexAtlas *const atlas =
@@ -267,7 +265,7 @@ void worldTraveller_gameInit(GameState *state, v2i windowSize)
 	        duration);
 
 	/* Add hero battle tackle animation */
-	duration            = 0.09f;
+	duration            = 0.15f;
 	numRects            = 3;
 	v4 *heroTackleRects = PLATFORM_MEM_ALLOC(numRects, v4);
 	heroTackleRects[0]  = heroAtlas->texRect[herorects_castA];
@@ -678,7 +676,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 		if (debugString)
 		{
 			v2 strPos                  = v2_add(entity->pos, entity->size);
-			i32 indexOfLowerAInMetrics = 'a' - font->codepointRange.x;
+			i32 indexOfLowerAInMetrics = 'a' - CAST(i32)font->codepointRange.x;
 			strPos.y += font->charMetrics[indexOfLowerAInMetrics].offset.y;
 
 			renderer_string(&state->renderer, cameraBounds, font, debugString,

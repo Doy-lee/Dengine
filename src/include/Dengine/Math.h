@@ -11,13 +11,6 @@
 #define SQRT(x) (sqrtf(x))
 
 /* VECTORS */
-typedef union v2i
-{
-	struct { i32 x, y; };
-	struct { i32 w, h; };
-	i32 e[2];
-} v2i;
-
 typedef union v2
 {
 	struct { f32 x, y; };
@@ -39,9 +32,9 @@ typedef union v4
 	f32 e[4];
 } v4;
 
-INTERNAL inline v2i V2i(const i32 x, const i32 y)
+INTERNAL inline v2 V2i(const i32 x, const i32 y)
 {
-	v2i result = {x, y};
+	v2 result = {CAST(f32)x, CAST(f32)y};
 	return result;
 }
 INTERNAL inline v2 V2(const f32 x, const f32 y)
@@ -126,16 +119,6 @@ INTERNAL inline b32 v##num##_equals(const v##num a, const v##num b) \
 DEFINE_VECTOR_FLOAT_MATH(2);
 DEFINE_VECTOR_FLOAT_MATH(3);
 DEFINE_VECTOR_FLOAT_MATH(4);
-
-#define DEFINE_VECTOR_INT_MATH(num) \
-INTERNAL inline v##num##i v##num##i_add(const v##num##i a, const v##num##i b) \
-{ \
-	v##num##i result; \
-	for (i32 i = 0; i < ##num; i++) { result.e[i] = a.e[i] + b.e[i]; } \
-	return result; \
-} \
-
-DEFINE_VECTOR_INT_MATH(2);
 
 INTERNAL inline f32 v2_magnitude(const v2 a, const v2 b)
 {

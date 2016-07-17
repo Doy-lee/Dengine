@@ -40,6 +40,6 @@ typedef struct GameState
 	AssetManager assetManager;
 } GameState;
 
-void worldTraveller_gameInit(GameState *state, v2i windowSize);
+void worldTraveller_gameInit(GameState *state, v2 windowSize);
 void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt);
 #endif
