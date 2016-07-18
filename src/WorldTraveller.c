@@ -10,12 +10,6 @@ enum State
 	state_win,
 };
 
-INTERNAL void attackEntity(Entity *attacker, Entity *defender)
-{
-	// TODO(doyle): Use attacker stats in battle equations
-	defender->stats->health--;
-}
-
 INTERNAL Entity *addEntity(World *world, v2 pos, v2 size, enum EntityType type,
                            enum Direction direction, Texture *tex, b32 collides)
 {
@@ -39,12 +33,15 @@ INTERNAL Entity *addEntity(World *world, v2 pos, v2 size, enum EntityType type,
 		case entitytype_hero:
 		case entitytype_mob:
 	    {
-			entity.stats = PLATFORM_MEM_ALLOC(1, EntityStats);
-			entity.stats->maxHealth = 100;
-			entity.stats->health = entity.stats->maxHealth;
-			entity.stats->actionRate = 100;
-			entity.stats->actionTimer = entity.stats->actionRate;
-			entity.stats->actionSpdMul = 100;
+		    entity.stats                   = PLATFORM_MEM_ALLOC(1, EntityStats);
+		    entity.stats->maxHealth        = 100;
+		    entity.stats->health           = entity.stats->maxHealth;
+		    entity.stats->actionRate       = 100;
+		    entity.stats->actionTimer      = entity.stats->actionRate;
+		    entity.stats->actionSpdMul     = 100;
+		    entity.stats->entityIdToAttack = -1;
+		    entity.stats->queuedAttack     = entityattack_invalid;
+		    entity.state                   = entitystate_idle;
 		    break;
 	    }
 		
@@ -113,7 +110,6 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 	glCheckError();
-
 }
 
 void worldTraveller_gameInit(GameState *state, v2 windowSize)
@@ -515,6 +511,126 @@ INTERNAL void updateEntityAnim(Entity *entity, f32 dt)
 	}
 }
 
+INTERNAL void beginAttack(GameState *state, Entity *attacker)
+{
+	attacker->state = entitystate_attack;
+	switch (attacker->stats->queuedAttack)
+	{
+	case entityattack_tackle:
+		EntityAnim attackAnim = attacker->anim[entityanimid_tackle];
+		f32 busyDuration = attackAnim.duration * CAST(f32) attackAnim.numRects;
+
+		attacker->stats->busyDuration = busyDuration;
+		setActiveEntityAnim(attacker, entityanimid_tackle);
+		break;
+	default:
+#ifdef DENGINE_DEBUG
+		ASSERT(INVALID_CODE_PATH);
+#endif
+	}
+}
+
+// TODO(doyle): Calculate the battle damage, transition back into battle pose ..
+// etc
+INTERNAL void endAttack(GameState *state, Entity *attacker)
+{
+	// TODO(doyle): Use attacker stats in battle equations
+	attacker->state               = entitystate_battle;
+	attacker->stats->actionTimer  = attacker->stats->actionRate;
+	attacker->stats->busyDuration = 0;
+	setActiveEntityAnim(attacker, entityanimid_battlePose);
+
+	Entity *defender =
+	    &state->world->entities[attacker->stats->entityIdToAttack];
+	defender->stats->health--;
+}
+
+INTERNAL v4 createCameraBounds(World *world, v2 size)
+{
+	v4 result = math_getRect(world->cameraPos, size);
+	// NOTE(doyle): Lock camera if it passes the bounds of the world
+	if (result.x <= world->bounds.x)
+	{
+		result.x = world->bounds.x;
+		result.z = result.x + size.w;
+	}
+
+	// TODO(doyle): Do the Y component when we need it
+	if (result.y >= world->bounds.y) result.y = world->bounds.y;
+
+	if (result.z >= world->bounds.z)
+	{
+		result.z = world->bounds.z;
+		result.x = result.z - size.w;
+	}
+
+	if (result.w <= world->bounds.w) result.w = world->bounds.w;
+	return result;
+}
+
+INTERNAL void updateEntity(GameState *state, Entity *entity, f32 dt)
+{
+	World *const world = &state->world[state->currWorldIndex];
+	Entity *hero       = &world->entities[world->heroIndex];
+
+	if (entity->state == entitystate_idle)
+	{
+		if (entity->type == entitytype_mob)
+		{
+			// TODO(doyle): Currently calculated in pixels, how about meaningful
+			// game units?
+			f32 distance = v2_magnitude(hero->pos, entity->pos);
+			f32 battleThreshold = 500.0f;
+			if (distance <= battleThreshold)
+			{
+				entity->state = entitystate_battle;
+			}
+			else
+			{
+				entity->stats->actionTimer = entity->stats->actionRate;
+				entity->stats->queuedAttack = entityattack_invalid;
+			}
+		}
+	}
+
+	if ((entity->state == entitystate_battle ||
+	     entity->state == entitystate_attack) &&
+	    entity->type == entitytype_hero)
+	{
+		EntityStats *stats = entity->stats;
+		if (stats->health > 0)
+		{
+			if (entity->state == entitystate_battle)
+			{
+				if (stats->actionTimer > 0)
+					stats->actionTimer -= dt * stats->actionSpdMul;
+
+				if (stats->actionTimer < 0)
+				{
+					stats->actionTimer = 0;
+					if (stats->queuedAttack == entityattack_invalid)
+						stats->queuedAttack = entityattack_tackle;
+
+					beginAttack(state, entity);
+				}
+			}
+			else
+			{
+				stats->busyDuration -= dt;
+				if (stats->busyDuration <= 0)
+					endAttack(state, entity);
+			}
+		}
+		else
+		{
+			// TODO(doyle): Generalise for all entities
+			hero->stats->entityIdToAttack = -1;
+			hero->state = entitystate_idle;
+			entity->state = entitystate_dead;
+		}
+	}
+}
+
 void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 {
 	/* Update */
@@ -530,36 +646,18 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 #endif
 
 	/* Recalculate rendering bounds */
-	v4 cameraBounds = math_getRect(world->cameraPos, renderer->size);
-	// NOTE(doyle): Lock camera if it passes the bounds of the world
-	if (cameraBounds.x <= world->bounds.x)
-	{
-		cameraBounds.x = world->bounds.x;
-		cameraBounds.z = cameraBounds.x + renderer->size.w;
-	}
-
-	// TODO(doyle): Do the Y component when we need it
-	if (cameraBounds.y >= world->bounds.y) cameraBounds.y = world->bounds.y;
-
-	if (cameraBounds.z >= world->bounds.z)
-	{
-		cameraBounds.z = world->bounds.z;
-		cameraBounds.x = cameraBounds.z - renderer->size.w;
-	}
-
-	if (cameraBounds.w <= world->bounds.w) cameraBounds.w = world->bounds.w;
+	v4 cameraBounds = createCameraBounds(world, renderer->size);
 
 	/* Update and render entity loop */
 	ASSERT(world->freeEntityIndex < world->maxEntities);
-	for (i32 i = 0; i < world->freeEntityIndex; i++)
+	for (i32 entityId = 0; entityId < world->freeEntityIndex; entityId++)
 	{
-		/* Game logic */
-		Entity *const entity  = &world->entities[i];
+		Entity *const entity  = &world->entities[entityId];
 		u32 oldAnimCycleCount = entity->currAnimCyclesCompleted;
 		updateEntityAnim(entity, dt);
 
 		v2 entityRenderSize = entity->size;
-		if (entity->type == entitytype_hero)
+		if (entity->type == entitytype_hero || entity->type == entitytype_mob)
 		{
 #ifdef DENGINE_DEBUG
 			DEBUG_PUSH_STRING("HeroAnimCycleCount: %d",
@@ -570,84 +668,37 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 			EntityAnim *anim = &entity->anim[entity->currAnimId];
 			v4 texRect       = anim->rect[anim->currRectIndex];
 			entityRenderSize = math_getRectSize(texRect);
-
-			if (oldAnimCycleCount != entity->currAnimCyclesCompleted)
-			{
-				if (entity->currAnimId == entityanimid_tackle)
-				{
-					setActiveEntityAnim(entity, entityanimid_idle);
-					if (hero->direction == direction_east)
-						hero->dPos.x -= (1.0f * METERS_TO_PIXEL);
-					else
-						hero->dPos.x += (1.0f * METERS_TO_PIXEL);
-				}
-			}
 		}
-		// TODO(doyle): Undefined behaviour when multiple entities on screen
-		else if (entity->type == entitytype_mob)
+
+		updateEntity(state, entity, dt);
+		if (entity->state == entitystate_battle)
 		{
-			// TODO(doyle): Currently calculated in pixels, how about meaningful
-			// game units?
-			f32 distance = v2_magnitude(hero->pos, entity->pos);
+			if (hero->state == entitystate_idle)
+				hero->state = entitystate_battle;
+
+			if (hero->stats->entityIdToAttack == -1)
+				hero->stats->entityIdToAttack = entityId;
+#if 0
 #ifdef DENGINE_DEBUG
-			DEBUG_PUSH_STRING("Hero to Entity Magnitude: %06.2f", distance,
-			                  "f32");
+			Texture *emptyTex =
+				asset_getTexture(assetManager, texlist_empty);
+			v2 heroCenter = v2_add(hero->pos, v2_scale(hero->size, 0.5f));
+
+			RenderTex renderTex = {emptyTex, V4(0, 1, 1, 0)};
+			renderer_rect(&state->renderer, cameraBounds, heroCenter,
+						  V2(distance, 5.0f), 0, renderTex,
+						  V4(1, 0, 0, 0.25f));
+
+			v4 color        = V4(1.0f, 0, 0, 1);
+			char *battleStr = "IN-BATTLE RANGE";
+			f32 strLenInPixels =
+			    CAST(f32)(font->maxSize.w * common_strlen(battleStr));
+			v2 strPos = V2((renderer->size.w * 0.5f) - (strLenInPixels * 0.5f),
+			               renderer->size.h - 300.0f);
+			renderer_staticString(&state->renderer, font, battleStr, strPos, 0,
+			                      color);
 #endif
-			f32 battleThreshold = 500.0f;
-			if (distance <= battleThreshold)
-			{
-#ifdef DENGINE_DEBUG
-				v4 color        = V4(1.0f, 0, 0, 1);
-				char *battleStr = "IN-BATTLE RANGE";
-				f32 strLenInPixels =
-				    CAST(f32)(font->maxSize.w * common_strlen(battleStr));
-				v2 strPos =
-				    V2((renderer->size.w * 0.5f) - (strLenInPixels * 0.5f),
-				       renderer->size.h - 300.0f);
-				renderer_staticString(&state->renderer, font, battleStr, strPos,
-				                      0, color);
 #endif
-				/* Render targetting reticule */
-				Texture *emptyTex =
-				    asset_getTexture(assetManager, texlist_empty);
-				v2 heroCenter = v2_add(hero->pos, v2_scale(hero->size, 0.5f));
-
-				RenderTex renderTex = {emptyTex, V4(0, 1, 1, 0)};
-				renderer_rect(renderer, cameraBounds, heroCenter,
-				              V2(distance, 5.0f), 0, renderTex,
-				              V4(1, 0, 0, 0.25f));
-
-				/* Update action timer */
-#ifdef DENGINE_DEBUG
-				ASSERT(entity->stats)
-#endif
-				setActiveEntityAnim(hero, entityanimid_battlePose);
-
-				hero->stats->actionTimer -= dt * hero->stats->actionSpdMul;
-				entity->stats->actionTimer -= dt * entity->stats->actionSpdMul;
-
-				if (hero->stats->health > 0)
-				{
-					if (hero->stats->actionTimer <= 0)
-					{
-						//attackEntity(hero, entity);
-						hero->stats->actionTimer = hero->stats->actionRate;
-					}
-				}
-
-				if (entity->stats->health > 0)
-				{
-					if (entity->stats->actionTimer <= 0)
-					{
-						entity->stats->actionTimer = entity->stats->actionRate;
-					}
-				}
-			}
-			else
-			{
-				entity->stats->actionTimer = entity->stats->actionRate;
-				hero->stats->actionTimer   = hero->stats->actionRate;
-			}
 		}
 
 		f32 rotate = 0.0f;
@@ -699,7 +750,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 
 			strPos.y -= GLOBAL_debugState.stringLineGap;
 			char entityIDStr[32];
-			snprintf(entityIDStr, ARRAY_COUNT(entityIDStr), "ID: %4d/%d", i,
+			snprintf(entityIDStr, ARRAY_COUNT(entityIDStr), "ID: %4d/%d", entityId,
 			         world->maxEntities);
 			renderer_string(&state->renderer, cameraBounds, font, entityIDStr,
 			                strPos, 0, color);
@@ -745,6 +796,34 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	/* Render debug info stack */
 	DEBUG_PUSH_STRING("Hero Pos: %06.2f, %06.2f", hero->pos, "v2");
 	DEBUG_PUSH_STRING("Hero dPos: %06.2f, %06.2f", hero->dPos, "v2");
+	DEBUG_PUSH_STRING("Hero Busy Duration: %05.3f", hero->stats->busyDuration, "f32");
+
+	char *stateString;
+	switch(hero->state)
+	{
+		case entitystate_idle:
+			stateString = "Idle";
+			break;
+		case entitystate_battle:
+			stateString = "Battle";
+			break;
+		case entitystate_attack:
+			stateString = "Attack";
+			break;
+		case entitystate_dead:
+			stateString = "Dead";
+			break;
+		case entitystate_count:
+			stateString = "Invalid (Count)";
+			break;
+		case entitystate_invalid:
+			stateString = "Invalid";
+			break;
+		default:
+			stateString = "Unknown";
+	}
+	DEBUG_PUSH_STRING("Hero State: %s", *stateString, "char");
+
 	DEBUG_PUSH_STRING("FreeEntityIndex: %d", world->freeEntityIndex, "i32");
 
 	DEBUG_PUSH_STRING("glDrawArray Calls: %d",

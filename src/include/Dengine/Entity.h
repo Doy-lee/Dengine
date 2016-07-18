@@ -36,6 +36,16 @@ enum EntityAnimId
 	entityanimid_invalid,
 };
 
+enum EntityState
+{
+	entitystate_idle,
+	entitystate_battle,
+	entitystate_attack,
+	entitystate_dead,
+	entitystate_count,
+	entitystate_invalid,
+};
+
 typedef struct EntityAnim
 {
 	v4 *rect;
@@ -46,6 +56,13 @@ typedef struct EntityAnim
 	f32 currDuration;
 } EntityAnim;
 
+enum EntityAttack
+{
+	entityattack_tackle,
+	entityattack_count,
+	entityattack_invalid,
+};
+
 typedef struct EntityStats
 {
 	f32 maxHealth;
@@ -54,6 +71,10 @@ typedef struct EntityStats
 	f32 actionRate;
 	f32 actionTimer;
 	f32 actionSpdMul;
+
+	f32 busyDuration;
+	i32 entityIdToAttack;
+	i32 queuedAttack;
 } EntityStats;
 
 typedef struct Entity
@@ -62,6 +83,7 @@ typedef struct Entity
 	v2 dPos; // Velocity
 	v2 size;
 
+	enum EntityState state;
 	enum EntityType type;
 	enum Direction direction;
 

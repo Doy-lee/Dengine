@@ -41,6 +41,14 @@ void debug_pushString(char *formatString, void *data, char *dataType)
 			         ARRAY_COUNT(GLOBAL_debugState.debugStrings[0]),
 			         formatString, val);
 		}
+		else if (common_strcmp(dataType, "char") == 0)
+		{
+			char *val = CAST(char *)data;
+
+			snprintf(GLOBAL_debugState.debugStrings[numDebugStrings],
+			         ARRAY_COUNT(GLOBAL_debugState.debugStrings[0]),
+			         formatString, val);
+		}
 		else
 		{
 			ASSERT(INVALID_CODE_PATH);
