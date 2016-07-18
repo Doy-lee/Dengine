@@ -25,17 +25,6 @@ enum EntityType
 	entitytype_count,
 };
 
-enum EntityAnimId
-{
-	entityanimid_idle,
-	entityanimid_walk,
-	entityanimid_wave,
-	entityanimid_battlePose,
-	entityanimid_tackle,
-	entityanimid_count,
-	entityanimid_invalid,
-};
-
 enum EntityState
 {
 	entitystate_idle,
@@ -45,16 +34,6 @@ enum EntityState
 	entitystate_count,
 	entitystate_invalid,
 };
-
-typedef struct EntityAnim
-{
-	v4 *rect;
-	i32 numRects;
-	i32 currRectIndex;
-
-	f32 duration;
-	f32 currDuration;
-} EntityAnim;
 
 enum EntityAttack
 {
@@ -77,6 +56,13 @@ typedef struct EntityStats
 	i32 queuedAttack;
 } EntityStats;
 
+typedef struct EntityAnim_
+{
+	Animation *anim;
+	i32 currFrame;
+	f32 currDuration;
+} EntityAnim_;
+
 typedef struct Entity
 {
 	v2 pos;  // Position
@@ -92,7 +78,7 @@ typedef struct Entity
 	b32 collides;
 
 	// TODO(doyle): String based access
-	EntityAnim anim[16];
+	EntityAnim_ anim[16];
 	i32 currAnimId;
 	u32 currAnimCyclesCompleted;
 

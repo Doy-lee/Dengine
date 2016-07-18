@@ -19,10 +19,10 @@ enum ShaderList
 	shaderlist_count,
 };
 
-enum TerrainCoords
+enum TerrainRects
 {
-	terraincoords_ground,
-	terraincoords_count,
+	terrainrects_ground,
+	terrainrects_count,
 };
 
 enum HeroRects
@@ -40,11 +40,32 @@ enum HeroRects
 	herorects_count,
 };
 
+enum AnimList
+{
+	animlist_hero_idle,
+	animlist_hero_walk,
+	animlist_hero_wave,
+	animlist_hero_battlePose,
+	animlist_hero_tackle,
+	animlist_terrain,
+	animlist_count,
+	animlist_invalid,
+};
+
 typedef struct TexAtlas
 {
 	// TODO(doyle): String hash based lookup
 	v4 texRect[128];
 } TexAtlas;
+
+typedef struct Animation
+{
+	Texture *tex;
+	TexAtlas *atlas;
+	i32 *atlasIndexes;
+	i32 numFrames;
+	f32 frameDuration;
+} Animation;
 
 // TODO(doyle): We only use the offset and advance metric at the moment, remove?
 typedef struct FontMetrics

@@ -39,6 +39,18 @@ TexAtlas *asset_getTextureAtlas(AssetManager *assetManager, const enum TexList t
 	return NULL;
 }
 
+Animation *asset_getAnim(AssetManager *assetManager, i32 type)
+{
+	if (type < animlist_count)
+		return &assetManager->anims[type];
+
+#ifdef DENGINE_DEBUG
+	ASSERT(INVALID_CODE_PATH);
+#endif
+
+	return NULL;
+}
+
 const i32 asset_loadTextureImage(AssetManager *assetManager,
                                  const char *const path, const enum TexList type)
 {
@@ -399,4 +411,28 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	platform_closeFileRead(&fontFileRead);
 
 	return 0;
+}
+
+void asset_addAnimation(AssetManager *assetManager, i32 texId,
+                       i32 animId, i32 *atlasIndexes, i32 numFrames,
+                       f32 frameDuration)
+{
+#ifdef DENGINE_DEBUG
+	ASSERT(assetManager && atlasIndexes)
+	ASSERT(!assetManager->anims[animId].atlasIndexes);
+#endif
+
+	Animation anim = {0};
+	// TODO(doyle): Do we need texture to be bound to animation?
+	anim.tex       = asset_getTexture(assetManager, texId);
+	anim.atlas     = asset_getTextureAtlas(assetManager, texId);
+
+	anim.atlasIndexes = PLATFORM_MEM_ALLOC(numFrames, i32);
+	for (i32 i = 0; i < numFrames; i++)
+		anim.atlasIndexes[i] = atlasIndexes[i];
+
+	anim.numFrames     = numFrames;
+	anim.frameDuration = frameDuration;
+
+	assetManager->anims[animId] = anim;
 }
