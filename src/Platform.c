@@ -10,7 +10,7 @@ void platform_memoryFree(void *data, i32 numBytes)
 	if (data) free(data);
 
 #ifdef DENGINE_DEBUG
-	GLOBAL_debugState.totalMemoryAllocated -= numBytes;
+	GLOBAL_debug.totalMemoryAllocated -= numBytes;
 #endif
 }
 
@@ -20,7 +20,7 @@ void *platform_memoryAlloc(i32 numBytes)
 
 #ifdef DENGINE_DEBUG
 	if (result)
-		GLOBAL_debugState.totalMemoryAllocated += numBytes;
+		GLOBAL_debug.totalMemoryAllocated += numBytes;
 #endif
 	return result;
 }

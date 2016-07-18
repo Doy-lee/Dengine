@@ -5,6 +5,9 @@
 #include "Dengine/Common.h"
 #include "Dengine/Math.h"
 #include "Dengine/Renderer.h"
+#include "Dengine/Entity.h"
+
+#include "WorldTraveller/WorldTraveller.h"
 
 #define INVALID_CODE_PATH TRUE
 #define DEBUG_PUSH_STRING(formatString, data, type)                            \
@@ -33,22 +36,73 @@ typedef struct DebugState
 	f32 stringLineGap;
 } DebugState;
 
-extern DebugState GLOBAL_debugState;
+extern DebugState GLOBAL_debug;
 
 inline void debug_callCountIncrement(i32 id)
 {
 	ASSERT(id < debugcallcount_num);
-	GLOBAL_debugState.callCount[id]++;
+	GLOBAL_debug.callCount[id]++;
 }
 
 inline void debug_clearCallCounter()
 {
 	for (i32 i = 0; i < debugcallcount_num; i++)
-		GLOBAL_debugState.callCount[i] = 0;
+		GLOBAL_debug.callCount[i] = 0;
 }
+
+inline char *debug_entitystate_string(i32 val)
+{
+	char *string;
+	switch(val)
+	{
+		case entitystate_idle:
+			string = "EntityState_Idle";
+			break;
+		case entitystate_battle:
+			string = "EntityState_Battle";
+			break;
+		case entitystate_attack:
+			string = "EntityState_Attack";
+			break;
+		case entitystate_dead:
+			string = "EntityState_Dead";
+			break;
+		case entitystate_count:
+			string = "EntityState_Count (Error!)";
+			break;
+		case entitystate_invalid:
+			string = "EntityState_Invalid (Error!)";
+			break;
+		default:
+			string = "EntityState Unknown (NOT DEFINED)";
+	}
+	return string;
+}
+
+inline char *debug_entityattack_string(i32 val)
+{
+	char *string;
+	switch(val)
+	{
+		case entityattack_tackle:
+			string = "EntityAttack_Tackle";
+			break;
+		case entityattack_count:
+			string = "EntityAttack_Count (Error!)";
+			break;
+		case entityattack_invalid:
+			string = "EntityAttack_Invalid";
+			break;
+		default:
+			string = "EntityAttack Unknown (NOT DEFINED)";
+	}
+	return string;
+}
+
 
 void debug_init();
 void debug_pushString(char *formatString, void *data, char *dataType);
 void debug_stringUpdateAndRender(Renderer *renderer, Font *font, f32 dt);
+void debug_drawUi(GameState *state, f32 dt);
 
 #endif

@@ -16,6 +16,8 @@ typedef struct World
 {
 	Entity *entities;
 	i32 maxEntities;
+	b32 *entitiesInBattleIds;
+	i32 numEntitiesInBattle;
 
 	enum TexList texType;
 
