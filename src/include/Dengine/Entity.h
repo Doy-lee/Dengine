@@ -81,7 +81,8 @@ typedef struct Entity
 {
 	v2 pos;  // Position
 	v2 dPos; // Velocity
-	v2 size;
+	v2 hitboxSize;
+	v2 renderSize;
 
 	enum EntityState state;
 	enum EntityType type;
@@ -100,7 +101,7 @@ typedef struct Entity
 
 INTERNAL inline v4 getEntityScreenRect(Entity entity)
 {
-	v4 result = math_getRect(entity.pos, entity.size);
+	v4 result = math_getRect(entity.pos, entity.hitboxSize);
 	return result;
 }
 

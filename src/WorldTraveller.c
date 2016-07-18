@@ -20,13 +20,14 @@ INTERNAL Entity *addEntity(World *world, v2 pos, v2 size, enum EntityType type,
 	ASSERT(type < entitytype_count);
 #endif
 
-	Entity entity    = {0};
-	entity.pos       = pos;
-	entity.size      = size;
-	entity.type      = type;
-	entity.direction = direction;
-	entity.tex       = tex;
-	entity.collides  = collides;
+	Entity entity     = {0};
+	entity.pos        = pos;
+	entity.hitboxSize = size;
+	entity.renderSize = size;
+	entity.type       = type;
+	entity.direction  = direction;
+	entity.tex        = tex;
+	entity.collides   = collides;
 
 	switch(type)
 	{
@@ -272,7 +273,7 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 
 	/* Create a NPC */
 	pos         = V2(hero->pos.x * 3, CAST(f32) state->tileSize);
-	size        = hero->size;
+	size        = hero->hitboxSize;
 	type        = entitytype_npc;
 	dir         = direction_null;
 	tex         = hero->tex;
@@ -291,7 +292,7 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	/* Create a Mob */
 	pos         = V2(renderer->size.w - (renderer->size.w / 3.0f),
 	                 CAST(f32) state->tileSize);
-	size        = hero->size;
+	size        = hero->hitboxSize;
 	type        = entitytype_mob;
 	dir         = direction_west;
 	tex         = hero->tex;
@@ -459,8 +460,8 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			if (entity.collides)
 			{
 				v4 heroRect =
-				    V4(newHeroP.x, newHeroP.y, (newHeroP.x + hero->size.x),
-				       (newHeroP.y + hero->size.y));
+				    V4(newHeroP.x, newHeroP.y, (newHeroP.x + hero->hitboxSize.x),
+				       (newHeroP.y + hero->hitboxSize.y));
 				v4 entityRect = getEntityScreenRect(entity);
 
 				if (((heroRect.z >= entityRect.x && heroRect.z <= entityRect.z) ||
@@ -489,7 +490,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		    V2((hero->pos.x - (0.5f * state->renderer.size.w)), (0.0f));
 
 		// NOTE(doyle): Hero position is offset to the center so -recenter it
-		offsetFromHeroToOrigin.x += (hero->size.x * 0.5f);
+		offsetFromHeroToOrigin.x += (hero->hitboxSize.x * 0.5f);
 		world->cameraPos = offsetFromHeroToOrigin;
 	}
 }
@@ -508,6 +509,18 @@ INTERNAL void updateEntityAnim(Entity *entity, f32 dt)
 		anim->currRectIndex = anim->currRectIndex % anim->numRects;
 		texRect             = anim->rect[anim->currRectIndex];
 		anim->currDuration  = anim->duration;
+	}
+
+	// NOTE(doyle): If humanoid entity, let animation dictate render size which
+	// may exceed the hitbox size of the entity
+	switch (entity->type)
+	{
+		case entitytype_hero:
+		case entitytype_mob:
+		case entitytype_npc:
+			entity->renderSize = math_getRectSize(texRect);
+		default:
+			break;
 	}
 }
 
@@ -570,6 +583,7 @@ INTERNAL v4 createCameraBounds(World *world, v2 size)
 
 INTERNAL void updateEntity(GameState *state, Entity *entity, f32 dt)
 {
+
 	World *const world = &state->world[state->currWorldIndex];
 	Entity *hero       = &world->entities[world->heroIndex];
 
@@ -629,6 +643,8 @@ INTERNAL void updateEntity(GameState *state, Entity *entity, f32 dt)
 			entity->state = entitystate_dead;
 		}
 	}
+
+	updateEntityAnim(entity, dt);
 }
 
 void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
@@ -653,24 +669,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	for (i32 entityId = 0; entityId < world->freeEntityIndex; entityId++)
 	{
 		Entity *const entity  = &world->entities[entityId];
-		u32 oldAnimCycleCount = entity->currAnimCyclesCompleted;
-		updateEntityAnim(entity, dt);
-
-		v2 entityRenderSize = entity->size;
-		if (entity->type == entitytype_hero || entity->type == entitytype_mob)
-		{
-#ifdef DENGINE_DEBUG
-			DEBUG_PUSH_STRING("HeroAnimCycleCount: %d",
-			                  entity->currAnimCyclesCompleted, "i32");
-#endif
-			// NOTE(doyle): If dynamic entity, allow animations to exceed
-			// the actual hitbox of character
-			EntityAnim *anim = &entity->anim[entity->currAnimId];
-			v4 texRect       = anim->rect[anim->currRectIndex];
-			entityRenderSize = math_getRectSize(texRect);
-		}
-
 		updateEntity(state, entity, dt);
+
 		if (entity->state == entitystate_battle)
 		{
 			if (hero->state == entitystate_idle)
@@ -702,8 +702,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 		}
 
 		f32 rotate = 0.0f;
-		renderer_entity(&state->renderer, cameraBounds, entity,
-		                entityRenderSize, rotate, V4(1, 1, 1, 1));
+		renderer_entity(&state->renderer, cameraBounds, entity, rotate,
+		                V4(1, 1, 1, 1));
 
 #ifdef DENGINE_DEBUG
 		/* Render debug markers on entities */
@@ -732,8 +732,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 
 		if (debugString)
 		{
-			v2 strPos                  = v2_add(entity->pos, entity->size);
-			i32 indexOfLowerAInMetrics = 'a' - CAST(i32)font->codepointRange.x;
+			v2 strPos = v2_add(entity->pos, entity->hitboxSize);
+			i32 indexOfLowerAInMetrics = 'a' - CAST(i32) font->codepointRange.x;
 			strPos.y += font->charMetrics[indexOfLowerAInMetrics].offset.y;
 
 			renderer_string(&state->renderer, cameraBounds, font, debugString,

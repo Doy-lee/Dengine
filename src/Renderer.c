@@ -215,14 +215,14 @@ void renderer_string(Renderer *const renderer, v4 cameraBounds,
 }
 
 void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
-                     v2 entityRenderSize, f32 rotate, v4 color)
+                     f32 rotate, v4 color)
 {
 	// TODO(doyle): Batch into render groups
 
 	// NOTE(doyle): Pos + Size since the origin of an entity is it's bottom left
 	// corner. Add the two together so that the clipping point is the far right
 	// side of the entity
-	v2 rightAlignedP = v2_add(entity->pos, entity->size);
+	v2 rightAlignedP = v2_add(entity->pos, entity->hitboxSize);
 	v2 leftAlignedP = entity->pos;
 	if ((leftAlignedP.x < cameraBounds.z && rightAlignedP.x >= cameraBounds.x) &&
 	    (leftAlignedP.y < cameraBounds.y && rightAlignedP.y >= cameraBounds.w))
@@ -244,7 +244,7 @@ void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
 		v2 offsetFromCamOrigin    = V2(cameraBounds.x, cameraBounds.w);
 		v2 entityRelativeToCamera = v2_sub(entity->pos, offsetFromCamOrigin);
 
-		renderObject(renderer, entityRelativeToCamera, entityRenderSize,
+		renderObject(renderer, entityRelativeToCamera, entity->renderSize,
 		             rotate, color, entity->tex);
 	}
 }
