@@ -44,12 +44,22 @@ void debug_pushString(char *formatString, void *data, char *dataType)
 		}
 		else if (common_strcmp(dataType, "char") == 0)
 		{
-			char *val = CAST(char *)data;
+			if (data)
+			{
+				char *val = CAST(char *) data;
 
-			snprintf(GLOBAL_debug.debugStrings[numDebugStrings],
-			         ARRAY_COUNT(GLOBAL_debug.debugStrings[0]),
-			         formatString, val);
+				snprintf(GLOBAL_debug.debugStrings[numDebugStrings],
+				         ARRAY_COUNT(GLOBAL_debug.debugStrings[0]),
+				         formatString, val);
+			}
+			else
+			{
+				snprintf(GLOBAL_debug.debugStrings[numDebugStrings],
+				         ARRAY_COUNT(GLOBAL_debug.debugStrings[0]),
+				         formatString);
+			}
 		}
+		
 		else
 		{
 			ASSERT(INVALID_CODE_PATH);
@@ -142,9 +152,9 @@ void debug_drawUi(GameState *state, f32 dt)
 		                      color);
 	}
 
-	for (i32 entityId = 0; entityId < world->maxEntities; entityId++)
+	for (i32 i = 0; i < world->maxEntities; i++)
 	{
-		Entity *const entity  = &world->entities[entityId];
+		Entity *const entity  = &world->entities[i];
 		/* Render debug markers on entities */
 		v4 color          = V4(1, 1, 1, 1);
 		char *debugString = NULL;
@@ -189,8 +199,8 @@ void debug_drawUi(GameState *state, f32 dt)
 
 			strPos.y -= GLOBAL_debug.stringLineGap;
 			char entityIDStr[32];
-			snprintf(entityIDStr, ARRAY_COUNT(entityIDStr), "ID: %4d/%d", entityId,
-			         world->maxEntities);
+			snprintf(entityIDStr, ARRAY_COUNT(entityIDStr), "ID: %4d/%d", entity->id,
+			         world->uniqueIdAccumulator-1);
 			renderer_string(&state->renderer, cameraBounds, font, entityIDStr,
 			                strPos, 0, color);
 
@@ -210,27 +220,48 @@ void debug_drawUi(GameState *state, f32 dt)
 				renderer_string(&state->renderer, cameraBounds, font,
 				                entityTimer, strPos, 0, color);
 			}
+
+			strPos.y -= GLOBAL_debug.stringLineGap;
+			char *entityStateStr = debug_entitystate_string(entity->state);
+			renderer_string(&state->renderer, cameraBounds, font,
+			                entityStateStr, strPos, 0, color);
 		}
 	}
 
 	/* Render debug info stack */
-	DEBUG_PUSH_STRING("Hero Pos: %06.2f, %06.2f", hero->pos, "v2");
-	DEBUG_PUSH_STRING("Hero dPos: %06.2f, %06.2f", hero->dPos, "v2");
-	DEBUG_PUSH_STRING("Hero Busy Duration: %05.3f", hero->stats->busyDuration, "f32");
+	DEBUG_PUSH_STRING("== Hero Properties == ");
+	DEBUG_PUSH_VAR("Hero Pos: %06.2f, %06.2f", hero->pos, "v2");
+	DEBUG_PUSH_VAR("Hero dPos: %06.2f, %06.2f", hero->dPos, "v2");
+	DEBUG_PUSH_VAR("Hero Busy Duration: %05.3f", hero->stats->busyDuration, "f32");
 	char *heroStateString = debug_entitystate_string(hero->state);
-	DEBUG_PUSH_STRING("Hero State: %s", *heroStateString, "char");
+	DEBUG_PUSH_VAR("Hero State: %s", *heroStateString, "char");
 	char *heroQueuedAttackStr =
 	    debug_entityattack_string(hero->stats->queuedAttack);
-	DEBUG_PUSH_STRING("Hero QueuedAttack: %s", *heroQueuedAttackStr, "char");
+	DEBUG_PUSH_VAR("Hero QueuedAttack: %s", *heroQueuedAttackStr, "char");
 
-	DEBUG_PUSH_STRING("FreeEntityIndex: %d", world->freeEntityIndex, "i32");
-
-	DEBUG_PUSH_STRING("glDrawArray Calls: %d",
-	                  GLOBAL_debug.callCount[debugcallcount_drawArrays],
-	                  "i32");
-
+	DEBUG_PUSH_STRING("== State Properties == ");
+	DEBUG_PUSH_VAR("FreeEntityIndex: %d", world->freeEntityIndex, "i32");
+	DEBUG_PUSH_VAR("glDrawArray Calls: %d",
+	               GLOBAL_debug.callCount[debugcallcount_drawArrays], "i32");
 	i32 debug_kbAllocated = GLOBAL_debug.totalMemoryAllocated / 1024;
-	DEBUG_PUSH_STRING("TotalMemoryAllocated: %dkb", debug_kbAllocated, "i32");
+	DEBUG_PUSH_VAR("TotalMemoryAllocated: %dkb", debug_kbAllocated, "i32");
+
+	DEBUG_PUSH_STRING("== EntityIDs in Battle List == ");
+	DEBUG_PUSH_VAR("NumEntitiesInBattle: %d", world->numEntitiesInBattle,
+	               "i32");
+	if (world->numEntitiesInBattle > 0)
+	{
+		for (i32 i = 0; i < world->maxEntities; i++)
+		{
+			if (world->entityIdInBattle[i])
+				DEBUG_PUSH_VAR("Entity ID: %d", i, "i32");
+		}
+	}
+	else
+	{
+		DEBUG_PUSH_STRING("-none-");
+	}
+
 	debug_stringUpdateAndRender(&state->renderer, font, dt);
 	debug_clearCallCounter();
 }

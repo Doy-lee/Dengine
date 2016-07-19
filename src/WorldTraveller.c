@@ -21,6 +21,7 @@ INTERNAL Entity *addEntity(World *world, v2 pos, v2 size, enum EntityType type,
 #endif
 
 	Entity entity     = {0};
+	entity.id         = world->uniqueIdAccumulator++;
 	entity.pos        = pos;
 	entity.hitboxSize = size;
 	entity.renderSize = size;
@@ -215,12 +216,13 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 		World *const world = &state->world[i];
 		world->maxEntities = 16384;
 		world->entities = PLATFORM_MEM_ALLOC(world->maxEntities, Entity);
-		world->entitiesInBattleIds = PLATFORM_MEM_ALLOC(world->maxEntities, i32);
+		world->entityIdInBattle = PLATFORM_MEM_ALLOC(world->maxEntities, i32);
 		world->numEntitiesInBattle = 0;
 		world->texType             = texlist_terrain;
 		world->bounds =
 		    math_getRect(V2(0, 0), v2_scale(worldDimensionInTiles,
 		                                    CAST(f32) state->tileSize));
+		world->uniqueIdAccumulator = 0;
 
 		TexAtlas *const atlas =
 		    asset_getTextureAtlas(assetManager, world->texType);
@@ -299,7 +301,9 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	/* Populate mob animation references */
 	addAnim(assetManager, animlist_hero_idle, mob);
 	addAnim(assetManager, animlist_hero_walk, mob);
-	mob->currAnimId = animlist_hero_idle;
+	addAnim(assetManager, animlist_hero_battlePose, mob);
+	addAnim(assetManager, animlist_hero_tackle, mob);
+	hero->currAnimId = animlist_hero_idle;
 }
 
 INTERNAL inline void setActiveEntityAnim(Entity *entity,
@@ -596,97 +600,168 @@ INTERNAL v4 createCameraBounds(World *world, v2 size)
 	return result;
 }
 
+#define ENTITY_IN_BATTLE TRUE
+#define ENTITY_NOT_IN_BATTLE FALSE
+INTERNAL inline void updateWorldBattleEntities(World *world, Entity *entity,
+                                               b32 isInBattle)
+{
+	world->entityIdInBattle[entity->id] = isInBattle;
+
+	if (isInBattle)
+		world->numEntitiesInBattle++;
+	else
+		world->numEntitiesInBattle--;
+}
+
+INTERNAL void entityStateSwitch(World *world, Entity *entity,
+                                enum EntityState newState)
+{
+	if (entity->state == newState) return;
+
+	switch(entity->state)
+	{
+	case entitystate_idle:
+		switch (newState)
+		{
+		case entitystate_battle:
+			updateWorldBattleEntities(world, entity, ENTITY_IN_BATTLE);
+		case entitystate_attack:
+		case entitystate_dead:
+			break;
+		default:
+			ASSERT(INVALID_CODE_PATH);
+		}
+		break;
+	case entitystate_battle:
+		switch (newState)
+		{
+		case entitystate_idle:
+			updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
+			entity->stats->actionTimer = entity->stats->actionRate;
+			entity->stats->queuedAttack = entityattack_invalid;
+			setActiveEntityAnim(entity, animlist_hero_idle);
+			break;
+		case entitystate_attack:
+		case entitystate_dead:
+			break;
+		default:
+			ASSERT(INVALID_CODE_PATH);
+		}
+	case entitystate_attack:
+		switch (newState)
+		{
+		case entitystate_idle:
+		case entitystate_battle:
+		case entitystate_dead:
+			break;
+		default:
+			ASSERT(INVALID_CODE_PATH);
+		}
+	case entitystate_dead:
+		switch (newState)
+		{
+		case entitystate_idle:
+		case entitystate_battle:
+		case entitystate_attack:
+			break;
+		default:
+			ASSERT(INVALID_CODE_PATH);
+		}
+	}
+
+	entity->state = newState;
+}
+
 INTERNAL void updateEntityAndRender(Renderer *renderer, World *world, f32 dt)
 {
-	for (i32 entityId = 0; entityId < world->freeEntityIndex; entityId++)
+	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
-		Entity *const entity  = &world->entities[entityId];
+		Entity *const entity  = &world->entities[i];
 		Entity *hero          = &world->entities[world->heroIndex];
 
-		if (entity->type == entitytype_mob)
+		switch(entity->type)
 		{
-			f32 distance = v2_magnitude(hero->pos, entity->pos);
-
+		case entitytype_mob:
+		{
 			// TODO(doyle): Currently calculated in pixels, how about meaningful
 			// game units?
 			f32 battleThreshold = 500.0f;
+			f32 distance = v2_magnitude(hero->pos, entity->pos);
+
+			enum EntityState newState = entitystate_invalid;
 			if (distance <= battleThreshold)
-			{
-				entity->state = entitystate_battle;
-				if (!world->entitiesInBattleIds[entityId])
-				{
-					world->entitiesInBattleIds[entityId] = TRUE;
-					world->numEntitiesInBattle++;
-				}
-			}
+				newState = entitystate_battle;
 			else
-			{
-				if (world->entitiesInBattleIds[entityId])
-				{
-					world->entitiesInBattleIds[entityId] = FALSE;
-					world->numEntitiesInBattle--;
-				}
-				entity->state               = entitystate_idle;
-				entity->stats->actionTimer  = entity->stats->actionRate;
-				entity->stats->queuedAttack = entityattack_invalid;
-			}
+				newState = entitystate_idle;
+
+			entityStateSwitch(world, entity, newState);
 		}
-
-		if ((entity->state == entitystate_battle ||
-		     entity->state == entitystate_attack) &&
-		    entity->type == entitytype_hero)
+		// NOTE(doyle): Allow fall through to entitytype_hero here
+		case entitytype_hero:
 		{
-			EntityStats *stats = entity->stats;
-			if (stats->health > 0)
+			if (entity->state == entitystate_battle ||
+			    entity->state == entitystate_attack)
 			{
-				if (entity->state == entitystate_battle)
+				EntityStats *stats = entity->stats;
+				if (stats->health > 0)
 				{
-					if (stats->actionTimer > 0)
-						stats->actionTimer -= dt * stats->actionSpdMul;
-
-					if (stats->actionTimer < 0)
+					if (entity->state == entitystate_battle)
 					{
-						stats->actionTimer = 0;
-						if (stats->queuedAttack == entityattack_invalid)
-							stats->queuedAttack = entityattack_tackle;
+						if (stats->actionTimer > 0)
+							stats->actionTimer -= dt * stats->actionSpdMul;
 
-						beginAttack(entity);
+						if (stats->actionTimer < 0)
+						{
+							stats->actionTimer = 0;
+							if (stats->queuedAttack == entityattack_invalid)
+								stats->queuedAttack = entityattack_tackle;
+
+							beginAttack(entity);
+						}
+					}
+					else
+					{
+						stats->busyDuration -= dt;
+						if (stats->busyDuration <= 0)
+							endAttack(world, entity);
 					}
 				}
 				else
 				{
-					stats->busyDuration -= dt;
-					if (stats->busyDuration <= 0)
-						endAttack(world, entity);
+					// TODO(doyle): Generalise for all entities
+					hero->stats->entityIdToAttack = -1;
+					hero->state                   = entitystate_idle;
+					entity->state                 = entitystate_dead;
 				}
 			}
-			else
-			{
-				// TODO(doyle): Generalise for all entities
-				hero->stats->entityIdToAttack = -1;
-				hero->state                   = entitystate_idle;
-				entity->state                 = entitystate_dead;
-			}
+			break;
+		}
+		default:
+			break;
 		}
 
 		if (world->numEntitiesInBattle > 0)
 		{
 			if (hero->state == entitystate_idle)
+			{
 				hero->state = entitystate_battle;
+				world->entityIdInBattle[hero->id] = TRUE;
+			}
 
 			if (hero->stats->entityIdToAttack == -1)
-				hero->stats->entityIdToAttack = entityId;
+				hero->stats->entityIdToAttack = i;
 		}
 		else
 		{
 			if (hero->state == entitystate_battle)
 			{
-				hero->state = entitystate_idle;
+				hero->state                       = entitystate_idle;
+				world->entityIdInBattle[hero->id] = FALSE;
 				setActiveEntityAnim(hero, animlist_hero_idle);
 			}
 			hero->stats->entityIdToAttack = -1;
-			hero->stats->actionTimer = hero->stats->actionRate;
-			hero->stats->busyDuration = 0;
+			hero->stats->actionTimer      = hero->stats->actionRate;
+			hero->stats->busyDuration     = 0;
 		}
 
 		updateEntityAnim(entity, dt);

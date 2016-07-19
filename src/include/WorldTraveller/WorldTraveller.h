@@ -16,9 +16,9 @@ typedef struct World
 {
 	Entity *entities;
 	i32 maxEntities;
-	b32 *entitiesInBattleIds;
+	b32 *entityIdInBattle;
 	i32 numEntitiesInBattle;
-
+	
 	enum TexList texType;
 
 	v2 cameraPos; // In pixels
@@ -26,6 +26,7 @@ typedef struct World
 
 	i32 heroIndex;
 	i32 freeEntityIndex;
+	u32 uniqueIdAccumulator;
 } World;
 
 typedef struct GameState

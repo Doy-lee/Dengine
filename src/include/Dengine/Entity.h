@@ -65,6 +65,8 @@ typedef struct EntityAnim_
 
 typedef struct Entity
 {
+	u32 id;
+
 	v2 pos;  // Position
 	v2 dPos; // Velocity
 	v2 hitboxSize;
