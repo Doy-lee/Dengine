@@ -58,6 +58,18 @@ INTERNAL Entity *addEntity(MemoryArena *arena, World *world, v2 pos, v2 size,
 	return result;
 }
 
+INTERNAL void deleteEntity(MemoryArena *arena, World *world, i32 entityIndex)
+{
+	Entity *entity = &world->entities[entityIndex];
+	PLATFORM_MEM_FREE(arena, entity->stats, sizeof(EntityStats));
+
+	// TODO(doyle): Inefficient shuffle down all elements
+	for (i32 i = entityIndex; i < world->freeEntityIndex-1; i++)
+		world->entities[i] = world->entities[i+1];
+
+	world->freeEntityIndex--;
+}
+
 INTERNAL void rendererInit(GameState *state, v2 windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
@@ -105,6 +117,35 @@ INTERNAL void addAnim(AssetManager *assetManager, i32 animId, Entity *entity)
 	entity->anim[animId].currDuration = anim->frameDuration;
 }
 
+INTERNAL void addGenericMob(MemoryArena *arena, AssetManager *assetManager,
+                            World *world, v2 pos)
+{
+#ifdef DENGINE_DEBUG
+	DEBUG_LOG("Mob entity spawned");
+#endif
+
+	Entity *hero = &world->entities[world->heroIndex];
+
+	v2 size              = V2(58.0f, 98.0f);
+	enum EntityType type = entitytype_mob;
+	enum Direction dir   = direction_west;
+	Texture *tex         = asset_getTexture(assetManager, texlist_hero);
+	b32 collides         = TRUE;
+	Entity *mob = addEntity(arena, world, pos, size, type, dir, tex, collides);
+
+	/* Populate mob animation references */
+	addAnim(assetManager, animlist_hero_idle, mob);
+	addAnim(assetManager, animlist_hero_walk, mob);
+	addAnim(assetManager, animlist_hero_wave, mob);
+	addAnim(assetManager, animlist_hero_battlePose, mob);
+	addAnim(assetManager, animlist_hero_tackle, mob);
+	mob->currAnimId = animlist_hero_idle;
+
+}
+
+// TODO(doyle): Remove and implement own random generator!
+#include <time.h>
+#include <stdlib.h>
 void worldTraveller_gameInit(GameState *state, v2 windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
@@ -302,26 +343,14 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	npc->currAnimId = animlist_hero_wave;
 
 	/* Create a Mob */
-	pos         = V2(renderer->size.w - (renderer->size.w / 3.0f),
-	                 CAST(f32) state->tileSize);
-	size        = hero->hitboxSize;
-	type        = entitytype_mob;
-	dir         = direction_west;
-	tex         = hero->tex;
-	collides    = TRUE;
-	Entity *mob = addEntity(arena, world, pos, size, type, dir, tex, collides);
-
-	/* Populate mob animation references */
-	addAnim(assetManager, animlist_hero_idle, mob);
-	addAnim(assetManager, animlist_hero_walk, mob);
-	addAnim(assetManager, animlist_hero_battlePose, mob);
-	addAnim(assetManager, animlist_hero_tackle, mob);
-	hero->currAnimId = animlist_hero_idle;
-
+	pos = V2(renderer->size.w - (renderer->size.w / 3.0f),
+	         CAST(f32) state->tileSize);
+	addGenericMob(arena, assetManager, world, pos);
 #ifdef DENGINE_DEBUG
 	DEBUG_LOG("World populated");
 #endif
 
+	srand(CAST(u32)(time(NULL)));
 }
 
 INTERNAL inline void setActiveEntityAnim(Entity *entity,
@@ -405,20 +434,20 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		}
 
 		// TODO(doyle): Revisit key input with state checking for last ended down
-#if 0
 		if (state->keys[GLFW_KEY_SPACE] && !spaceBarWasDown)
 		{
-			if (!(hero->currAnimId == entityanimid_tackle &&
-				  hero->currAnimCyclesCompleted == 0))
-			{
-				spaceBarWasDown = TRUE;
-			}
+			Renderer *renderer = &state->renderer;
+			f32 yPos = CAST(f32)(rand() % CAST(i32)renderer->size.h);
+			f32 xModifier =  5.0f - CAST(f32)(rand() % 3);
+
+			v2 pos = V2(renderer->size.w - (renderer->size.w / xModifier), yPos);
+			addGenericMob(&state->arena, &state->assetManager, world, pos);
+			spaceBarWasDown = TRUE;
 		}
 		else if (!state->keys[GLFW_KEY_SPACE])
 		{
 			spaceBarWasDown = FALSE;
 		}
-#endif
 	}
 
 	// NOTE(doyle): Clipping threshold for snapping velocity to 0
@@ -462,7 +491,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	b32 heroCollided = FALSE;
 	if (hero->collides == TRUE)
 	{
-		for (i32 i = 0; i < world->maxEntities; i++)
+		for (i32 i = 0; i < world->freeEntityIndex; i++)
 		{
 			if (i == world->heroIndex) continue;
 			Entity entity = world->entities[i];
@@ -600,7 +629,14 @@ INTERNAL void endAttack(World *world, Entity *attacker)
 	setActiveEntityAnim(attacker, animlist_hero_battlePose);
 
 	Entity *defender = &world->entities[attacker->stats->entityIdToAttack];
-	defender->stats->health--;
+	if (attacker->type == entitytype_hero)
+	{
+		defender->stats->health -= 50;
+	}
+	else
+	{
+		defender->stats->health--;
+	}
 }
 
 // TODO(doyle): Exposed because of debug .. rework debug system so it we don't
@@ -727,8 +763,14 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 
 			break;
 		case entitystate_attack:
+			break;
 		case entitystate_dead:
-			return;
+			updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
+			setActiveEntityAnim(entity, animlist_hero_wave);
+			entity->stats->actionTimer      = entity->stats->actionRate;
+			entity->stats->queuedAttack     = entityattack_invalid;
+			entity->stats->entityIdToAttack = ENTITY_NULL_ID;
+			break;
 		default:
 #ifdef DENGINE_DEBUG
 			ASSERT(INVALID_CODE_PATH);
@@ -743,6 +785,13 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 			return;
 
 		case entitystate_dead:
+			// TODO(doyle): Repeated logic with battle -> dead
+			updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
+			setActiveEntityAnim(entity, animlist_hero_wave);
+			entity->stats->actionTimer      = entity->stats->actionRate;
+			entity->stats->queuedAttack     = entityattack_invalid;
+			entity->stats->entityIdToAttack = ENTITY_NULL_ID;
+			break;
 		default:
 #ifdef DENGINE_DEBUG
 			ASSERT(INVALID_CODE_PATH);
@@ -770,7 +819,8 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 	entity->state = newState;
 }
 
-INTERNAL void updateEntityAndRender(Renderer *renderer, World *world, f32 dt)
+INTERNAL void updateEntityAndRender(MemoryArena *arena, Renderer *renderer,
+                                    World *world, f32 dt)
 {
 	Entity *hero = &world->entities[world->heroIndex];
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
@@ -780,6 +830,16 @@ INTERNAL void updateEntityAndRender(Renderer *renderer, World *world, f32 dt)
 		{
 		case entitytype_mob:
 		{
+			if (entity->state == entitystate_dead)
+			{
+				// TODO(doyle): Accumulate all dead entities and delete at the
+				// end. Hence resort/organise entity array once, not every time
+				// an entity dies
+				i32 entityIndexInArray = i;
+				deleteEntity(arena, world, entityIndexInArray);
+				continue;
+			}
+
 			// TODO(doyle): Currently calculated in pixels, how about meaningful
 			// game units?
 			f32 battleThreshold = 500.0f;
@@ -796,42 +856,36 @@ INTERNAL void updateEntityAndRender(Renderer *renderer, World *world, f32 dt)
 		// NOTE(doyle): Let entitytype_mob fall through to entitytype_hero here
 		case entitytype_hero:
 		{
-			if (entity->state == entitystate_battle ||
-			    entity->state == entitystate_attack)
+			EntityStats *stats = entity->stats;
+			if (entity->state == entitystate_battle)
 			{
-				EntityStats *stats = entity->stats;
-				if (stats->health > 0)
+				if (stats->actionTimer > 0)
+					stats->actionTimer -= dt * stats->actionSpdMul;
+
+				if (stats->actionTimer < 0)
 				{
-					if (entity->state == entitystate_battle)
-					{
-						if (stats->actionTimer > 0)
-							stats->actionTimer -= dt * stats->actionSpdMul;
+					stats->actionTimer = 0;
+					if (stats->queuedAttack == entityattack_invalid)
+						stats->queuedAttack = entityattack_tackle;
 
-						if (stats->actionTimer < 0)
-						{
-							stats->actionTimer = 0;
-							if (stats->queuedAttack == entityattack_invalid)
-								stats->queuedAttack = entityattack_tackle;
-
-							beginAttack(entity);
-						}
-					}
-					else
-					{
-						stats->busyDuration -= dt;
-						if (stats->busyDuration <= 0)
-							endAttack(world, entity);
-					}
+					beginAttack(entity);
 				}
-				else
+			}
+			else if (entity->state == entitystate_attack)
+			{
+				// TODO(doyle): Untested if the attacker and the defender same
+				Entity *attacker = entity;
+				stats->busyDuration -= dt;
+				if (stats->busyDuration <= 0) endAttack(world, attacker);
+
+				Entity *defender =
+				    &world->entities[attacker->stats->entityIdToAttack];
+				if (defender->stats->health <= 0)
 				{
 #ifdef DENGINE_DEBUG
-					ASSERT(INVALID_CODE_PATH);
+					DEBUG_LOG("Entity has died");
 #endif
-					// TODO(doyle): Generalise for all entities
-					hero->stats->entityIdToAttack = ENTITY_NULL_ID;
-					hero->state                   = entitystate_idle;
-					entity->state                 = entitystate_dead;
+					entityStateSwitch(world, defender, entitystate_dead);
 				}
 			}
 			break;
@@ -884,7 +938,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	Font *font                 = &assetManager->font;
 
 	ASSERT(world->freeEntityIndex < world->maxEntities);
-	updateEntityAndRender(renderer, world, dt);
+	updateEntityAndRender(&state->arena, renderer, world, dt);
 
 	/* Draw ui */
 	TexAtlas *heroAtlas  = asset_getTextureAtlas(assetManager, texlist_hero);

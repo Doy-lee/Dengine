@@ -175,7 +175,7 @@ void debug_drawUi(GameState *state, f32 dt)
 		                      strPos, 0, color);
 	}
 
-	for (i32 i = 0; i < world->maxEntities; i++)
+	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
 		Entity *const entity  = &world->entities[i];
 		/* Render debug markers on entities */
