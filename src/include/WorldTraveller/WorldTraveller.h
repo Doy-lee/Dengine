@@ -5,6 +5,7 @@
 #include "Dengine/Common.h"
 #include "Dengine/Entity.h"
 #include "Dengine/Math.h"
+#include "Dengine/MemoryArena.h"
 #include "Dengine/Renderer.h"
 
 #define NUM_KEYS 1024
@@ -41,6 +42,7 @@ typedef struct GameState
 	i32 tileSize;
 
 	AssetManager assetManager;
+	MemoryArena arena;
 } GameState;
 
 void worldTraveller_gameInit(GameState *state, v2 windowSize);

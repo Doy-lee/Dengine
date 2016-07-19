@@ -6,6 +6,7 @@
 #include "Dengine/Entity.h"
 #include "Dengine/Math.h"
 #include "Dengine/Shader.h"
+#include "Dengine/MemoryArena.h"
 
 typedef struct Renderer
 {
@@ -36,18 +37,17 @@ inline void renderer_staticRect(Renderer *const renderer, v2 pos, v2 size,
 	              color);
 }
 
+void renderer_string(Renderer *const renderer, MemoryArena *arena,
+                     v4 cameraBounds, Font *const font,
+                     const char *const string, v2 pos, f32 rotate, v4 color);
 
-void renderer_string(Renderer *const renderer, v4 cameraBounds,
-                     Font *const font, const char *const string, v2 pos,
-                     f32 rotate, v4 color);
-
-inline void renderer_staticString(Renderer *const renderer, Font *const font,
-                                  const char *const string, v2 pos, f32 rotate,
-                                  v4 color)
+inline void renderer_staticString(Renderer *const renderer, MemoryArena *arena,
+                                  Font *const font, const char *const string,
+                                  v2 pos, f32 rotate, v4 color)
 {
 	v4 staticCameraBounds = math_getRect(V2(0, 0), renderer->size);
-	renderer_string(renderer, staticCameraBounds, font, string, pos, rotate,
-	                color);
+	renderer_string(renderer, arena, staticCameraBounds, font, string, pos,
+	                rotate, color);
 }
 
 void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,

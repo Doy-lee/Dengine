@@ -5,32 +5,32 @@
 #include "Dengine/Platform.h"
 #include "Dengine/Debug.h"
 
-void platform_memoryFree(void *data, i32 numBytes)
+void platform_memoryFree(MemoryArena *arena, void *data, i32 numBytes)
 {
 	if (data) free(data);
 
 #ifdef DENGINE_DEBUG
-	GLOBAL_debug.totalMemoryAllocated -= numBytes;
+	arena->bytesAllocated -= numBytes;
 #endif
 }
 
-void *platform_memoryAlloc(i32 numBytes)
+void *platform_memoryAlloc(MemoryArena *arena, i32 numBytes)
 {
 	void *result = calloc(1, numBytes);
 
 #ifdef DENGINE_DEBUG
 	if (result)
-		GLOBAL_debug.totalMemoryAllocated += numBytes;
+		arena->bytesAllocated += numBytes;
 #endif
 	return result;
 }
 
-void platform_closeFileRead(PlatformFileRead *file)
+void platform_closeFileRead(MemoryArena *arena, PlatformFileRead *file)
 {
-	PLATFORM_MEM_FREE(file->buffer, file->size);
+	PLATFORM_MEM_FREE(arena, file->buffer, file->size);
 }
 
-i32 platform_readFileToBuffer(const char *const filePath,
+i32 platform_readFileToBuffer(MemoryArena *arena, const char *const filePath,
                               PlatformFileRead *file)
 {
 	HANDLE fileHandle = CreateFile(filePath, GENERIC_READ, FILE_SHARE_READ,
@@ -52,7 +52,7 @@ i32 platform_readFileToBuffer(const char *const filePath,
 	}
 
 	// TODO(doyle): Warning we assume files less than 4GB
-	file->buffer = PLATFORM_MEM_ALLOC(fileSize.LowPart, char);
+	file->buffer = PLATFORM_MEM_ALLOC(arena, fileSize.LowPart, char);
 	file->size = fileSize.LowPart;
 
 	DWORD numBytesRead = 0;
@@ -63,7 +63,7 @@ i32 platform_readFileToBuffer(const char *const filePath,
 	{
 		printf("ReadFile() failed: %d error number\n",
 		       status);
-		PLATFORM_MEM_FREE(file->buffer, file->size);
+		PLATFORM_MEM_FREE(arena, file->buffer, file->size);
 		return status;
 	}
 	else if (numBytesRead != file->size)
@@ -71,7 +71,7 @@ i32 platform_readFileToBuffer(const char *const filePath,
 		printf(
 		    "ReadFile() failed: Number of bytes read doesn't match file "
 		    "size\n");
-		PLATFORM_MEM_FREE(file->buffer, file->size);
+		PLATFORM_MEM_FREE(arena, file->buffer, file->size);
 		return -1;
 	}
 

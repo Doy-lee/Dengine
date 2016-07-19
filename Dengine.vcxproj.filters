@@ -92,5 +92,8 @@
     <ClInclude Include="src\include\Dengine\Assets.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\include\Dengine\MemoryArena.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

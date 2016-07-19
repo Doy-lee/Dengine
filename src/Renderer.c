@@ -152,9 +152,9 @@ void renderer_rect(Renderer *const renderer, v4 cameraBounds, v2 pos, v2 size,
 	             renderTex.tex);
 }
 
-void renderer_string(Renderer *const renderer, v4 cameraBounds,
-                     Font *const font, const char *const string, v2 pos,
-                     f32 rotate, v4 color)
+void renderer_string(Renderer *const renderer, MemoryArena *arena,
+                     v4 cameraBounds, Font *const font,
+                     const char *const string, v2 pos, f32 rotate, v4 color)
 {
 	i32 strLen       = common_strlen(string);
 	// TODO(doyle): Scale, not too important .. but rudimentary infrastructure
@@ -172,7 +172,7 @@ void renderer_string(Renderer *const renderer, v4 cameraBounds,
 	    (leftAlignedP.y < cameraBounds.y && rightAlignedP.y >= cameraBounds.w))
 	{
 		i32 quadIndex           = 0;
-		RenderQuad *stringQuads = PLATFORM_MEM_ALLOC(strLen, RenderQuad);
+		RenderQuad *stringQuads = PLATFORM_MEM_ALLOC(arena, strLen, RenderQuad);
 
 		v2 offsetFromCamOrigin    = V2(cameraBounds.x, cameraBounds.w);
 		v2 entityRelativeToCamera = v2_sub(pos, offsetFromCamOrigin);
@@ -210,7 +210,7 @@ void renderer_string(Renderer *const renderer, v4 cameraBounds,
 		updateBufferObject(renderer, stringQuads, quadIndex);
 		renderObject(renderer, V2(0.0f, 0.0f), renderer->size, rotate, color,
 		                font->tex);
-		PLATFORM_MEM_FREE(stringQuads, strLen * sizeof(RenderQuad));
+		PLATFORM_MEM_FREE(arena, stringQuads, strLen * sizeof(RenderQuad));
 	}
 }
 

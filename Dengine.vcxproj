@@ -140,6 +140,7 @@
   <ItemGroup>
     <ClInclude Include="src\include\Dengine\Assets.h" />
     <ClInclude Include="src\include\Dengine\Debug.h" />
+    <ClInclude Include="src\include\Dengine\MemoryArena.h" />
     <ClInclude Include="src\include\Dengine\Platform.h" />
     <ClInclude Include="src\include\Dengine\AssetManager.h" />
     <ClInclude Include="src\include\Dengine\Common.h" />

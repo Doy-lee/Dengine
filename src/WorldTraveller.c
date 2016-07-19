@@ -10,8 +10,9 @@ enum State
 	state_win,
 };
 
-INTERNAL Entity *addEntity(World *world, v2 pos, v2 size, enum EntityType type,
-                           enum Direction direction, Texture *tex, b32 collides)
+INTERNAL Entity *addEntity(MemoryArena *arena, World *world, v2 pos, v2 size,
+                           enum EntityType type, enum Direction direction,
+                           Texture *tex, b32 collides)
 {
 
 #ifdef DENGINE_DEBUG
@@ -35,7 +36,7 @@ INTERNAL Entity *addEntity(World *world, v2 pos, v2 size, enum EntityType type,
 		case entitytype_hero:
 		case entitytype_mob:
 	    {
-		    entity.stats                   = PLATFORM_MEM_ALLOC(1, EntityStats);
+		    entity.stats = PLATFORM_MEM_ALLOC(arena, 1, EntityStats);
 		    entity.stats->maxHealth        = 100;
 		    entity.stats->health           = entity.stats->maxHealth;
 		    entity.stats->actionRate       = 100;
@@ -107,6 +108,7 @@ INTERNAL void addAnim(AssetManager *assetManager, i32 animId, Entity *entity)
 void worldTraveller_gameInit(GameState *state, v2 windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
+	MemoryArena *arena = &state->arena;
 	/* Initialise assets */
 	/* Create empty 1x1 4bpp black texture */
 	u32 bitmap       = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
@@ -142,29 +144,33 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	       texOrigin.y - atlasTileSize);
 
 	/* Load shaders */
-	asset_loadShaderFiles(assetManager, "data/shaders/sprite.vert.glsl",
+	asset_loadShaderFiles(assetManager, arena, "data/shaders/sprite.vert.glsl",
 	                      "data/shaders/sprite.frag.glsl",
 	                      shaderlist_sprite);
 
-	asset_loadTTFont(assetManager, "C:/Windows/Fonts/Arialbd.ttf");
+	asset_loadTTFont(assetManager, arena, "C:/Windows/Fonts/Arialbd.ttf");
 	glCheckError();
+
+#ifdef DENGINE_DEBUG
+	DEBUG_LOG("Assets loaded");
+#endif
 
 	/* Load animations */
 	f32 duration = 1.0f;
 	i32 numRects = 1;
-	v4 *animRects = PLATFORM_MEM_ALLOC(numRects, v4);
+	v4 *animRects = PLATFORM_MEM_ALLOC(arena, numRects, v4);
 	i32 terrainAnimAtlasIndexes[1] = {terrainrects_ground};
 
 	// TODO(doyle): Optimise animation storage, we waste space having 1:1 with
 	// animlist when some textures don't have certain animations
-	asset_addAnimation(assetManager, texlist_terrain, animlist_terrain,
+	asset_addAnimation(assetManager, arena, texlist_terrain, animlist_terrain,
 	                   terrainAnimAtlasIndexes, numRects, duration);
 
 	// Idle animation
 	duration      = 1.0f;
 	numRects      = 1;
 	i32 idleAnimAtlasIndexes[1] = {herorects_idle};
-	asset_addAnimation(assetManager, texlist_hero, animlist_hero_idle,
+	asset_addAnimation(assetManager, arena, texlist_hero, animlist_hero_idle,
 	                   idleAnimAtlasIndexes, numRects, duration);
 
 	// Walk animation
@@ -172,21 +178,21 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	numRects          = 3;
 	i32 walkAnimAtlasIndexes[3] = {herorects_walkA, herorects_idle,
 	                               herorects_walkB};
-	asset_addAnimation(assetManager, texlist_hero, animlist_hero_walk,
+	asset_addAnimation(assetManager, arena, texlist_hero, animlist_hero_walk,
 	                   walkAnimAtlasIndexes, numRects, duration);
 
 	// Wave animation
 	duration          = 0.30f;
 	numRects          = 2;
 	i32 waveAnimAtlasIndexes[2] = {herorects_waveA, herorects_waveB};
-	asset_addAnimation(assetManager, texlist_hero, animlist_hero_wave,
+	asset_addAnimation(assetManager, arena, texlist_hero, animlist_hero_wave,
 	                   waveAnimAtlasIndexes, numRects, duration);
 
 	// Battle Stance animation
 	duration          = 1.0f;
 	numRects          = 1;
 	i32 battleStanceAnimAtlasIndexes[1] = {herorects_battlePose};
-	asset_addAnimation(assetManager, texlist_hero, animlist_hero_battlePose,
+	asset_addAnimation(assetManager, arena, texlist_hero, animlist_hero_battlePose,
 	                   battleStanceAnimAtlasIndexes, numRects, duration);
 
 	// Battle tackle animation
@@ -194,8 +200,11 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	numRects          = 3;
 	i32 tackleAnimAtlasIndexes[3] = {herorects_castA, herorects_castB,
 	                                 herorects_castC};
-	asset_addAnimation(assetManager, texlist_hero, animlist_hero_tackle,
+	asset_addAnimation(assetManager, arena, texlist_hero, animlist_hero_tackle,
 	                   tackleAnimAtlasIndexes, numRects, duration);
+#ifdef DENGINE_DEBUG
+	DEBUG_LOG("Animations created");
+#endif
 
 
 	state->state          = state_active;
@@ -204,6 +213,9 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 
 	/* Init renderer */
 	rendererInit(state, windowSize);
+#ifdef DENGINE_DEBUG
+	DEBUG_LOG("Renderer initialised");
+#endif
 
 	/* Init world */
 	const i32 targetWorldWidth  = 100 * METERS_TO_PIXEL;
@@ -215,8 +227,9 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	{
 		World *const world = &state->world[i];
 		world->maxEntities = 16384;
-		world->entities = PLATFORM_MEM_ALLOC(world->maxEntities, Entity);
-		world->entityIdInBattle = PLATFORM_MEM_ALLOC(world->maxEntities, i32);
+		world->entities = PLATFORM_MEM_ALLOC(arena, world->maxEntities, Entity);
+		world->entityIdInBattle =
+		    PLATFORM_MEM_ALLOC(arena, world->maxEntities, i32);
 		world->numEntitiesInBattle = 0;
 		world->texType             = texlist_terrain;
 		world->bounds =
@@ -243,8 +256,8 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 				enum Direction dir = direction_null;
 				Texture *tex = asset_getTexture(assetManager, world->texType);
 				b32 collides = FALSE;
-				Entity *tile =
-				    addEntity(world, pos, size, type, dir, tex, collides);
+				Entity *tile = addEntity(arena, world, pos, size, type, dir,
+				                         tex, collides);
 
 				addAnim(assetManager, animlist_terrain, tile);
 				tile->currAnimId = animlist_terrain;
@@ -265,7 +278,7 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	enum Direction dir   = direction_east;
 	Texture *tex         = asset_getTexture(assetManager, texlist_hero);
 	b32 collides         = TRUE;
-	Entity *hero = addEntity(world, pos, size, type, dir, tex, collides);
+	Entity *hero = addEntity(arena, world, pos, size, type, dir, tex, collides);
 
 	/* Populate hero animation references */
 	addAnim(assetManager, animlist_hero_idle, hero);
@@ -282,7 +295,7 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	dir         = direction_null;
 	tex         = hero->tex;
 	collides    = FALSE;
-	Entity *npc = addEntity(world, pos, size, type, dir, tex, collides);
+	Entity *npc = addEntity(arena, world, pos, size, type, dir, tex, collides);
 
 	/* Populate npc animation references */
 	addAnim(assetManager, animlist_hero_wave, npc);
@@ -296,7 +309,7 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	dir         = direction_west;
 	tex         = hero->tex;
 	collides    = TRUE;
-	Entity *mob = addEntity(world, pos, size, type, dir, tex, collides);
+	Entity *mob = addEntity(arena, world, pos, size, type, dir, tex, collides);
 
 	/* Populate mob animation references */
 	addAnim(assetManager, animlist_hero_idle, mob);
@@ -304,6 +317,11 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	addAnim(assetManager, animlist_hero_battlePose, mob);
 	addAnim(assetManager, animlist_hero_tackle, mob);
 	hero->currAnimId = animlist_hero_idle;
+
+#ifdef DENGINE_DEBUG
+	DEBUG_LOG("World populated");
+#endif
+
 }
 
 INTERNAL inline void setActiveEntityAnim(Entity *entity,
@@ -519,8 +537,14 @@ INTERNAL void updateEntityAnim(Entity *entity, f32 dt)
 	}
 }
 
+#define ENTITY_NULL_ID -1
 INTERNAL void beginAttack(Entity *attacker)
 {
+
+#ifdef DENGINE_DEBUG
+	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
+#endif
+
 	attacker->state = entitystate_attack;
 	switch (attacker->stats->queuedAttack)
 	{
@@ -549,6 +573,10 @@ INTERNAL void beginAttack(Entity *attacker)
 // etc
 INTERNAL void endAttack(World *world, Entity *attacker)
 {
+#ifdef DENGINE_DEBUG
+	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
+#endif
+
 	switch (attacker->stats->queuedAttack)
 	{
 	case entityattack_tackle:
@@ -602,20 +630,69 @@ INTERNAL v4 createCameraBounds(World *world, v2 size)
 
 #define ENTITY_IN_BATTLE TRUE
 #define ENTITY_NOT_IN_BATTLE FALSE
+INTERNAL i32 findBestEntityToAttack(World *world, Entity attacker)
+{
+#ifdef DENGINE_DEBUG
+	ASSERT(world);
+	ASSERT(attacker.type == entitytype_hero || attacker.type == entitytype_mob);
+#endif
+	i32 result = 0;
+
+	// TODO(doyle): If attacker is mob- retrieve hero entity id directly, change
+	// when we have party members!
+	if (attacker.type == entitytype_mob)
+	{
+		Entity hero = world->entities[world->heroIndex];
+		result = hero.id;
+		return result;
+	}
+
+	/* Attacker is hero */
+	Entity hero = attacker;
+	for (i32 i = 0; i < world->maxEntities; i++)
+	{
+
+		Entity targetEntity = world->entities[i];
+		if (hero.id == targetEntity.id) continue;
+		if (world->entityIdInBattle[targetEntity.id] == ENTITY_IN_BATTLE)
+		{
+			result = targetEntity.id;
+			return result;
+		}
+	}
+	
+	// NOTE(doyle): Not all "battling" entities have been enumerated yet in the
+	// update loop, guard against when using function
+	return ENTITY_NULL_ID;
+}
+
 INTERNAL inline void updateWorldBattleEntities(World *world, Entity *entity,
                                                b32 isInBattle)
 {
+#ifdef DENGINE_DEBUG
+	ASSERT(isInBattle == ENTITY_IN_BATTLE ||
+	       isInBattle == ENTITY_NOT_IN_BATTLE);
+	ASSERT(world && entity);
+#endif
 	world->entityIdInBattle[entity->id] = isInBattle;
 
 	if (isInBattle)
 		world->numEntitiesInBattle++;
 	else
 		world->numEntitiesInBattle--;
+
+#ifdef DENGINE_DEBUG
+	ASSERT(world->numEntitiesInBattle >= 0);
+#endif
 }
 
 INTERNAL void entityStateSwitch(World *world, Entity *entity,
                                 enum EntityState newState)
 {
+#ifdef DENGINE_DEBUG
+	ASSERT(world && entity)
+	ASSERT(entity->type == entitytype_mob || entity->type == entitytype_hero)
+#endif
 	if (entity->state == newState) return;
 
 	switch(entity->state)
@@ -625,11 +702,16 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 		{
 		case entitystate_battle:
 			updateWorldBattleEntities(world, entity, ENTITY_IN_BATTLE);
+			entity->stats->entityIdToAttack =
+			    findBestEntityToAttack(world, *entity);
+			break;
+
 		case entitystate_attack:
 		case entitystate_dead:
-			break;
 		default:
+#ifdef DENGINE_DEBUG
 			ASSERT(INVALID_CODE_PATH);
+#endif
 		}
 		break;
 	case entitystate_battle:
@@ -637,36 +719,52 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 		{
 		case entitystate_idle:
 			updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
-			entity->stats->actionTimer = entity->stats->actionRate;
-			entity->stats->queuedAttack = entityattack_invalid;
 			setActiveEntityAnim(entity, animlist_hero_idle);
+
+			entity->stats->actionTimer      = entity->stats->actionRate;
+			entity->stats->queuedAttack     = entityattack_invalid;
+			entity->stats->entityIdToAttack = ENTITY_NULL_ID;
+
 			break;
 		case entitystate_attack:
 		case entitystate_dead:
-			break;
+			return;
 		default:
+#ifdef DENGINE_DEBUG
 			ASSERT(INVALID_CODE_PATH);
+#endif
 		}
+		break;
 	case entitystate_attack:
 		switch (newState)
 		{
-		case entitystate_idle:
 		case entitystate_battle:
+		case entitystate_idle:
+			return;
+
 		case entitystate_dead:
-			break;
 		default:
+#ifdef DENGINE_DEBUG
 			ASSERT(INVALID_CODE_PATH);
+#endif
 		}
+		break;
 	case entitystate_dead:
 		switch (newState)
 		{
 		case entitystate_idle:
 		case entitystate_battle:
 		case entitystate_attack:
-			break;
 		default:
+#ifdef DENGINE_DEBUG
 			ASSERT(INVALID_CODE_PATH);
+#endif
 		}
+		break;
+	default:
+#ifdef DENGINE_DEBUG
+		ASSERT(INVALID_CODE_PATH);
+#endif
 	}
 
 	entity->state = newState;
@@ -674,11 +772,10 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 
 INTERNAL void updateEntityAndRender(Renderer *renderer, World *world, f32 dt)
 {
+	Entity *hero = &world->entities[world->heroIndex];
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
-		Entity *const entity  = &world->entities[i];
-		Entity *hero          = &world->entities[world->heroIndex];
-
+		Entity *const entity = &world->entities[i];
 		switch(entity->type)
 		{
 		case entitytype_mob:
@@ -696,7 +793,7 @@ INTERNAL void updateEntityAndRender(Renderer *renderer, World *world, f32 dt)
 
 			entityStateSwitch(world, entity, newState);
 		}
-		// NOTE(doyle): Allow fall through to entitytype_hero here
+		// NOTE(doyle): Let entitytype_mob fall through to entitytype_hero here
 		case entitytype_hero:
 		{
 			if (entity->state == entitystate_battle ||
@@ -728,8 +825,11 @@ INTERNAL void updateEntityAndRender(Renderer *renderer, World *world, f32 dt)
 				}
 				else
 				{
+#ifdef DENGINE_DEBUG
+					ASSERT(INVALID_CODE_PATH);
+#endif
 					// TODO(doyle): Generalise for all entities
-					hero->stats->entityIdToAttack = -1;
+					hero->stats->entityIdToAttack = ENTITY_NULL_ID;
 					hero->state                   = entitystate_idle;
 					entity->state                 = entitystate_dead;
 				}
@@ -740,38 +840,37 @@ INTERNAL void updateEntityAndRender(Renderer *renderer, World *world, f32 dt)
 			break;
 		}
 
-		if (world->numEntitiesInBattle > 0)
-		{
-			if (hero->state == entitystate_idle)
-			{
-				hero->state = entitystate_battle;
-				world->entityIdInBattle[hero->id] = TRUE;
-			}
-
-			if (hero->stats->entityIdToAttack == -1)
-				hero->stats->entityIdToAttack = i;
-		}
-		else
-		{
-			if (hero->state == entitystate_battle)
-			{
-				hero->state                       = entitystate_idle;
-				world->entityIdInBattle[hero->id] = FALSE;
-				setActiveEntityAnim(hero, animlist_hero_idle);
-			}
-			hero->stats->entityIdToAttack = -1;
-			hero->stats->actionTimer      = hero->stats->actionRate;
-			hero->stats->busyDuration     = 0;
-		}
-
 		updateEntityAnim(entity, dt);
 
 		/* Calculate region to render */
 		v4 cameraBounds = createCameraBounds(world, renderer->size);
 		renderer_entity(renderer, cameraBounds, entity, 0, V4(1, 1, 1, 1));
 	}
+
+	if (world->numEntitiesInBattle > 0)
+	{
+		// NOTE(doyle): If battle entities is 1 then only the hero is left
+		if (hero->state == entitystate_battle &&
+		    world->numEntitiesInBattle == 1)
+			entityStateSwitch(world, hero, entitystate_idle);
+		else
+			entityStateSwitch(world, hero, entitystate_battle);
+	}
+	else
+	{
+		if (hero->state == entitystate_battle)
+		{
+			hero->state                       = entitystate_idle;
+			world->entityIdInBattle[hero->id] = FALSE;
+			setActiveEntityAnim(hero, animlist_hero_idle);
+		}
+		hero->stats->entityIdToAttack = -1;
+		hero->stats->actionTimer      = hero->stats->actionRate;
+		hero->stats->busyDuration     = 0;
+	}
 }
 
+LOCAL_PERSIST b32 count = 0;
 void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 {
 	/* Update */
@@ -802,8 +901,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	f32 strLenInPixels =
 	    CAST(f32)(font->maxSize.w * common_strlen(heroAvatarStr));
 	v2 strPos = V2(heroAvatarP.x, heroAvatarP.y - (0.5f * heroAvatarSize.h));
-	renderer_staticString(&state->renderer, font, heroAvatarStr, strPos, 0,
-	                      V4(0, 0, 1, 1));
+	renderer_staticString(&state->renderer, &state->arena, font, heroAvatarStr,
+	                      strPos, 0, V4(0, 0, 1, 1));
 
 #ifdef DENGINE_DEBUG
 	debug_drawUi(state, dt);

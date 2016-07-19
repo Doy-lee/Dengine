@@ -4,16 +4,30 @@
 
 DebugState GLOBAL_debug;
 
-void debug_init()
+void debug_init(MemoryArena *arena, v2 windowSize, Font font)
 {
-	GLOBAL_debug.totalMemoryAllocated = 0;
-	GLOBAL_debug.callCount = PLATFORM_MEM_ALLOC(debugcallcount_num, i32);
+	GLOBAL_debug.font                 = font;
+	GLOBAL_debug.callCount = PLATFORM_MEM_ALLOC(arena, debugcallcount_num, i32);
+	GLOBAL_debug.stringLineGap = 1.1f * asset_getVFontSpacing(font.metrics);
 
+	/* Init debug string stack */
 	GLOBAL_debug.numDebugStrings   = 0;
 	GLOBAL_debug.stringUpdateTimer = 0.0f;
 	GLOBAL_debug.stringUpdateRate  = 0.15f;
 
-	GLOBAL_debug.stringLineGap = -1;
+	GLOBAL_debug.initialStringP =
+	    V2(0.0f, (windowSize.h - 1.8f * GLOBAL_debug.stringLineGap));
+	GLOBAL_debug.currStringP = GLOBAL_debug.initialStringP;
+
+	/* Init gui console */
+	i32 maxConsoleStrLen = ARRAY_COUNT(GLOBAL_debug.console[0]);
+	GLOBAL_debug.consoleIndex = 0;
+
+	// TODO(doyle): Font max size not entirely correct? using 1 * font.maxSize.w
+	// reveals around 4 characters ..
+	f32 consoleXPos = windowSize.x - (font.maxSize.w * 38);
+	f32 consoleYPos = windowSize.h - 1.8f * GLOBAL_debug.stringLineGap;
+	GLOBAL_debug.initialConsoleP = V2(consoleXPos, consoleYPos);
 }
 
 void debug_pushString(char *formatString, void *data, char *dataType)
@@ -65,29 +79,22 @@ void debug_pushString(char *formatString, void *data, char *dataType)
 			ASSERT(INVALID_CODE_PATH);
 		}
 		GLOBAL_debug.numDebugStrings++;
+		ASSERT(GLOBAL_debug.numDebugStrings <
+		       ARRAY_COUNT(GLOBAL_debug.debugStrings[0]));
 	}
 }
 
-void debug_stringUpdateAndRender(Renderer *renderer, Font *font, f32 dt)
+INTERNAL void updateAndRenderDebugStack(Renderer *renderer, MemoryArena *arena,
+                                        f32 dt)
 {
-	if (GLOBAL_debug.stringLineGap == -1)
-	{
-		GLOBAL_debug.stringLineGap =
-		    1.1f * asset_getVFontSpacing(font->metrics);
-		GLOBAL_debug.initialStringPos =
-		    V2(0.0f,
-		       (renderer->size.y - 1.8f * GLOBAL_debug.stringLineGap));
-		GLOBAL_debug.stringPos = GLOBAL_debug.initialStringPos;
-	}
-
 	for (i32 i = 0; i < GLOBAL_debug.numDebugStrings; i++)
 	{
 		f32 rotate = 0;
 		v4 color   = V4(0, 0, 0, 1);
-		renderer_staticString(renderer, font, GLOBAL_debug.debugStrings[i],
-		                      GLOBAL_debug.stringPos, rotate, color);
-		GLOBAL_debug.stringPos.y -=
-		    (0.9f * GLOBAL_debug.stringLineGap);
+		renderer_staticString(renderer, arena, &GLOBAL_debug.font,
+		                      GLOBAL_debug.debugStrings[i],
+		                      GLOBAL_debug.currStringP, rotate, color);
+		GLOBAL_debug.currStringP.y -= (0.9f * GLOBAL_debug.stringLineGap);
 	}
 
 	if (GLOBAL_debug.stringUpdateTimer <= 0)
@@ -104,7 +111,23 @@ void debug_stringUpdateAndRender(Renderer *renderer, Font *font, f32 dt)
 		}
 	}
 
-	GLOBAL_debug.stringPos = GLOBAL_debug.initialStringPos;
+	GLOBAL_debug.currStringP = GLOBAL_debug.initialStringP;
+
+}
+
+INTERNAL void renderConsole(Renderer *renderer, MemoryArena *arena)
+{
+	i32 maxConsoleLines = ARRAY_COUNT(GLOBAL_debug.console);
+	v2 consoleStrP = GLOBAL_debug.initialConsoleP;
+	for (i32 i = 0; i < maxConsoleLines; i++)
+	{
+		f32 rotate = 0;
+		v4 color   = V4(0, 0, 0, 1);
+		renderer_staticString(renderer, arena, &GLOBAL_debug.font,
+		                      GLOBAL_debug.console[i], consoleStrP,
+		                      rotate, color);
+		consoleStrP.y -= (0.9f * GLOBAL_debug.stringLineGap);
+	}
 }
 
 void debug_drawUi(GameState *state, f32 dt)
@@ -113,7 +136,6 @@ void debug_drawUi(GameState *state, f32 dt)
 	Renderer *renderer         = &state->renderer;
 	World *const world         = &state->world[state->currWorldIndex];
 	Entity *hero               = &world->entities[world->heroIndex];
-	Font *font                 = &assetManager->font;
 
 	// TODO(doyle): Dumb copy function from game so we don't expose api
 	v4 cameraBounds = math_getRect(world->cameraPos, renderer->size);
@@ -140,6 +162,7 @@ void debug_drawUi(GameState *state, f32 dt)
 	              V2(distance, 5.0f), 0, renderTex, V4(1, 0, 0, 0.25f));
 #endif
 
+	Font *font = &GLOBAL_debug.font;
 	if (world->numEntitiesInBattle > 0)
 	{
 		v4 color        = V4(1.0f, 0, 0, 1);
@@ -148,8 +171,8 @@ void debug_drawUi(GameState *state, f32 dt)
 		    CAST(f32)(font->maxSize.w * common_strlen(battleStr));
 		v2 strPos = V2((renderer->size.w * 0.5f) - (strLenInPixels * 0.5f),
 		               renderer->size.h - 300.0f);
-		renderer_staticString(&state->renderer, font, battleStr, strPos, 0,
-		                      color);
+		renderer_staticString(&state->renderer, &state->arena, font, battleStr,
+		                      strPos, 0, color);
 	}
 
 	for (i32 i = 0; i < world->maxEntities; i++)
@@ -185,8 +208,8 @@ void debug_drawUi(GameState *state, f32 dt)
 			i32 indexOfLowerAInMetrics = 'a' - CAST(i32) font->codepointRange.x;
 			strPos.y += font->charMetrics[indexOfLowerAInMetrics].offset.y;
 
-			renderer_string(&state->renderer, cameraBounds, font, debugString,
-			                strPos, 0, color);
+			renderer_string(&state->renderer, &state->arena, cameraBounds, font,
+			                debugString, strPos, 0, color);
 
 			f32 stringLineGap = 1.1f * asset_getVFontSpacing(font->metrics);
 			strPos.y -= GLOBAL_debug.stringLineGap;
@@ -194,15 +217,15 @@ void debug_drawUi(GameState *state, f32 dt)
 			char entityPosStr[128];
 			snprintf(entityPosStr, ARRAY_COUNT(entityPosStr), "%06.2f, %06.2f",
 			         entity->pos.x, entity->pos.y);
-			renderer_string(&state->renderer, cameraBounds, font, entityPosStr,
-			                strPos, 0, color);
+			renderer_string(&state->renderer, &state->arena, cameraBounds, font,
+			                entityPosStr, strPos, 0, color);
 
 			strPos.y -= GLOBAL_debug.stringLineGap;
 			char entityIDStr[32];
 			snprintf(entityIDStr, ARRAY_COUNT(entityIDStr), "ID: %4d/%d", entity->id,
 			         world->uniqueIdAccumulator-1);
-			renderer_string(&state->renderer, cameraBounds, font, entityIDStr,
-			                strPos, 0, color);
+			renderer_string(&state->renderer, &state->arena, cameraBounds, font,
+			                entityIDStr, strPos, 0, color);
 
 			if (entity->stats)
 			{
@@ -210,20 +233,20 @@ void debug_drawUi(GameState *state, f32 dt)
 				char entityHealth[32];
 				snprintf(entityHealth, ARRAY_COUNT(entityHealth), "HP: %3.0f/%3.0f",
 				         entity->stats->health, entity->stats->maxHealth);
-				renderer_string(&state->renderer, cameraBounds, font,
-				                entityHealth, strPos, 0, color);
+				renderer_string(&state->renderer, &state->arena, cameraBounds,
+				                font, entityHealth, strPos, 0, color);
 
 				strPos.y -= GLOBAL_debug.stringLineGap;
 				char entityTimer[32];
 				snprintf(entityTimer, ARRAY_COUNT(entityTimer), "ATB: %3.0f/%3.0f",
 				         entity->stats->actionTimer, entity->stats->actionRate);
-				renderer_string(&state->renderer, cameraBounds, font,
-				                entityTimer, strPos, 0, color);
+				renderer_string(&state->renderer, &state->arena, cameraBounds,
+				                font, entityTimer, strPos, 0, color);
 			}
 
 			strPos.y -= GLOBAL_debug.stringLineGap;
 			char *entityStateStr = debug_entitystate_string(entity->state);
-			renderer_string(&state->renderer, cameraBounds, font,
+			renderer_string(&state->renderer, &state->arena, cameraBounds, font,
 			                entityStateStr, strPos, 0, color);
 		}
 	}
@@ -243,7 +266,8 @@ void debug_drawUi(GameState *state, f32 dt)
 	DEBUG_PUSH_VAR("FreeEntityIndex: %d", world->freeEntityIndex, "i32");
 	DEBUG_PUSH_VAR("glDrawArray Calls: %d",
 	               GLOBAL_debug.callCount[debugcallcount_drawArrays], "i32");
-	i32 debug_kbAllocated = GLOBAL_debug.totalMemoryAllocated / 1024;
+
+	i32 debug_kbAllocated = state->arena.bytesAllocated / 1024;
 	DEBUG_PUSH_VAR("TotalMemoryAllocated: %dkb", debug_kbAllocated, "i32");
 
 	DEBUG_PUSH_STRING("== EntityIDs in Battle List == ");
@@ -262,6 +286,56 @@ void debug_drawUi(GameState *state, f32 dt)
 		DEBUG_PUSH_STRING("-none-");
 	}
 
-	debug_stringUpdateAndRender(&state->renderer, font, dt);
+	updateAndRenderDebugStack(&state->renderer, &state->arena, dt);
+	renderConsole(&state->renderer, &state->arena);
 	debug_clearCallCounter();
+}
+
+void debug_consoleLog(char *string, char *file, int lineNum)
+{
+	i32 maxConsoleStrLen = ARRAY_COUNT(GLOBAL_debug.console[0]);
+
+	i32 strIndex = 0;
+	i32 fileStrLen = common_strlen(file);
+	for (i32 count = 0; strIndex < maxConsoleStrLen; strIndex++, count++)
+	{
+		if (fileStrLen <= count) break;
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][strIndex] = file[count];
+	}
+
+	if (strIndex < maxConsoleStrLen)
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][strIndex++] = ':';
+
+	char line[12] = {0};
+	common_itoa(lineNum, line, ARRAY_COUNT(line));
+	i32 lineStrLen = common_strlen(line);
+	for (i32 count = 0; strIndex < maxConsoleStrLen; strIndex++, count++)
+	{
+		if (lineStrLen <= count) break;
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][strIndex] = line[count];
+	}
+
+	if (strIndex < maxConsoleStrLen)
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][strIndex++] = ':';
+
+	i32 stringStrLen = common_strlen(string);
+	for (i32 count = 0; strIndex < maxConsoleStrLen; strIndex++, count++)
+	{
+		if (stringStrLen <= count) break;
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][strIndex] = string[count];
+	}
+
+	if (strIndex >= maxConsoleStrLen)
+	{
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][maxConsoleStrLen-4] = '.';
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][maxConsoleStrLen-3] = '.';
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][maxConsoleStrLen-2] = '.';
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][maxConsoleStrLen-1] = 0;
+	}
+
+	i32 maxConsoleLines = ARRAY_COUNT(GLOBAL_debug.console);
+	GLOBAL_debug.consoleIndex++;
+
+	if (GLOBAL_debug.consoleIndex >= maxConsoleLines)
+		GLOBAL_debug.consoleIndex = 0;
 }

@@ -78,13 +78,14 @@ int main()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glCullFace(GL_BACK);
 
-#ifdef DENGINE_DEBUG
-	debug_init();
-#endif
-
 	GameState worldTraveller = {0};
 	worldTraveller_gameInit(&worldTraveller,
 	                        V2i(frameBufferWidth, frameBufferHeight));
+
+#ifdef DENGINE_DEBUG
+	debug_init(&worldTraveller.arena, V2i(windowWidth, windowHeight),
+	           worldTraveller.assetManager.font);
+#endif
 
 	glfwSetWindowUserPointer(window, CAST(void *)(&worldTraveller));
 

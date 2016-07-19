@@ -95,11 +95,11 @@ Shader *asset_getShader(AssetManager *assetManager, const enum ShaderList type)
 	return NULL;
 }
 
-INTERNAL GLuint createShaderFromPath(const char *const path, GLuint shadertype)
+INTERNAL GLuint createShaderFromPath(MemoryArena *arena, const char *const path, GLuint shadertype)
 {
 	PlatformFileRead file = {0};
 
-	i32 status = platform_readFileToBuffer(path, &file);
+	i32 status = platform_readFileToBuffer(arena, path, &file);
 	if (status)
 		return status;
 
@@ -118,7 +118,7 @@ INTERNAL GLuint createShaderFromPath(const char *const path, GLuint shadertype)
 		printf("glCompileShader() failed: %s\n", infoLog);
 	}
 
-	platform_closeFileRead(&file);
+	platform_closeFileRead(arena, &file);
 
 	return result;
 }
@@ -147,14 +147,14 @@ INTERNAL i32 shaderLoadProgram(Shader *const shader, const GLuint vertexShader,
 	return 0;
 }
 
-const i32 asset_loadShaderFiles(AssetManager *assetManager,
+const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena *arena,
                                 const char *const vertexPath,
                                 const char *const fragmentPath,
                                 const enum ShaderList type)
 {
-	GLuint vertexShader = createShaderFromPath(vertexPath, GL_VERTEX_SHADER);
+	GLuint vertexShader = createShaderFromPath(arena, vertexPath, GL_VERTEX_SHADER);
 	GLuint fragmentShader =
-	    createShaderFromPath(fragmentPath, GL_FRAGMENT_SHADER);
+	    createShaderFromPath(arena, fragmentPath, GL_FRAGMENT_SHADER);
 
 	Shader shader;
 	i32 result = shaderLoadProgram(&shader, vertexShader, fragmentShader);
@@ -173,10 +173,11 @@ typedef struct GlyphBitmap
 	i32 codepoint;
 } GlyphBitmap;
 
-const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
+const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
+                           const char *filePath)
 {
 	PlatformFileRead fontFileRead = {0};
-	platform_readFileToBuffer(filePath, &fontFileRead);
+	platform_readFileToBuffer(arena, filePath, &fontFileRead);
 
 	stbtt_fontinfo fontInfo = {0};
 	stbtt_InitFont(&fontInfo, fontFileRead.buffer,
@@ -188,7 +189,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	v2 codepointRange = font->codepointRange;
 	const i32 numGlyphs = CAST(i32)(codepointRange.y - codepointRange.x);
 
-	GlyphBitmap *glyphBitmaps = PLATFORM_MEM_ALLOC(numGlyphs, GlyphBitmap);
+	GlyphBitmap *glyphBitmaps =
+	    PLATFORM_MEM_ALLOC(arena, numGlyphs, GlyphBitmap);
 	v2 largestGlyphDimension = V2(0, 0);
 
 	const f32 targetFontHeight = 15.0f;
@@ -203,7 +205,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 
 	font->metrics = CAST(FontMetrics){ascent, descent, lineGap};
 
-	font->charMetrics = PLATFORM_MEM_ALLOC(numGlyphs, CharMetrics);
+	font->charMetrics = PLATFORM_MEM_ALLOC(arena, numGlyphs, CharMetrics);
 
 	/* Use STB_TrueType to generate a series of bitmap characters */
 	i32 glyphIndex = 0;
@@ -218,7 +220,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 		                             &height, &xOffset, &yOffset);
 
 		u8 *source       = monoBitmap;
-		u32 *colorBitmap = PLATFORM_MEM_ALLOC(width * height, u32);
+		u32 *colorBitmap = PLATFORM_MEM_ALLOC(arena, width * height, u32);
 		u32 *dest        = colorBitmap;
 
 		// NOTE(doyle): STB generates 1 byte per pixel bitmaps, we use 4bpp, so
@@ -294,7 +296,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 #endif
 
 	i32 bitmapSize = SQUARED(TARGET_TEXTURE_SIZE) * TARGET_BYTES_PER_PIXEL;
-	u32 *fontBitmap = PLATFORM_MEM_ALLOC(bitmapSize, u32);
+	u32 *fontBitmap = PLATFORM_MEM_ALLOC(arena, bitmapSize, u32);
 	const i32 pitch = MAX_TEXTURE_SIZE * TARGET_BYTES_PER_PIXEL;
 
 	// Check value to determine when a row of glyphs is completely printed
@@ -394,7 +396,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 	stbi_write_png("out.png", MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4, fontBitmap,
 	               MAX_TEXTURE_SIZE * 4);
 #endif
-	PLATFORM_MEM_FREE(fontBitmap, bitmapSize);
+	PLATFORM_MEM_FREE(arena, fontBitmap, bitmapSize);
 
 	font->tex = &assetManager->textures[texlist_font];
 	font->atlas = &assetManager->texAtlas[texlist_font];
@@ -404,18 +406,18 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 		i32 glyphBitmapSizeInBytes = CAST(i32) glyphBitmaps[i].dimensions.w *
 		                             CAST(i32) glyphBitmaps[i].dimensions.h *
 		                             sizeof(u32);
-		PLATFORM_MEM_FREE(glyphBitmaps[i].pixels, glyphBitmapSizeInBytes);
+		PLATFORM_MEM_FREE(arena, glyphBitmaps[i].pixels, glyphBitmapSizeInBytes);
 	}
 
-	PLATFORM_MEM_FREE(glyphBitmaps, numGlyphs * sizeof(GlyphBitmap));
-	platform_closeFileRead(&fontFileRead);
+	PLATFORM_MEM_FREE(arena, glyphBitmaps, numGlyphs * sizeof(GlyphBitmap));
+	platform_closeFileRead(arena, &fontFileRead);
 
 	return 0;
 }
 
-void asset_addAnimation(AssetManager *assetManager, i32 texId,
-                       i32 animId, i32 *frameIndex, i32 numFrames,
-                       f32 frameDuration)
+void asset_addAnimation(AssetManager *assetManager, MemoryArena *arena,
+                        i32 texId, i32 animId, i32 *frameIndex, i32 numFrames,
+                        f32 frameDuration)
 {
 #ifdef DENGINE_DEBUG
 	ASSERT(assetManager && frameIndex)
@@ -425,7 +427,7 @@ void asset_addAnimation(AssetManager *assetManager, i32 texId,
 	Animation anim = {0};
 	anim.atlas     = asset_getTextureAtlas(assetManager, texId);
 
-	anim.frameIndex = PLATFORM_MEM_ALLOC(numFrames, i32);
+	anim.frameIndex = PLATFORM_MEM_ALLOC(arena, numFrames, i32);
 	for (i32 i = 0; i < numFrames; i++) anim.frameIndex[i] = frameIndex[i];
 
 	anim.numFrames     = numFrames;

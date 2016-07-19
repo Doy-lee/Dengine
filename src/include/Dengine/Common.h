@@ -28,5 +28,6 @@ typedef double f64;
 
 i32 common_strlen(const char *const string);
 i32 common_strcmp(const char *a, const char *b);
+void common_itoa(i32 value, char *buf, i32 bufSize);
 
 #endif

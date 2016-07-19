@@ -9,7 +9,7 @@
 
 #include "WorldTraveller/WorldTraveller.h"
 
-#define INVALID_CODE_PATH TRUE
+#define INVALID_CODE_PATH 0
 enum DebugCallCount
 {
 	debugcallcount_drawArrays,
@@ -18,19 +18,22 @@ enum DebugCallCount
 
 typedef struct DebugState
 {
-	i32 totalMemoryAllocated;
+	Font font;
 	i32 *callCount;
+	f32 stringLineGap;
 
 	/* Debug strings rendered in top left corner */
-	char debugStrings[256][64];
+	char debugStrings[64][128];
 	i32 numDebugStrings;
 	f32 stringUpdateTimer;
 	f32 stringUpdateRate;
+	v2 initialStringP;
+	v2 currStringP;
 
-	v2 initialStringPos;
-	v2 stringPos;
-
-	f32 stringLineGap;
+	/* Debug gui console log */
+	char console[20][128];
+	i32 consoleIndex;
+	v2 initialConsoleP;
 } DebugState;
 
 extern DebugState GLOBAL_debug;
@@ -97,14 +100,16 @@ inline char *debug_entityattack_string(i32 val)
 }
 
 
-void debug_init();
+void debug_init(MemoryArena *arena, v2 windowSize, Font font);
 
 #define DEBUG_PUSH_STRING(string) debug_pushString(string, NULL, "char")
 #define DEBUG_PUSH_VAR(formatString, data, type)                            \
 	debug_pushString(formatString, CAST(void *)&data, type)
 void debug_pushString(char *formatString, void *data, char *dataType);
 
-void debug_stringUpdateAndRender(Renderer *renderer, Font *font, f32 dt);
 void debug_drawUi(GameState *state, f32 dt);
+
+#define DEBUG_LOG(string) debug_consoleLog(string, __FILE__, __LINE__);
+void debug_consoleLog(char *string, char *file, int lineNum);
 
 #endif
