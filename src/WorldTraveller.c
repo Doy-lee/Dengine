@@ -897,7 +897,9 @@ void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt)
 	renderer_staticRect(renderer, heroAvatarP, heroAvatarSize, 0, heroRenderTex,
 	                    V4(1, 1, 1, 1));
 
-	char *heroAvatarStr = "HP: 100/100";
+	char heroAvatarStr[20];
+	snprintf(heroAvatarStr, ARRAY_COUNT(heroAvatarStr), "HP: %3.0f/%3.0f",
+	         hero->stats->health, hero->stats->maxHealth);
 	f32 strLenInPixels =
 	    CAST(f32)(font->maxSize.w * common_strlen(heroAvatarStr));
 	v2 strPos = V2(heroAvatarP.x, heroAvatarP.y - (0.5f * heroAvatarSize.h));
