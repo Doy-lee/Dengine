@@ -229,8 +229,8 @@ void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
 	{
 		EntityAnim_ *entityAnim = &entity->anim[entity->currAnimId];
 		Animation *anim = entityAnim->anim;
-		i32 atlasIndex = anim->atlasIndexes[entityAnim->currFrame];
-		v4 animTexRect = anim->atlas->texRect[atlasIndex];
+		i32 frameIndex = anim->frameIndex[entityAnim->currFrame];
+		v4 animTexRect = anim->atlas->texRect[frameIndex];
 
 		if (entity->direction == direction_east)
 		{

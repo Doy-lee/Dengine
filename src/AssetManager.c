@@ -414,22 +414,19 @@ const i32 asset_loadTTFont(AssetManager *assetManager, const char *filePath)
 }
 
 void asset_addAnimation(AssetManager *assetManager, i32 texId,
-                       i32 animId, i32 *atlasIndexes, i32 numFrames,
+                       i32 animId, i32 *frameIndex, i32 numFrames,
                        f32 frameDuration)
 {
 #ifdef DENGINE_DEBUG
-	ASSERT(assetManager && atlasIndexes)
-	ASSERT(!assetManager->anims[animId].atlasIndexes);
+	ASSERT(assetManager && frameIndex)
+	ASSERT(!assetManager->anims[animId].frameIndex);
 #endif
 
 	Animation anim = {0};
-	// TODO(doyle): Do we need texture to be bound to animation?
-	anim.tex       = asset_getTexture(assetManager, texId);
 	anim.atlas     = asset_getTextureAtlas(assetManager, texId);
 
-	anim.atlasIndexes = PLATFORM_MEM_ALLOC(numFrames, i32);
-	for (i32 i = 0; i < numFrames; i++)
-		anim.atlasIndexes[i] = atlasIndexes[i];
+	anim.frameIndex = PLATFORM_MEM_ALLOC(numFrames, i32);
+	for (i32 i = 0; i < numFrames; i++) anim.frameIndex[i] = frameIndex[i];
 
 	anim.numFrames     = numFrames;
 	anim.frameDuration = frameDuration;

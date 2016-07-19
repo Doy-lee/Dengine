@@ -320,6 +320,12 @@ INTERNAL inline void setActiveEntityAnim(Entity *entity,
 	entity->currAnimCyclesCompleted = 0;
 }
 
+INTERNAL inline v4 getEntityScreenRect(Entity entity)
+{
+	v4 result = math_getRect(entity.pos, entity.hitboxSize);
+	return result;
+}
+
 INTERNAL void parseInput(GameState *state, const f32 dt)
 {
 	/*
@@ -338,55 +344,60 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	Entity *hero       = &world->entities[world->heroIndex];
 	v2 ddPos           = V2(0, 0);
 
-	// TODO(doyle): As we need to handle more key spam input, we want to track
-	// if a button ended down
-	LOCAL_PERSIST b32 spaceBarWasDown = FALSE;
-
-	if (state->keys[GLFW_KEY_RIGHT])
+	if (hero->stats->busyDuration <= 0)
 	{
-		ddPos.x = 1.0f;
-		hero->direction = direction_east;
-	}
+		// TODO(doyle): As we need to handle more key spam input, we want to
+		// track
+		// if a button ended down
+		LOCAL_PERSIST b32 spaceBarWasDown = FALSE;
 
-	if (state->keys[GLFW_KEY_LEFT])
-	{
-		ddPos.x = -1.0f;
-		hero->direction = direction_west;
-	}
-
-	if (state->keys[GLFW_KEY_UP])
-	{
-		ddPos.y = 1.0f;
-	}
-
-	if (state->keys[GLFW_KEY_DOWN])
-	{
-		ddPos.y = -1.0f;
-	}
-
-	if (ddPos.x != 0.0f && ddPos.y != 0.0f)
-	{
-		// NOTE(doyle): Cheese it and pre-compute the vector for diagonal using
-		// pythagoras theorem on a unit triangle
-		// 1^2 + 1^2 = c^2
-		ddPos = v2_scale(ddPos, 0.70710678118f);
-	}
-
-	// TODO(doyle): Revisit key input with state checking for last ended down
-#if 0
-	if (state->keys[GLFW_KEY_SPACE] && !spaceBarWasDown)
-	{
-		if (!(hero->currAnimId == entityanimid_tackle &&
-		      hero->currAnimCyclesCompleted == 0))
+		if (state->keys[GLFW_KEY_RIGHT])
 		{
-			spaceBarWasDown = TRUE;
+			ddPos.x         = 1.0f;
+			hero->direction = direction_east;
 		}
-	}
-	else if (!state->keys[GLFW_KEY_SPACE])
-	{
-		spaceBarWasDown = FALSE;
-	}
+
+		if (state->keys[GLFW_KEY_LEFT])
+		{
+			ddPos.x         = -1.0f;
+			hero->direction = direction_west;
+		}
+
+		if (state->keys[GLFW_KEY_UP])
+		{
+			ddPos.y = 1.0f;
+		}
+
+		if (state->keys[GLFW_KEY_DOWN])
+		{
+			ddPos.y = -1.0f;
+		}
+
+		if (ddPos.x != 0.0f && ddPos.y != 0.0f)
+		{
+			// NOTE(doyle): Cheese it and pre-compute the vector for diagonal
+			// using
+			// pythagoras theorem on a unit triangle
+			// 1^2 + 1^2 = c^2
+			ddPos = v2_scale(ddPos, 0.70710678118f);
+		}
+
+		// TODO(doyle): Revisit key input with state checking for last ended down
+#if 0
+		if (state->keys[GLFW_KEY_SPACE] && !spaceBarWasDown)
+		{
+			if (!(hero->currAnimId == entityanimid_tackle &&
+				  hero->currAnimCyclesCompleted == 0))
+			{
+				spaceBarWasDown = TRUE;
+			}
+		}
+		else if (!state->keys[GLFW_KEY_SPACE])
+		{
+			spaceBarWasDown = FALSE;
+		}
 #endif
+	}
 
 	// NOTE(doyle): Clipping threshold for snapping velocity to 0
 	f32 epsilon    = 0.5f;
@@ -476,8 +487,8 @@ INTERNAL void updateEntityAnim(Entity *entity, f32 dt)
 	// TODO(doyle): Recheck why we have this twice
 	EntityAnim_ *entityAnim = &entity->anim[entity->currAnimId];
 	Animation anim         = *entityAnim->anim;
-	i32 atlasIndex         = anim.atlasIndexes[entityAnim->currFrame];
-	v4 texRect             = anim.atlas->texRect[atlasIndex];
+	i32 frameIndex         = anim.frameIndex[entityAnim->currFrame];
+	v4 texRect             = anim.atlas->texRect[frameIndex];
 
 	entityAnim->currDuration -= dt;
 	if (entityAnim->currDuration <= 0.0f)
@@ -485,10 +496,10 @@ INTERNAL void updateEntityAnim(Entity *entity, f32 dt)
 		if (++entityAnim->currFrame >= anim.numFrames)
 			entity->currAnimCyclesCompleted++;
 
-		entityAnim->currFrame     = entityAnim->currFrame % anim.numFrames;
-	    atlasIndex                = entityAnim->anim->atlasIndexes[entityAnim->currFrame];
-		texRect                   = anim.atlas->texRect[atlasIndex];
-		entityAnim->currDuration  = anim.frameDuration;
+		entityAnim->currFrame = entityAnim->currFrame % anim.numFrames;
+		frameIndex = entityAnim->anim->frameIndex[entityAnim->currFrame];
+		texRect    = anim.atlas->texRect[frameIndex];
+		entityAnim->currDuration = anim.frameDuration;
 	}
 
 	// NOTE(doyle): If humanoid entity, let animation dictate render size which

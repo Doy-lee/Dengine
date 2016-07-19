@@ -78,17 +78,15 @@ typedef struct Entity
 	b32 collides;
 
 	// TODO(doyle): String based access
+	// TODO(doyle): Separate animation refs from curr animation state, entity
+	// only ever has one active current animation. ATM every entity animation
+	// has a currframe and duration .. either that or we stop resetting
+	// animation on entity context switch
 	EntityAnim_ anim[16];
 	i32 currAnimId;
 	u32 currAnimCyclesCompleted;
 
 	EntityStats *stats;
 } Entity;
-
-INTERNAL inline v4 getEntityScreenRect(Entity entity)
-{
-	v4 result = math_getRect(entity.pos, entity.hitboxSize);
-	return result;
-}
 
 #endif

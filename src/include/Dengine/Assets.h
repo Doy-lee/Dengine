@@ -60,9 +60,8 @@ typedef struct TexAtlas
 
 typedef struct Animation
 {
-	Texture *tex;
 	TexAtlas *atlas;
-	i32 *atlasIndexes;
+	i32 *frameIndex;
 	i32 numFrames;
 	f32 frameDuration;
 } Animation;
