@@ -45,7 +45,7 @@ INTERNAL Entity *addEntity(MemoryArena *arena, World *world, v2 pos, v2 size,
 		    entity.stats->health           = entity.stats->maxHealth;
 		    entity.stats->actionRate       = 100;
 		    entity.stats->actionTimer      = entity.stats->actionRate;
-		    entity.stats->actionSpdMul     = 100;
+		    entity.stats->actionSpdMul     = 1000;
 		    entity.stats->entityIdToAttack = -1;
 		    entity.stats->queuedAttack     = entityattack_invalid;
 		    entity.state                   = entitystate_idle;
@@ -450,7 +450,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		}
 
 		// TODO(doyle): Revisit key input with state checking for last ended down
-		if (state->keys[GLFW_KEY_SPACE] && !spaceBarWasDown)
+		if (state->keys[GLFW_KEY_SPACE])
 		{
 			Renderer *renderer = &state->renderer;
 			f32 yPos = CAST(f32)(rand() % CAST(i32)renderer->size.h);
@@ -459,10 +459,6 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			v2 pos = V2(renderer->size.w - (renderer->size.w / xModifier), yPos);
 			addGenericMob(&state->arena, &state->assetManager, world, pos);
 			spaceBarWasDown = TRUE;
-		}
-		else if (!state->keys[GLFW_KEY_SPACE])
-		{
-			spaceBarWasDown = FALSE;
 		}
 	}
 
@@ -507,10 +503,13 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	b32 heroCollided = FALSE;
 	if (hero->collides == TRUE)
 	{
-		for (i32 i = 0; i < world->freeEntityIndex; i++)
+		for (i32 i = 0; i < world->maxEntities; i++)
 		{
 			if (i == world->heroIndex) continue;
+
 			Entity entity = world->entities[i];
+			if (entity.state == entitystate_dead) continue;
+
 			if (entity.collides)
 			{
 				v4 heroRect =
@@ -623,7 +622,10 @@ INTERNAL i32 findBestEntityToAttack(World *world, Entity attacker)
 	if (attacker.type == entitytype_mob)
 	{
 		Entity hero = world->entities[world->heroIndex];
-		result = hero.id;
+
+		if (hero.state == entitystate_dead) result = ENTITY_NULL_ID;
+		else result = hero.id;
+
 		return result;
 	}
 
@@ -666,6 +668,16 @@ INTERNAL inline void updateWorldBattleEntities(World *world, Entity *entity,
 #endif
 }
 
+INTERNAL inline void resetEntityState(World *world, Entity *entity)
+{
+	updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
+	setActiveEntityAnim(entity, animlist_hero_idle);
+	entity->stats->busyDuration     = 0;
+	entity->stats->actionTimer      = entity->stats->actionRate;
+	entity->stats->queuedAttack     = entityattack_invalid;
+	entity->stats->entityIdToAttack = ENTITY_NULL_ID;
+}
+
 INTERNAL void entityStateSwitch(World *world, Entity *entity,
                                 enum EntityState newState)
 {
@@ -691,8 +703,8 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 		// attacking it since there's no check before attack if entity is idle
 		// or not (i.e. has moved out of frame last frame).
 		case entitystate_dead:
-			updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
 			setActiveEntityAnim(entity, animlist_hero_idle);
+			entity->stats->busyDuration     = 0;
 			entity->stats->actionTimer      = entity->stats->actionRate;
 			entity->stats->queuedAttack     = entityattack_invalid;
 			entity->stats->entityIdToAttack = ENTITY_NULL_ID;
@@ -709,14 +721,16 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 		switch (newState)
 		{
 		case entitystate_attack:
+		{
+			EntityAnim_ attackAnim = entity->anim[entity->stats->queuedAttack];
+			f32 busyDuration       = attackAnim.anim->frameDuration *
+			                   CAST(f32) attackAnim.anim->numFrames;
+			entity->stats->busyDuration = busyDuration;
 			break;
+		}
 		case entitystate_idle:
 		case entitystate_dead:
-			updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
-			setActiveEntityAnim(entity, animlist_hero_idle);
-			entity->stats->actionTimer      = entity->stats->actionRate;
-			entity->stats->queuedAttack     = entityattack_invalid;
-			entity->stats->entityIdToAttack = ENTITY_NULL_ID;
+			resetEntityState(world, entity);
 			break;
 		default:
 #ifdef DENGINE_DEBUG
@@ -728,27 +742,14 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 		switch (newState)
 		{
 		case entitystate_battle:
+			setActiveEntityAnim(entity, animlist_hero_battlePose);
 			entity->stats->actionTimer  = entity->stats->actionRate;
 			entity->stats->busyDuration = 0;
-			setActiveEntityAnim(entity, animlist_hero_battlePose);
 			break;
-		case entitystate_dead:
-			// TODO(doyle): Repeated logic with battle -> dead
-			updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
-			setActiveEntityAnim(entity, animlist_hero_wave);
-			entity->stats->actionTimer      = entity->stats->actionRate;
-			entity->stats->queuedAttack     = entityattack_invalid;
-			entity->stats->entityIdToAttack = ENTITY_NULL_ID;
-			break;
-
 		// NOTE(doyle): Entity has been forced out of an attack (out of range)
 		case entitystate_idle:
-			updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
-			setActiveEntityAnim(entity, animlist_hero_idle);
-			entity->stats->busyDuration     = 0;
-			entity->stats->actionTimer      = entity->stats->actionRate;
-			entity->stats->queuedAttack     = entityattack_invalid;
-			entity->stats->entityIdToAttack = ENTITY_NULL_ID;
+		case entitystate_dead:
+			resetEntityState(world, entity);
 			break;
 		default:
 #ifdef DENGINE_DEBUG
@@ -777,24 +778,18 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 	entity->state = newState;
 }
 
-INTERNAL void beginAttack(Entity *attacker)
+INTERNAL void beginAttack(World *world, Entity *attacker)
 {
 
 #ifdef DENGINE_DEBUG
 	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
 #endif
+	entityStateSwitch(world, attacker, entitystate_attack);
 
-	attacker->state = entitystate_attack;
 	switch (attacker->stats->queuedAttack)
 	{
 	case entityattack_tackle:
-		EntityAnim_ attackAnim = attacker->anim[animlist_hero_tackle];
-		f32 busyDuration = attackAnim.anim->frameDuration *
-		                   CAST(f32) attackAnim.anim->numFrames;
-
-		attacker->stats->busyDuration = busyDuration;
 		setActiveEntityAnim(attacker, animlist_hero_tackle);
-
 		if (attacker->direction == direction_east)
 			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
 		else
@@ -836,6 +831,7 @@ INTERNAL void endAttack(World *world, Entity *attacker)
 	Entity *defender = NULL;
 
 	// TODO(doyle): Implement faster lookup for entity id in entity table
+	b32 noMoreValidTargets = FALSE;
 	do
 	{
 		/* Get target entity to attack */
@@ -845,38 +841,39 @@ INTERNAL void endAttack(World *world, Entity *attacker)
 			if (world->entities[i].id == entityIdToAttack)
 			{
 				defender = &world->entities[i];
+#ifdef DENGINE_DEBUG
+				ASSERT(defender->type == entitytype_mob ||
+				       defender->type == entitytype_hero);
+#endif
+				break;
 			}
 		}
 
 		/* If no longer exists, find next best */
 		if (!defender)
 		{
-			if (world->numEntitiesInBattle > 1)
+			i32 entityIdToAttack = findBestEntityToAttack(world, *attacker);
+			if (entityIdToAttack == ENTITY_NULL_ID)
+			{
+				noMoreValidTargets = TRUE;
+			}
+			else
 			{
 				attacker->stats->entityIdToAttack =
 				    findBestEntityToAttack(world, *attacker);
 			}
-			else
-			{
-#ifdef DENGINE_DEBUG
-				ASSERT(INVALID_CODE_PATH);
-#endif
-			}
 		}
-	}	while (!defender);
+	} while (!defender && noMoreValidTargets == TRUE);
 
-	// TODO(doyle): Very susceptible to bugs- ensure if defender is dead the
-	// attacker immediately locates a new target or exits battle mode. But this
-	// is necessary since it's possible that by the time the hero is ready to
-	// apply attack damage another person may of killed it (i.e. party member)
-	if (defender)
+	enum EntityState newAttackerState = entitystate_invalid;
+	if (!noMoreValidTargets)
 	{
 		// TODO(doyle): Use attacker stats in battle equations
 		if (attacker->type == entitytype_hero)
 			defender->stats->health -= 50;
 		else
 		{
-			//defender->stats->health--;
+			// defender->stats->health--;
 		}
 
 		if (defender->stats->health <= 0)
@@ -888,10 +885,16 @@ INTERNAL void endAttack(World *world, Entity *attacker)
 			attacker->stats->entityIdToAttack =
 			    findBestEntityToAttack(world, *attacker);
 		}
+
+		newAttackerState = entitystate_battle;
+	}
+	else
+	{
+		newAttackerState = entitystate_idle;
 	}
 
 	/* Return attacker back to non-attacking state */
-	entityStateSwitch(world, attacker, entitystate_battle);
+	entityStateSwitch(world, attacker, newAttackerState);
 }
 
 
@@ -933,7 +936,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			// TODO(doyle): Accumulate all dead entities and delete at the
 			// end. Hence resort/organise entity array once, not every time
 			// an entity dies
-#if 0
+#if 1
 			i32 entityIndexInArray = i;
 			deleteEntity(&state->arena, world, entityIndexInArray);
 
@@ -996,7 +999,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 					if (stats->queuedAttack == entityattack_invalid)
 						stats->queuedAttack = entityattack_tackle;
 
-					beginAttack(entity);
+					beginAttack(world, entity);
 				}
 			}
 			else if (entity->state == entitystate_attack)

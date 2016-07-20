@@ -330,6 +330,8 @@ void debug_drawUi(GameState *state, f32 dt)
 	DEBUG_PUSH_VAR("glDrawArray Calls: %d",
 	               GLOBAL_debug.callCount[debugcallcount_drawArrays], "i32");
 
+	i32 debug_bAllocated = state->arena.bytesAllocated;
+	DEBUG_PUSH_VAR("TotalMemoryAllocated: %db", debug_bAllocated, "i32");
 	i32 debug_kbAllocated = state->arena.bytesAllocated / 1024;
 	DEBUG_PUSH_VAR("TotalMemoryAllocated: %dkb", debug_kbAllocated, "i32");
 
