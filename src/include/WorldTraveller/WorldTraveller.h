@@ -46,5 +46,5 @@ typedef struct GameState
 } GameState;
 
 void worldTraveller_gameInit(GameState *state, v2 windowSize);
-void worldTraveller_gameUpdateAndRender(GameState *state, const f32 dt);
+void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt);
 #endif
