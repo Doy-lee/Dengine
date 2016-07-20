@@ -685,8 +685,20 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 			entity->stats->entityIdToAttack =
 			    findBestEntityToAttack(world, *entity);
 			break;
-		case entitystate_attack:
+
+		// TODO(doyle): Corner case- if move out of range and entity has
+		// switched to idle mode, we reach the attacker entity and they continue
+		// attacking it since there's no check before attack if entity is idle
+		// or not (i.e. has moved out of frame last frame).
 		case entitystate_dead:
+			updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
+			setActiveEntityAnim(entity, animlist_hero_idle);
+			entity->stats->actionTimer      = entity->stats->actionRate;
+			entity->stats->queuedAttack     = entityattack_invalid;
+			entity->stats->entityIdToAttack = ENTITY_NULL_ID;
+			break;
+
+		case entitystate_attack:
 		default:
 #ifdef DENGINE_DEBUG
 			ASSERT(INVALID_CODE_PATH);
@@ -696,18 +708,12 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 	case entitystate_battle:
 		switch (newState)
 		{
-		case entitystate_idle:
-			updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
-			setActiveEntityAnim(entity, animlist_hero_idle);
-			entity->stats->actionTimer      = entity->stats->actionRate;
-			entity->stats->queuedAttack     = entityattack_invalid;
-			entity->stats->entityIdToAttack = ENTITY_NULL_ID;
-			break;
 		case entitystate_attack:
 			break;
+		case entitystate_idle:
 		case entitystate_dead:
 			updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
-			setActiveEntityAnim(entity, animlist_hero_wave);
+			setActiveEntityAnim(entity, animlist_hero_idle);
 			entity->stats->actionTimer      = entity->stats->actionRate;
 			entity->stats->queuedAttack     = entityattack_invalid;
 			entity->stats->entityIdToAttack = ENTITY_NULL_ID;
@@ -726,13 +732,20 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 			entity->stats->busyDuration = 0;
 			setActiveEntityAnim(entity, animlist_hero_battlePose);
 			break;
-		case entitystate_idle:
-			return;
-
 		case entitystate_dead:
 			// TODO(doyle): Repeated logic with battle -> dead
 			updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
 			setActiveEntityAnim(entity, animlist_hero_wave);
+			entity->stats->actionTimer      = entity->stats->actionRate;
+			entity->stats->queuedAttack     = entityattack_invalid;
+			entity->stats->entityIdToAttack = ENTITY_NULL_ID;
+			break;
+
+		// NOTE(doyle): Entity has been forced out of an attack (out of range)
+		case entitystate_idle:
+			updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
+			setActiveEntityAnim(entity, animlist_hero_idle);
+			entity->stats->busyDuration     = 0;
 			entity->stats->actionTimer      = entity->stats->actionRate;
 			entity->stats->queuedAttack     = entityattack_invalid;
 			entity->stats->entityIdToAttack = ENTITY_NULL_ID;
@@ -820,19 +833,61 @@ INTERNAL void endAttack(World *world, Entity *attacker)
 	}
 
 	/* Compute attack damage */
-	// TODO(doyle): Use attacker stats in battle equations
-	Entity *defender = &world->entities[attacker->stats->entityIdToAttack];
-	if (attacker->type == entitytype_hero)
-		defender->stats->health -= 50;
-	else
-		defender->stats->health--;
+	Entity *defender = NULL;
 
-	if (defender->stats->health <= 0)
+	// TODO(doyle): Implement faster lookup for entity id in entity table
+	do
 	{
+		/* Get target entity to attack */
+		for (i32 i = 0; i < world->maxEntities; i++)
+		{
+			i32 entityIdToAttack = attacker->stats->entityIdToAttack;
+			if (world->entities[i].id == entityIdToAttack)
+			{
+				defender = &world->entities[i];
+			}
+		}
+
+		/* If no longer exists, find next best */
+		if (!defender)
+		{
+			if (world->numEntitiesInBattle > 1)
+			{
+				attacker->stats->entityIdToAttack =
+				    findBestEntityToAttack(world, *attacker);
+			}
+			else
+			{
 #ifdef DENGINE_DEBUG
-		DEBUG_LOG("Entity has died");
+				ASSERT(INVALID_CODE_PATH);
 #endif
-		entityStateSwitch(world, defender, entitystate_dead);
+			}
+		}
+	}	while (!defender);
+
+	// TODO(doyle): Very susceptible to bugs- ensure if defender is dead the
+	// attacker immediately locates a new target or exits battle mode. But this
+	// is necessary since it's possible that by the time the hero is ready to
+	// apply attack damage another person may of killed it (i.e. party member)
+	if (defender)
+	{
+		// TODO(doyle): Use attacker stats in battle equations
+		if (attacker->type == entitytype_hero)
+			defender->stats->health -= 50;
+		else
+		{
+			//defender->stats->health--;
+		}
+
+		if (defender->stats->health <= 0)
+		{
+#ifdef DENGINE_DEBUG
+			DEBUG_LOG("Entity has died");
+#endif
+			entityStateSwitch(world, defender, entitystate_dead);
+			attacker->stats->entityIdToAttack =
+			    findBestEntityToAttack(world, *attacker);
+		}
 	}
 
 	/* Return attacker back to non-attacking state */
@@ -878,11 +933,13 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			// TODO(doyle): Accumulate all dead entities and delete at the
 			// end. Hence resort/organise entity array once, not every time
 			// an entity dies
+#if 0
 			i32 entityIndexInArray = i;
 			deleteEntity(&state->arena, world, entityIndexInArray);
 
 			// TODO(doyle): DeleteEntity moves elements down 1, so account for i
 			i--;
+#endif
 			continue;
 		}
 

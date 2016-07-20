@@ -30,8 +30,64 @@ void debug_init(MemoryArena *arena, v2 windowSize, Font font)
 	GLOBAL_debug.initialConsoleP = V2(consoleXPos, consoleYPos);
 }
 
+void debug_consoleLog(char *string, char *file, int lineNum)
+{
+	i32 maxConsoleStrLen = ARRAY_COUNT(GLOBAL_debug.console[0]);
+
+	i32 strIndex = 0;
+	i32 fileStrLen = common_strlen(file);
+	for (i32 count = 0; strIndex < maxConsoleStrLen; strIndex++, count++)
+	{
+		if (fileStrLen <= count) break;
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][strIndex] = file[count];
+	}
+
+	if (strIndex < maxConsoleStrLen)
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][strIndex++] = ':';
+
+	char line[12] = {0};
+	common_itoa(lineNum, line, ARRAY_COUNT(line));
+	i32 lineStrLen = common_strlen(line);
+	for (i32 count = 0; strIndex < maxConsoleStrLen; strIndex++, count++)
+	{
+		if (lineStrLen <= count) break;
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][strIndex] = line[count];
+	}
+
+	if (strIndex < maxConsoleStrLen)
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][strIndex++] = ':';
+
+	i32 stringStrLen = common_strlen(string);
+	for (i32 count = 0; strIndex < maxConsoleStrLen; strIndex++, count++)
+	{
+		if (stringStrLen <= count) break;
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][strIndex] = string[count];
+	}
+
+	if (strIndex >= maxConsoleStrLen)
+	{
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][maxConsoleStrLen-4] = '.';
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][maxConsoleStrLen-3] = '.';
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][maxConsoleStrLen-2] = '.';
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][maxConsoleStrLen-1] = 0;
+	}
+
+	i32 maxConsoleLines = ARRAY_COUNT(GLOBAL_debug.console);
+	GLOBAL_debug.consoleIndex++;
+
+	if (GLOBAL_debug.consoleIndex >= maxConsoleLines)
+		GLOBAL_debug.consoleIndex = 0;
+}
+
 void debug_pushString(char *formatString, void *data, char *dataType)
 {
+	if (GLOBAL_debug.numDebugStrings >=
+	    ARRAY_COUNT(GLOBAL_debug.debugStrings))
+	{
+		DEBUG_LOG("Debug string stack is full, DEBUG_PUSH() failed");
+		return;
+	}
+
 	if (GLOBAL_debug.stringUpdateTimer <= 0)
 	{
 		i32 numDebugStrings = GLOBAL_debug.numDebugStrings;
@@ -79,8 +135,6 @@ void debug_pushString(char *formatString, void *data, char *dataType)
 			ASSERT(INVALID_CODE_PATH);
 		}
 		GLOBAL_debug.numDebugStrings++;
-		ASSERT(GLOBAL_debug.numDebugStrings <
-		       ARRAY_COUNT(GLOBAL_debug.debugStrings[0]));
 	}
 }
 
@@ -178,6 +232,8 @@ void debug_drawUi(GameState *state, f32 dt)
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
 		Entity *const entity  = &world->entities[i];
+		if (entity->state == entitystate_dead) continue;
+
 		/* Render debug markers on entities */
 		v4 color          = V4(1, 1, 1, 1);
 		char *debugString = NULL;
@@ -242,6 +298,13 @@ void debug_drawUi(GameState *state, f32 dt)
 				         entity->stats->actionTimer, entity->stats->actionRate);
 				renderer_string(&state->renderer, &state->arena, cameraBounds,
 				                font, entityTimer, strPos, 0, color);
+
+				strPos.y -= GLOBAL_debug.stringLineGap;
+				char entityIdTarget[32];
+				snprintf(entityIdTarget, ARRAY_COUNT(entityIdTarget),
+				         "Targetting ID: %d", entity->stats->entityIdToAttack);
+				renderer_string(&state->renderer, &state->arena, cameraBounds,
+				                font, entityIdTarget, strPos, 0, color);
 			}
 
 			strPos.y -= GLOBAL_debug.stringLineGap;
@@ -289,53 +352,4 @@ void debug_drawUi(GameState *state, f32 dt)
 	updateAndRenderDebugStack(&state->renderer, &state->arena, dt);
 	renderConsole(&state->renderer, &state->arena);
 	debug_clearCallCounter();
-}
-
-void debug_consoleLog(char *string, char *file, int lineNum)
-{
-	i32 maxConsoleStrLen = ARRAY_COUNT(GLOBAL_debug.console[0]);
-
-	i32 strIndex = 0;
-	i32 fileStrLen = common_strlen(file);
-	for (i32 count = 0; strIndex < maxConsoleStrLen; strIndex++, count++)
-	{
-		if (fileStrLen <= count) break;
-		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][strIndex] = file[count];
-	}
-
-	if (strIndex < maxConsoleStrLen)
-		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][strIndex++] = ':';
-
-	char line[12] = {0};
-	common_itoa(lineNum, line, ARRAY_COUNT(line));
-	i32 lineStrLen = common_strlen(line);
-	for (i32 count = 0; strIndex < maxConsoleStrLen; strIndex++, count++)
-	{
-		if (lineStrLen <= count) break;
-		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][strIndex] = line[count];
-	}
-
-	if (strIndex < maxConsoleStrLen)
-		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][strIndex++] = ':';
-
-	i32 stringStrLen = common_strlen(string);
-	for (i32 count = 0; strIndex < maxConsoleStrLen; strIndex++, count++)
-	{
-		if (stringStrLen <= count) break;
-		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][strIndex] = string[count];
-	}
-
-	if (strIndex >= maxConsoleStrLen)
-	{
-		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][maxConsoleStrLen-4] = '.';
-		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][maxConsoleStrLen-3] = '.';
-		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][maxConsoleStrLen-2] = '.';
-		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][maxConsoleStrLen-1] = 0;
-	}
-
-	i32 maxConsoleLines = ARRAY_COUNT(GLOBAL_debug.console);
-	GLOBAL_debug.consoleIndex++;
-
-	if (GLOBAL_debug.consoleIndex >= maxConsoleLines)
-		GLOBAL_debug.consoleIndex = 0;
 }

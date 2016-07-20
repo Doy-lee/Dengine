@@ -102,14 +102,14 @@ inline char *debug_entityattack_string(i32 val)
 
 void debug_init(MemoryArena *arena, v2 windowSize, Font font);
 
+#define DEBUG_LOG(string) debug_consoleLog(string, __FILE__, __LINE__);
+void debug_consoleLog(char *string, char *file, int lineNum);
+
 #define DEBUG_PUSH_STRING(string) debug_pushString(string, NULL, "char")
 #define DEBUG_PUSH_VAR(formatString, data, type)                            \
 	debug_pushString(formatString, CAST(void *)&data, type)
 void debug_pushString(char *formatString, void *data, char *dataType);
 
 void debug_drawUi(GameState *state, f32 dt);
-
-#define DEBUG_LOG(string) debug_consoleLog(string, __FILE__, __LINE__);
-void debug_consoleLog(char *string, char *file, int lineNum);
 
 #endif
