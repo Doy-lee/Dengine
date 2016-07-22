@@ -45,7 +45,7 @@ INTERNAL Entity *addEntity(MemoryArena *arena, World *world, v2 pos, v2 size,
 		    entity.stats->health           = entity.stats->maxHealth;
 		    entity.stats->actionRate       = 100;
 		    entity.stats->actionTimer      = entity.stats->actionRate;
-		    entity.stats->actionSpdMul     = 1000;
+		    entity.stats->actionSpdMul     = 100;
 		    entity.stats->entityIdToAttack = -1;
 		    entity.stats->queuedAttack     = entityattack_invalid;
 		    entity.state                   = entitystate_idle;
@@ -57,7 +57,7 @@ INTERNAL Entity *addEntity(MemoryArena *arena, World *world, v2 pos, v2 size,
 		    entity.stats->health           = entity.stats->maxHealth;
 		    entity.stats->actionRate       = 100;
 		    entity.stats->actionTimer      = entity.stats->actionRate;
-		    entity.stats->actionSpdMul     = 200;
+		    entity.stats->actionSpdMul     = 100;
 		    entity.stats->entityIdToAttack = -1;
 		    entity.stats->queuedAttack     = entityattack_invalid;
 		    entity.state                   = entitystate_idle;
@@ -370,7 +370,7 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 }
 
 INTERNAL inline void setActiveEntityAnim(Entity *entity,
-                                         enum EntityAnimId animId)
+                                         enum AnimList animId)
 {
 #ifdef DENGINE_DEBUG
 	ASSERT(animId < animlist_count);
@@ -378,13 +378,12 @@ INTERNAL inline void setActiveEntityAnim(Entity *entity,
 #endif
 
 	/* Reset current anim data */
-	EntityAnim_ *currAnim   = &entity->anim[entity->currAnimId];
-	currAnim->currDuration  = currAnim->anim->frameDuration;
-	currAnim->currFrame = 0;
+	EntityAnim_ *currAnim  = &entity->anim[entity->currAnimId];
+	currAnim->currDuration = currAnim->anim->frameDuration;
+	currAnim->currFrame    = 0;
 
 	/* Set entity active animation */
 	entity->currAnimId = animId;
-	entity->currAnimCyclesCompleted = 0;
 }
 
 INTERNAL inline v4 getEntityScreenRect(Entity entity)
@@ -559,9 +558,7 @@ INTERNAL void updateEntityAnim(Entity *entity, f32 dt)
 	entityAnim->currDuration -= dt;
 	if (entityAnim->currDuration <= 0.0f)
 	{
-		if (++entityAnim->currFrame >= anim.numFrames)
-			entity->currAnimCyclesCompleted++;
-
+		entityAnim->currFrame++;
 		entityAnim->currFrame = entityAnim->currFrame % anim.numFrames;
 		frameIndex = entityAnim->anim->frameIndex[entityAnim->currFrame];
 		texRect    = anim.atlas->texRect[frameIndex];
@@ -633,7 +630,6 @@ INTERNAL i32 findBestEntityToAttack(World *world, Entity attacker)
 	Entity hero = attacker;
 	for (i32 i = 0; i < world->maxEntities; i++)
 	{
-
 		Entity targetEntity = world->entities[i];
 		if (hero.id == targetEntity.id) continue;
 		if (world->entityIdInBattle[targetEntity.id] == ENTITY_IN_BATTLE)
@@ -659,15 +655,20 @@ INTERNAL inline void updateWorldBattleEntities(World *world, Entity *entity,
 	world->entityIdInBattle[entity->id] = isInBattle;
 
 	if (isInBattle)
+	{
 		world->numEntitiesInBattle++;
+	}
 	else
+	{
 		world->numEntitiesInBattle--;
+	}
 
 #ifdef DENGINE_DEBUG
 	ASSERT(world->numEntitiesInBattle >= 0);
 #endif
 }
 
+// TODO(doyle): Function too vague
 INTERNAL inline void resetEntityState(World *world, Entity *entity)
 {
 	updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
@@ -722,10 +723,6 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 		{
 		case entitystate_attack:
 		{
-			EntityAnim_ attackAnim = entity->anim[entity->stats->queuedAttack];
-			f32 busyDuration       = attackAnim.anim->frameDuration *
-			                   CAST(f32) attackAnim.anim->numFrames;
-			entity->stats->busyDuration = busyDuration;
 			break;
 		}
 		case entitystate_idle:
@@ -783,12 +780,17 @@ INTERNAL void beginAttack(World *world, Entity *attacker)
 
 #ifdef DENGINE_DEBUG
 	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
+	ASSERT(attacker->state == entitystate_battle);
 #endif
 	entityStateSwitch(world, attacker, entitystate_attack);
 
 	switch (attacker->stats->queuedAttack)
 	{
 	case entityattack_tackle:
+		EntityAnim_ attackAnim = attacker->anim[animlist_hero_tackle];
+		f32 busyDuration       = attackAnim.anim->frameDuration *
+		                   CAST(f32) attackAnim.anim->numFrames;
+		attacker->stats->busyDuration = busyDuration;
 		setActiveEntityAnim(attacker, animlist_hero_tackle);
 		if (attacker->direction == direction_east)
 			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
@@ -801,6 +803,7 @@ INTERNAL void beginAttack(World *world, Entity *attacker)
 		ASSERT(INVALID_CODE_PATH);
 #endif
 	}
+
 }
 
 // TODO(doyle): Calculate the battle damage, transition back into battle pose ..
@@ -870,7 +873,7 @@ INTERNAL void endAttack(World *world, Entity *attacker)
 	{
 		// TODO(doyle): Use attacker stats in battle equations
 		if (attacker->type == entitytype_hero)
-			defender->stats->health -= 50;
+			defender->stats->health -= 1;
 		else
 		{
 			// defender->stats->health--;
@@ -916,6 +919,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	 ******************************
 	 */
 	Entity *hero = getHeroEntity(world);
+	v4 cameraBounds = createCameraBounds(world, renderer->size);
 	ASSERT(world->freeEntityIndex < world->maxEntities);
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
@@ -1018,7 +1022,6 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		 */
 		updateEntityAnim(entity, dt);
 		/* Calculate region to render */
-		v4 cameraBounds = createCameraBounds(world, renderer->size);
 		renderer_entity(renderer, cameraBounds, entity, 0, V4(1, 1, 1, 1));
 	}
 
@@ -1048,6 +1051,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	}
 
 	/* Draw ui */
+
+	/* Draw hero avatar */
 	TexAtlas *heroAtlas  = asset_getTextureAtlas(assetManager, texlist_hero);
 	v4 heroAvatarTexRect = heroAtlas->texRect[herorects_head];
 	v2 heroAvatarSize    = math_getRectSize(heroAvatarTexRect);
@@ -1066,6 +1071,33 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	v2 strPos = V2(heroAvatarP.x, heroAvatarP.y - (0.5f * heroAvatarSize.h));
 	renderer_staticString(&state->renderer, &state->arena, font, heroAvatarStr,
 	                      strPos, 0, V4(0, 0, 1, 1));
+
+#ifdef DENGINE_DEBUG
+	ASSERT(world->numEntitiesInBattle != 1);
+#endif
+	if (world->numEntitiesInBattle > 1)
+	{
+		for (i32 i = 0; i < world->maxEntities; i++)
+		{
+			Entity entity = world->entities[i];
+			if (entity.id == hero->id) continue;
+
+
+			f32 distance = v2_magnitude(hero->pos, entity.pos);
+			if (entity.state == entitystate_battle)
+			{
+				Texture *emptyTex =
+				    asset_getTexture(assetManager, texlist_empty);
+				v2 heroCenter =
+				    v2_add(hero->pos, v2_scale(hero->hitboxSize, 0.5f));
+				RenderTex renderTex = {emptyTex, V4(0, 1, 1, 0)};
+				renderer_rect(&state->renderer, cameraBounds, heroCenter,
+				              V2(distance, 5.0f), 0, renderTex,
+				              V4(1, 0, 0, 0.5f));
+			}
+		}
+	}
+
 
 #ifdef DENGINE_DEBUG
 	debug_drawUi(state, dt);

@@ -19,7 +19,7 @@ typedef struct World
 	i32 maxEntities;
 	b32 *entityIdInBattle;
 	i32 numEntitiesInBattle;
-	
+
 	enum TexList texType;
 
 	v2 cameraPos; // In pixels

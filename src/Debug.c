@@ -208,14 +208,6 @@ void debug_drawUi(GameState *state, f32 dt)
 	}
 	if (cameraBounds.w <= world->bounds.w) cameraBounds.w = world->bounds.w;
 
-#if 0
-	Texture *emptyTex = asset_getTexture(assetManager, texlist_empty);
-	v2 heroCenter     = v2_add(hero->pos, v2_scale(hero->hitboxSize, 0.5f));
-	RenderTex renderTex = {emptyTex, V4(0, 1, 1, 0)};
-	renderer_rect(&state->renderer, cameraBounds, heroCenter,
-	              V2(distance, 5.0f), 0, renderTex, V4(1, 0, 0, 0.25f));
-#endif
-
 	Font *font = &GLOBAL_debug.font;
 	if (world->numEntitiesInBattle > 0)
 	{

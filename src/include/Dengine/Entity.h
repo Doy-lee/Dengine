@@ -53,7 +53,7 @@ typedef struct EntityStats
 
 	f32 busyDuration;
 	i32 entityIdToAttack;
-	i32 queuedAttack;
+	enum EntityAttack queuedAttack;
 } EntityStats;
 
 typedef struct EntityAnim_
@@ -85,8 +85,7 @@ typedef struct Entity
 	// has a currframe and duration .. either that or we stop resetting
 	// animation on entity context switch
 	EntityAnim_ anim[16];
-	i32 currAnimId;
-	u32 currAnimCyclesCompleted;
+	enum AnimList currAnimId;
 
 	EntityStats *stats;
 } Entity;
