@@ -679,102 +679,6 @@ INTERNAL inline void resetEntityState(World *world, Entity *entity)
 	entity->stats->entityIdToAttack = ENTITY_NULL_ID;
 }
 
-INTERNAL void entityStateSwitch(World *world, Entity *entity,
-                                enum EntityState newState)
-{
-#ifdef DENGINE_DEBUG
-	ASSERT(world && entity)
-	ASSERT(entity->type == entitytype_mob || entity->type == entitytype_hero)
-#endif
-	if (entity->state == newState) return;
-
-	switch(entity->state)
-	{
-	case entitystate_idle:
-		switch (newState)
-		{
-		case entitystate_battle:
-			updateWorldBattleEntities(world, entity, ENTITY_IN_BATTLE);
-			entity->stats->entityIdToAttack =
-			    findBestEntityToAttack(world, *entity);
-			break;
-
-		// TODO(doyle): Corner case- if move out of range and entity has
-		// switched to idle mode, we reach the attacker entity and they continue
-		// attacking it since there's no check before attack if entity is idle
-		// or not (i.e. has moved out of frame last frame).
-		case entitystate_dead:
-			setActiveEntityAnim(entity, animlist_hero_idle);
-			entity->stats->busyDuration     = 0;
-			entity->stats->actionTimer      = entity->stats->actionRate;
-			entity->stats->queuedAttack     = entityattack_invalid;
-			entity->stats->entityIdToAttack = ENTITY_NULL_ID;
-			break;
-
-		case entitystate_attack:
-		default:
-#ifdef DENGINE_DEBUG
-			ASSERT(INVALID_CODE_PATH);
-#endif
-		}
-		break;
-	case entitystate_battle:
-		switch (newState)
-		{
-		case entitystate_attack:
-		{
-			break;
-		}
-		case entitystate_idle:
-		case entitystate_dead:
-			resetEntityState(world, entity);
-			break;
-		default:
-#ifdef DENGINE_DEBUG
-			ASSERT(INVALID_CODE_PATH);
-#endif
-		}
-		break;
-	case entitystate_attack:
-		switch (newState)
-		{
-		case entitystate_battle:
-			setActiveEntityAnim(entity, animlist_hero_battlePose);
-			entity->stats->actionTimer  = entity->stats->actionRate;
-			entity->stats->busyDuration = 0;
-			break;
-		// NOTE(doyle): Entity has been forced out of an attack (out of range)
-		case entitystate_idle:
-		case entitystate_dead:
-			resetEntityState(world, entity);
-			break;
-		default:
-#ifdef DENGINE_DEBUG
-			ASSERT(INVALID_CODE_PATH);
-#endif
-		}
-		break;
-	case entitystate_dead:
-		switch (newState)
-		{
-		case entitystate_idle:
-		case entitystate_battle:
-		case entitystate_attack:
-		default:
-#ifdef DENGINE_DEBUG
-			ASSERT(INVALID_CODE_PATH);
-#endif
-		}
-		break;
-	default:
-#ifdef DENGINE_DEBUG
-		ASSERT(INVALID_CODE_PATH);
-#endif
-	}
-
-	entity->state = newState;
-}
-
 INTERNAL void beginAttack(World *world, Entity *attacker)
 {
 
@@ -782,8 +686,6 @@ INTERNAL void beginAttack(World *world, Entity *attacker)
 	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
 	ASSERT(attacker->state == entitystate_battle);
 #endif
-	entityStateSwitch(world, attacker, entitystate_attack);
-
 	switch (attacker->stats->queuedAttack)
 	{
 	case entityattack_tackle:
@@ -806,8 +708,6 @@ INTERNAL void beginAttack(World *world, Entity *attacker)
 
 }
 
-// TODO(doyle): Calculate the battle damage, transition back into battle pose ..
-// etc
 INTERNAL void endAttack(World *world, Entity *attacker)
 {
 #ifdef DENGINE_DEBUG
@@ -868,36 +768,117 @@ INTERNAL void endAttack(World *world, Entity *attacker)
 		}
 	} while (!defender && noMoreValidTargets == TRUE);
 
-	enum EntityState newAttackerState = entitystate_invalid;
 	if (!noMoreValidTargets)
 	{
+		i32 damage = -10;
 		// TODO(doyle): Use attacker stats in battle equations
 		if (attacker->type == entitytype_hero)
-			defender->stats->health -= 1;
+		{
+			defender->stats->health += damage;
+		}
 		else
 		{
 			// defender->stats->health--;
 		}
+	}
+}
 
-		if (defender->stats->health <= 0)
-		{
+INTERNAL void entityStateSwitch(World *world, Entity *entity,
+                                enum EntityState newState)
+{
 #ifdef DENGINE_DEBUG
-			DEBUG_LOG("Entity has died");
+	ASSERT(world && entity)
+	ASSERT(entity->type == entitytype_mob || entity->type == entitytype_hero)
 #endif
-			entityStateSwitch(world, defender, entitystate_dead);
-			attacker->stats->entityIdToAttack =
-			    findBestEntityToAttack(world, *attacker);
-		}
+	if (entity->state == newState) return;
 
-		newAttackerState = entitystate_battle;
-	}
-	else
+	switch(entity->state)
 	{
-		newAttackerState = entitystate_idle;
+	case entitystate_idle:
+		switch (newState)
+		{
+		case entitystate_battle:
+			updateWorldBattleEntities(world, entity, ENTITY_IN_BATTLE);
+			entity->stats->entityIdToAttack =
+			    findBestEntityToAttack(world, *entity);
+			break;
+
+		// TODO(doyle): Corner case- if move out of range and entity has
+		// switched to idle mode, we reach the attacker entity and they continue
+		// attacking it since there's no check before attack if entity is idle
+		// or not (i.e. has moved out of frame last frame).
+		case entitystate_dead:
+			setActiveEntityAnim(entity, animlist_hero_idle);
+			entity->stats->busyDuration     = 0;
+			entity->stats->actionTimer      = entity->stats->actionRate;
+			entity->stats->queuedAttack     = entityattack_invalid;
+			entity->stats->entityIdToAttack = ENTITY_NULL_ID;
+			break;
+
+		case entitystate_attack:
+		default:
+#ifdef DENGINE_DEBUG
+			ASSERT(INVALID_CODE_PATH);
+#endif
+		}
+		break;
+	case entitystate_battle:
+		switch (newState)
+		{
+		case entitystate_attack:
+		{
+			beginAttack(world, entity);
+			break;
+		}
+		case entitystate_idle:
+		case entitystate_dead:
+			resetEntityState(world, entity);
+			break;
+		default:
+#ifdef DENGINE_DEBUG
+			ASSERT(INVALID_CODE_PATH);
+#endif
+		}
+		break;
+	case entitystate_attack:
+		switch (newState)
+		{
+		case entitystate_battle:
+			endAttack(world, entity);
+			setActiveEntityAnim(entity, animlist_hero_battlePose);
+			entity->stats->actionTimer  = entity->stats->actionRate;
+			entity->stats->busyDuration = 0;
+			break;
+		// NOTE(doyle): Entity has been forced out of an attack (out of range)
+		case entitystate_idle:
+		case entitystate_dead:
+			resetEntityState(world, entity);
+			break;
+		default:
+#ifdef DENGINE_DEBUG
+			ASSERT(INVALID_CODE_PATH);
+#endif
+		}
+		break;
+	case entitystate_dead:
+		switch (newState)
+		{
+		case entitystate_idle:
+		case entitystate_battle:
+		case entitystate_attack:
+		default:
+#ifdef DENGINE_DEBUG
+			ASSERT(INVALID_CODE_PATH);
+#endif
+		}
+		break;
+	default:
+#ifdef DENGINE_DEBUG
+		ASSERT(INVALID_CODE_PATH);
+#endif
 	}
 
-	/* Return attacker back to non-attacking state */
-	entityStateSwitch(world, attacker, newAttackerState);
+	entity->state = newState;
 }
 
 
@@ -1003,7 +984,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 					if (stats->queuedAttack == entityattack_invalid)
 						stats->queuedAttack = entityattack_tackle;
 
-					beginAttack(world, entity);
+					/* Launch up attack animation */
+					entityStateSwitch(world, entity, entitystate_attack);
 				}
 			}
 			else if (entity->state == entitystate_attack)
@@ -1011,7 +993,37 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				// TODO(doyle): Untested if the attacker and the defender same
 				Entity *attacker = entity;
 				stats->busyDuration -= dt;
-				if (stats->busyDuration <= 0) endAttack(world, attacker);
+				if (stats->busyDuration <= 0)
+				{
+					/* Apply attack damage */
+					entityStateSwitch(world, entity, entitystate_battle);
+
+					/* Get target entity that was attacked */
+					Entity *defender = NULL;
+					for (i32 i = 0; i < world->maxEntities; i++)
+					{
+						i32 entityIdToAttack =
+						    attacker->stats->entityIdToAttack;
+						if (world->entities[i].id == entityIdToAttack)
+						{
+							defender = &world->entities[i];
+#ifdef DENGINE_DEBUG
+							ASSERT(defender->type == entitytype_mob ||
+							       defender->type == entitytype_hero);
+#endif
+							break;
+						}
+					}
+
+					if (defender->stats->health <= 0)
+					{
+#ifdef DENGINE_DEBUG
+						DEBUG_LOG("Entity has died");
+#endif
+						entityStateSwitch(world, defender, entitystate_dead);
+						entityStateSwitch(world, attacker, entitystate_idle);
+					}
+				}
 			}
 		}
 
@@ -1092,20 +1104,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			renderer_rect(&state->renderer, cameraBounds, heroCenter,
 			              V2(distance, 2.0f), V2(0, 0), angle, renderTex,
 			              V4(1, 0, 0, 1.0f));
-
 		}
 	}
 
 #ifdef DENGINE_DEBUG
-	renderer_rect(&state->renderer, cameraBounds, V2(500, 500), V2(100, 2.0f),
-	              V2(0, 0), DEGREES_TO_RADIANS(0.0f), renderTex,
-	              V4(0, 0, 1, 1.0f));
-	renderer_rect(&state->renderer, cameraBounds, V2(500, 500), V2(100, 2.0f),
-	              V2(0, 0), DEGREES_TO_RADIANS(5.0f), renderTex,
-	              V4(0, 0, 1, 1.0f));
-	renderer_rect(&state->renderer, cameraBounds, V2(500, 500), V2(100, 2.0f),
-	              V2(0, 0), DEGREES_TO_RADIANS(90.0f), renderTex,
-	              V4(0, 0, 1, 1.0f));
 	debug_drawUi(state, dt);
 #endif
 }
