@@ -147,7 +147,7 @@ INTERNAL void updateAndRenderDebugStack(Renderer *renderer, MemoryArena *arena,
 		v4 color   = V4(0, 0, 0, 1);
 		renderer_staticString(renderer, arena, &GLOBAL_debug.font,
 		                      GLOBAL_debug.debugStrings[i],
-		                      GLOBAL_debug.currStringP, rotate, color);
+		                      GLOBAL_debug.currStringP, V2(0, 0), rotate, color);
 		GLOBAL_debug.currStringP.y -= (0.9f * GLOBAL_debug.stringLineGap);
 	}
 
@@ -179,7 +179,7 @@ INTERNAL void renderConsole(Renderer *renderer, MemoryArena *arena)
 		v4 color   = V4(0, 0, 0, 1);
 		renderer_staticString(renderer, arena, &GLOBAL_debug.font,
 		                      GLOBAL_debug.console[i], consoleStrP,
-		                      rotate, color);
+		                      V2(0, 0), rotate, color);
 		consoleStrP.y -= (0.9f * GLOBAL_debug.stringLineGap);
 	}
 }
@@ -218,7 +218,7 @@ void debug_drawUi(GameState *state, f32 dt)
 		v2 strPos = V2((renderer->size.w * 0.5f) - (strLenInPixels * 0.5f),
 		               renderer->size.h - 300.0f);
 		renderer_staticString(&state->renderer, &state->arena, font, battleStr,
-		                      strPos, 0, color);
+		                      strPos, V2(0, 0), 0, color);
 	}
 
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
@@ -257,7 +257,7 @@ void debug_drawUi(GameState *state, f32 dt)
 			strPos.y += font->charMetrics[indexOfLowerAInMetrics].offset.y;
 
 			renderer_string(&state->renderer, &state->arena, cameraBounds, font,
-			                debugString, strPos, 0, color);
+			                debugString, strPos, V2(0, 0), 0, color);
 
 			f32 stringLineGap = 1.1f * asset_getVFontSpacing(font->metrics);
 			strPos.y -= GLOBAL_debug.stringLineGap;
@@ -266,14 +266,14 @@ void debug_drawUi(GameState *state, f32 dt)
 			snprintf(entityPosStr, ARRAY_COUNT(entityPosStr), "%06.2f, %06.2f",
 			         entity->pos.x, entity->pos.y);
 			renderer_string(&state->renderer, &state->arena, cameraBounds, font,
-			                entityPosStr, strPos, 0, color);
+			                entityPosStr, strPos, V2(0, 0), 0, color);
 
 			strPos.y -= GLOBAL_debug.stringLineGap;
 			char entityIDStr[32];
 			snprintf(entityIDStr, ARRAY_COUNT(entityIDStr), "ID: %4d/%d", entity->id,
 			         world->uniqueIdAccumulator-1);
 			renderer_string(&state->renderer, &state->arena, cameraBounds, font,
-			                entityIDStr, strPos, 0, color);
+			                entityIDStr, strPos, V2(0, 0), 0, color);
 
 			if (entity->stats)
 			{
@@ -282,27 +282,27 @@ void debug_drawUi(GameState *state, f32 dt)
 				snprintf(entityHealth, ARRAY_COUNT(entityHealth), "HP: %3.0f/%3.0f",
 				         entity->stats->health, entity->stats->maxHealth);
 				renderer_string(&state->renderer, &state->arena, cameraBounds,
-				                font, entityHealth, strPos, 0, color);
+				                font, entityHealth, strPos, V2(0, 0), 0, color);
 
 				strPos.y -= GLOBAL_debug.stringLineGap;
 				char entityTimer[32];
 				snprintf(entityTimer, ARRAY_COUNT(entityTimer), "ATB: %3.0f/%3.0f",
 				         entity->stats->actionTimer, entity->stats->actionRate);
 				renderer_string(&state->renderer, &state->arena, cameraBounds,
-				                font, entityTimer, strPos, 0, color);
+				                font, entityTimer, strPos, V2(0, 0), 0, color);
 
 				strPos.y -= GLOBAL_debug.stringLineGap;
 				char entityIdTarget[32];
 				snprintf(entityIdTarget, ARRAY_COUNT(entityIdTarget),
 				         "Targetting ID: %d", entity->stats->entityIdToAttack);
 				renderer_string(&state->renderer, &state->arena, cameraBounds,
-				                font, entityIdTarget, strPos, 0, color);
+				                font, entityIdTarget, strPos, V2(0, 0), 0, color);
 			}
 
 			strPos.y -= GLOBAL_debug.stringLineGap;
 			char *entityStateStr = debug_entitystate_string(entity->state);
 			renderer_string(&state->renderer, &state->arena, cameraBounds, font,
-			                entityStateStr, strPos, 0, color);
+			                entityStateStr, strPos, V2(0, 0), 0, color);
 		}
 	}
 

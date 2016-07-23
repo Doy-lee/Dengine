@@ -1022,7 +1022,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		 */
 		updateEntityAnim(entity, dt);
 		/* Calculate region to render */
-		renderer_entity(renderer, cameraBounds, entity, 0, V4(1, 1, 1, 1));
+		renderer_entity(renderer, cameraBounds, entity, V2(0, 0), 0, V4(1, 1, 1, 1));
 	}
 
 	// TODO(doyle): Dead hero not accounted for here
@@ -1060,8 +1060,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	    V2(10.0f, (renderer->size.h * 0.5f) - (0.5f * heroAvatarSize.h));
 
 	RenderTex heroRenderTex = {hero->tex, heroAvatarTexRect};
-	renderer_staticRect(renderer, heroAvatarP, heroAvatarSize, 0, heroRenderTex,
-	                    V4(1, 1, 1, 1));
+	renderer_staticRect(renderer, heroAvatarP, heroAvatarSize, V2(0, 0), 0,
+	                    heroRenderTex, V4(1, 1, 1, 1));
 
 	char heroAvatarStr[20];
 	snprintf(heroAvatarStr, ARRAY_COUNT(heroAvatarStr), "HP: %3.0f/%3.0f",
@@ -1070,36 +1070,42 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	    CAST(f32)(font->maxSize.w * common_strlen(heroAvatarStr));
 	v2 strPos = V2(heroAvatarP.x, heroAvatarP.y - (0.5f * heroAvatarSize.h));
 	renderer_staticString(&state->renderer, &state->arena, font, heroAvatarStr,
-	                      strPos, 0, V4(0, 0, 1, 1));
+	                      strPos, V2(0, 0), 0, V4(0, 0, 1, 1));
 
-#ifdef DENGINE_DEBUG
-	ASSERT(world->numEntitiesInBattle != 1);
-#endif
-	if (world->numEntitiesInBattle > 1)
+	for (i32 i = 0; i < world->maxEntities; i++)
 	{
-		for (i32 i = 0; i < world->maxEntities; i++)
+		Entity *entity = &world->entities[i];
+		if (entity->id == hero->id)
+			continue;
+
+		if (entity->state == entitystate_attack ||
+		    entity->state == entitystate_battle)
 		{
-			Entity entity = world->entities[i];
-			if (entity.id == hero->id) continue;
+			v2 difference    = v2_sub(entity->pos, hero->pos);
+			f32 angle        = math_atan2f(difference.y, difference.x);
+			f32 angleDegrees = RADIANS_TO_DEGREES(angle);
 
+			Texture *emptyTex = asset_getTexture(assetManager, texlist_empty);
+			v2 heroCenter = v2_add(hero->pos, v2_scale(hero->hitboxSize, 0.5f));
+			RenderTex renderTex = {emptyTex, V4(0, 1, 1, 0)};
+			f32 distance        = v2_magnitude(hero->pos, entity->pos);
+			renderer_rect(&state->renderer, cameraBounds, heroCenter,
+			              V2(distance, 2.0f), V2(0, 0), angle, renderTex,
+			              V4(1, 0, 0, 1.0f));
 
-			f32 distance = v2_magnitude(hero->pos, entity.pos);
-			if (entity.state == entitystate_battle)
-			{
-				Texture *emptyTex =
-				    asset_getTexture(assetManager, texlist_empty);
-				v2 heroCenter =
-				    v2_add(hero->pos, v2_scale(hero->hitboxSize, 0.5f));
-				RenderTex renderTex = {emptyTex, V4(0, 1, 1, 0)};
-				renderer_rect(&state->renderer, cameraBounds, heroCenter,
-				              V2(distance, 5.0f), 0, renderTex,
-				              V4(1, 0, 0, 0.5f));
-			}
 		}
 	}
 
-
 #ifdef DENGINE_DEBUG
+	renderer_rect(&state->renderer, cameraBounds, V2(500, 500), V2(100, 2.0f),
+	              V2(0, 0), DEGREES_TO_RADIANS(0.0f), renderTex,
+	              V4(0, 0, 1, 1.0f));
+	renderer_rect(&state->renderer, cameraBounds, V2(500, 500), V2(100, 2.0f),
+	              V2(0, 0), DEGREES_TO_RADIANS(5.0f), renderTex,
+	              V4(0, 0, 1, 1.0f));
+	renderer_rect(&state->renderer, cameraBounds, V2(500, 500), V2(100, 2.0f),
+	              V2(0, 0), DEGREES_TO_RADIANS(90.0f), renderTex,
+	              V4(0, 0, 1, 1.0f));
 	debug_drawUi(state, dt);
 #endif
 }

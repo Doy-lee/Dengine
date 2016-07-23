@@ -87,20 +87,16 @@ createDefaultTexQuad(Renderer *renderer, RenderTex renderTex)
 	return result;
 }
 
-INTERNAL void renderObject(Renderer *renderer, v2 pos, v2 size, f32 rotate,
-                           v4 color, Texture *tex)
+INTERNAL void renderObject(Renderer *renderer, v2 pos, v2 size, v2 pivotPoint,
+                           f32 rotate, v4 color, Texture *tex)
 {
 	mat4 transMatrix  = mat4_translate(pos.x, pos.y, 0.0f);
-	// NOTE(doyle): Rotate from the center of the object, not its' origin (i.e.
-	// top left)
-	mat4 rotateMatrix = mat4_translate((size.x * 0.5f), (size.y * 0.5f), 0.0f);
+	// NOTE(doyle): Rotate from pivot point of the object, (0, 0) is top left
+	mat4 rotateMatrix = mat4_translate(pivotPoint.x, pivotPoint.y, 0.0f);
 	rotateMatrix = mat4_mul(rotateMatrix, mat4_rotate(rotate, 0.0f, 0.0f, 1.0f));
-	rotateMatrix = mat4_mul(rotateMatrix, mat4_translate((size.x * -0.5f), (size.y * -0.5f), 0.0f));
+	rotateMatrix = mat4_mul(rotateMatrix, mat4_translate(-pivotPoint.x, -pivotPoint.y, 0.0f));
 
 	// NOTE(doyle): We draw everything as a unit square in OGL. Scale it to size
-	// TODO(doyle): We should have a notion of hitbox size and texture size
-	// we're going to render so we can draw textures that may be bigger than the
-	// entity, (slightly) but keep a consistent bounding box
 	mat4 scaleMatrix = mat4_scale(size.x, size.y, 1.0f);
 	mat4 model = mat4_mul(transMatrix, mat4_mul(rotateMatrix, scaleMatrix));
 
@@ -140,7 +136,7 @@ INTERNAL void renderObject(Renderer *renderer, v2 pos, v2 size, f32 rotate,
 }
 
 void renderer_rect(Renderer *const renderer, v4 cameraBounds, v2 pos, v2 size,
-                   f32 rotate, RenderTex renderTex, v4 color)
+                   v2 pivotPoint, f32 rotate, RenderTex renderTex, v4 color)
 {
 	RenderQuad quad = createDefaultTexQuad(renderer, renderTex);
 	updateBufferObject(renderer, &quad, 1);
@@ -148,13 +144,14 @@ void renderer_rect(Renderer *const renderer, v4 cameraBounds, v2 pos, v2 size,
 	// NOTE(doyle): Get the origin of cameraBounds in world space, bottom left
 	v2 offsetFromCamOrigin  = V2(cameraBounds.x, cameraBounds.w);
 	v2 rectRelativeToCamera = v2_sub(pos, offsetFromCamOrigin);
-	renderObject(renderer, rectRelativeToCamera, size, rotate, color,
-	             renderTex.tex);
+	renderObject(renderer, rectRelativeToCamera, size, pivotPoint, rotate,
+	             color, renderTex.tex);
 }
 
 void renderer_string(Renderer *const renderer, MemoryArena *arena,
                      v4 cameraBounds, Font *const font,
-                     const char *const string, v2 pos, f32 rotate, v4 color)
+                     const char *const string, v2 pos, v2 pivotPoint,
+                     f32 rotate, v4 color)
 {
 	i32 strLen       = common_strlen(string);
 	// TODO(doyle): Scale, not too important .. but rudimentary infrastructure
@@ -208,14 +205,14 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena,
 		// relative to the window size, hence we also render at the origin since
 		// we're rendering a window sized buffer
 		updateBufferObject(renderer, stringQuads, quadIndex);
-		renderObject(renderer, V2(0.0f, 0.0f), renderer->size, rotate, color,
-		                font->tex);
+		renderObject(renderer, V2(0.0f, 0.0f), renderer->size, pivotPoint,
+		             rotate, color, font->tex);
 		PLATFORM_MEM_FREE(arena, stringQuads, strLen * sizeof(RenderQuad));
 	}
 }
 
 void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
-                     f32 rotate, v4 color)
+                     v2 pivotPoint, f32 rotate, v4 color)
 {
 	// TODO(doyle): Batch into render groups
 
@@ -247,6 +244,6 @@ void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
 		v2 entityRelativeToCamera = v2_sub(entity->pos, offsetFromCamOrigin);
 
 		renderObject(renderer, entityRelativeToCamera, entity->renderSize,
-		             rotate, color, entity->tex);
+		             pivotPoint, rotate, color, entity->tex);
 	}
 }

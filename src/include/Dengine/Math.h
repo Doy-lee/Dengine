@@ -8,7 +8,20 @@
 #define SQUARED(x) (x * x)
 #define ABS(x) ((x) > 0 ? (x) : -(x))
 #define DEGREES_TO_RADIANS(x) (x * (MATH_PI / 180.0f))
+#define RADIANS_TO_DEGREES(x) (x * (180.0f / MATH_PI))
 #define SQRT(x) (sqrtf(x))
+
+INTERNAL inline f32 math_acosf(f32 a)
+{
+	f32 result = acosf(a);
+	return result;
+}
+
+INTERNAL inline f32 math_atan2f(f32 y, f32 x)
+{
+	f32 result = atan2f(y, x);
+	return result;
+}
 
 /* VECTORS */
 typedef union v2
@@ -120,12 +133,26 @@ DEFINE_VECTOR_FLOAT_MATH(2);
 DEFINE_VECTOR_FLOAT_MATH(3);
 DEFINE_VECTOR_FLOAT_MATH(4);
 
+INTERNAL inline f32 v2_lengthSq(const v2 a, const v2 b)
+{
+	f32 x      = b.x - a.x;
+	f32 y      = b.y - a.y;
+	f32 result = (SQUARED(x) + SQUARED(y));
+	return result;
+}
+
 INTERNAL inline f32 v2_magnitude(const v2 a, const v2 b)
 {
-	f32 x = b.x - a.x;
-	f32 y = b.y - a.y;
-	f32 inner = (SQUARED(x) + SQUARED(y));
-	f32 result = SQRT(inner);
+	f32 lengthSq = v2_lengthSq(a, b);
+	f32 result = SQRT(lengthSq);
+	return result;
+}
+
+INTERNAL inline v2 v2_normalise(const v2 a)
+{
+	f32 magnitude = v2_magnitude(V2(0, 0), a);
+	v2 result     = V2(a.x, a.y);
+	result        = v2_scale(a, 1 / magnitude);
 	return result;
 }
 
