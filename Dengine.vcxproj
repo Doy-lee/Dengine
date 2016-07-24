@@ -71,8 +71,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>.\bin\</OutDir>
     <IntDir>.\bin\</IntDir>
-    <IncludePath>extern\stb-master\include;src\include;extern\glew-1.13.0\include;extern\glfw-3.2.bin.WIN32\include;$(IncludePath)</IncludePath>
-    <LibraryPath>extern\glew-1.13.0\lib\Release\Win32;extern\glfw-3.2.bin.WIN32\lib-vc2015;$(LibraryPath)</LibraryPath>
+    <IncludePath>extern\stb-master\include;src\include;extern\glew-1.13.0\include;extern\glfw-3.2.bin.WIN32\include;extern\openal-soft\include;$(IncludePath)</IncludePath>
+    <LibraryPath>extern\glew-1.13.0\lib\Release\Win32;extern\openal-soft\lib\Win32;extern\glfw-3.2.bin.WIN32\lib-vc2015;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -82,7 +82,7 @@
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>opengl32.lib;glfw3.lib;glew32s.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;glfw3.lib;glew32s.lib;OpenAL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>libc.lib;libcmt.lib;libcd.lib;libcmtd.lib;msvcrtd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
     </Link>
   </ItemDefinitionGroup>

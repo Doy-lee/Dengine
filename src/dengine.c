@@ -1,4 +1,7 @@
 #if 1
+#include <OpenAL/al.h>
+#include <OpenAL/alc.h>
+
 #include "Dengine/AssetManager.h"
 #include "Dengine/Common.h"
 #include "Dengine/Debug.h"
@@ -6,6 +9,39 @@
 #include "Dengine/OpenGL.h"
 
 #include "WorldTraveller/WorldTraveller.h"
+
+void alCheckError_(const char *file, int line)
+{
+
+	ALenum errorCode;
+	while ((errorCode = alGetError()) != AL_NO_ERROR)
+	{
+		printf("OPENAL ");
+		switch(errorCode)
+		{
+		case AL_INVALID_NAME:
+			printf("INVALID_NAME | ");
+			break;
+		case AL_INVALID_ENUM:
+			printf("INVALID_ENUM | ");
+			break;
+		case AL_INVALID_VALUE:
+			printf("INVALID_VALUE | ");
+			break;
+		case AL_INVALID_OPERATION:
+			printf("INVALID_OPERATION | ");
+			break;
+		case AL_OUT_OF_MEMORY:
+			printf("OUT_OF_MEMORY | ");
+			break;
+		default:
+			printf("UNRECOGNISED ERROR CODE | ");
+			break;
+		}
+		printf("Error %08x, %s (%d)\n", errorCode, file, line);
+	}
+};
+#define AL_CHECK_ERROR() alCheckError_(__FILE__, __LINE__);
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode)
 {
@@ -31,6 +67,11 @@ void scroll_callback(GLFWwindow *window, double xOffset, double yOffset) {}
 
 int main()
 {
+	/*
+	 **************************
+	 * INIT APPLICATION WINDOW
+	 **************************
+	 */
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -52,6 +93,11 @@ int main()
 
 	glfwMakeContextCurrent(window);
 
+	/*
+	 **************************
+	 * INITIALISE OPENGL STATE
+	 **************************
+	 */
 	/* Make GLEW use more modern technies for OGL on core profile*/
 	glewExperimental = GL_TRUE;
 	if (glewInit() != GLEW_OK)
@@ -78,6 +124,45 @@ int main()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glCullFace(GL_BACK);
 
+	/*
+	 *******************
+	 * INITIALISE AUDIO
+	 *******************
+	 */
+	alGetError();
+	// TODO(doyle): Read this http://www.gamedev.net/page/resources/_/technical/game-programming/basic-openal-sound-manager-for-your-project-r3791
+	ALCdevice *deviceAL = alcOpenDevice(NULL);
+
+	if (!deviceAL)
+	{
+		printf("alcOpenDevice() failed: Failed to init OpenAL device.\n");
+		return;
+	}
+
+	ALCcontext *contextAL = alcCreateContext(deviceAL, NULL);
+	alcMakeContextCurrent(contextAL);
+	if (!contextAL)
+	{
+		printf("alcCreateContext() failed: Failed create AL context.\n");
+		return;
+	}
+	AL_CHECK_ERROR();
+
+#define NUM_BUFFERS 3
+#define BUFFER_SIZE 4096
+	ALuint audioBufferIds[NUM_BUFFERS];
+	alGenBuffers(NUM_BUFFERS, audioBufferIds);
+	AL_CHECK_ERROR();
+
+	ALuint audioSourcesIds[NUM_BUFFERS];
+	alGenBuffers(NUM_BUFFERS, audioSourcesIds);
+	AL_CHECK_ERROR();
+
+	/*
+	 *******************
+	 * INITIALISE GAME
+	 *******************
+	 */
 	GameState worldTraveller = {0};
 	worldTraveller_gameInit(&worldTraveller,
 	                        V2i(frameBufferWidth, frameBufferHeight));
@@ -103,7 +188,11 @@ int main()
 	glfwSwapInterval(1);
 #endif
 
-	/* Main game loop */
+	/*
+	 *******************
+	 * GAME LOOP
+	 *******************
+	 */
 	while (!glfwWindowShouldClose(window))
 	{
 		/* Check and call events */
@@ -114,7 +203,7 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		worldTraveller_gameUpdateAndRender(&worldTraveller, secondsElapsed);
-		glCheckError();
+		GL_CHECK_ERROR();
 
 		/* Swap the buffers */
 		glfwSwapBuffers(window);

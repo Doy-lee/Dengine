@@ -5,7 +5,6 @@
 #include "Dengine/MemoryArena.h"
 #include "Dengine/Shader.h"
 #include "Dengine/Texture.h"
-#include "Dengine/MemoryArena.h"
 
 #define MAX_TEXTURE_SIZE 1024
 

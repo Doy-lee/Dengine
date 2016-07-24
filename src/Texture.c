@@ -32,7 +32,7 @@ Texture texture_gen(const GLuint width, const GLuint height,
                     const GLint bytesPerPixel, const u8 *const image)
 {
 	// TODO(doyle): Let us set the parameters gl params as well
-	glCheckError();
+	GL_CHECK_ERROR();
 	Texture tex = {0};
 	tex.width  = width;
 	tex.height = height;
@@ -43,21 +43,21 @@ Texture texture_gen(const GLuint width, const GLuint height,
 	tex.filterMagnification = GL_NEAREST;
 
 	glGenTextures(1, &tex.id);
-	glCheckError();
+	GL_CHECK_ERROR();
 
 	glBindTexture(GL_TEXTURE_2D, tex.id);
-	glCheckError();
+	GL_CHECK_ERROR();
 
 	/* Load image into texture */
 	// TODO(doyle) Figure out the gl format
 	tex.imageFormat = getGLFormat(bytesPerPixel, FALSE);
 	ASSERT(tex.imageFormat == GL_RGBA);
 
-	glCheckError();
+	GL_CHECK_ERROR();
 
 	glTexImage2D(GL_TEXTURE_2D, 0, tex.internalFormat, tex.width, tex.height, 0,
 	             tex.imageFormat, GL_UNSIGNED_BYTE, image);
-	glCheckError();
+	GL_CHECK_ERROR();
 
 	// TODO(doyle): Not needed for sprites? glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -68,11 +68,11 @@ Texture texture_gen(const GLuint width, const GLuint height,
 	                tex.filterMinification);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
 	                tex.filterMagnification);
-	glCheckError();
+	GL_CHECK_ERROR();
 
 	/* Unbind and clean up */
 	glBindTexture(GL_TEXTURE_2D, 0);
-	glCheckError();
+	GL_CHECK_ERROR();
 
 	return tex;
 }

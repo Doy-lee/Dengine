@@ -6,9 +6,10 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #include <STB/stb_truetype.h>
 
-#include "Dengine/Platform.h"
 #include "Dengine/AssetManager.h"
 #include "Dengine/Debug.h"
+#include "Dengine/OpenGL.h"
+#include "Dengine/Platform.h"
 
 //#define WT_RENDER_FONT_FILE
 #ifdef WT_RENDER_FONT_FILE
@@ -77,7 +78,7 @@ const i32 asset_loadTextureImage(AssetManager *assetManager,
 
 	Texture tex = texture_gen(CAST(GLuint)(imgWidth), CAST(GLuint)(imgHeight),
 	                          CAST(GLint)(bytesPerPixel), image);
-	glCheckError();
+	GL_CHECK_ERROR();
 	stbi_image_free(image);
 
 	assetManager->textures[type] = tex;

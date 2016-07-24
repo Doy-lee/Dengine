@@ -103,7 +103,7 @@ INTERNAL void renderObject(Renderer *renderer, v2 pos, v2 size, v2 pivotPoint,
 	/* Load transformation matrix */
 	shader_use(renderer->shader);
 	shader_uniformSetMat4fv(renderer->shader, "model", model);
-	glCheckError();
+	GL_CHECK_ERROR();
 
 	/* Set color modulation value */
 	shader_uniformSetVec4f(renderer->shader, "spriteColor", color);
@@ -132,7 +132,7 @@ INTERNAL void renderObject(Renderer *renderer, v2 pos, v2 size, v2 pivotPoint,
 	/* Unbind */
 	glBindVertexArray(0);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	glCheckError();
+	GL_CHECK_ERROR();
 }
 
 void renderer_rect(Renderer *const renderer, v4 cameraBounds, v2 pos, v2 size,

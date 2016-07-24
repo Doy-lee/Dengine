@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 
+#define GL_CHECK_ERROR() glCheckError_(__FILE__, __LINE__)
 inline GLenum glCheckError_(const char *file, int line)
 {
 	GLenum errorCode;
@@ -15,31 +16,30 @@ inline GLenum glCheckError_(const char *file, int line)
 		switch (errorCode)
 		{
 		case GL_INVALID_ENUM:
-			printf("INVALID_ENUM | ");
+			printf("OPENGL INVALID_ENUM | ");
 			break;
 		case GL_INVALID_VALUE:
-			printf("INVALID_VALUE | ");
+			printf("OPENGL INVALID_VALUE | ");
 			break;
 		case GL_INVALID_OPERATION:
-			printf("INVALID_OPERATION | ");
+			printf("OPENGL INVALID_OPERATION | ");
 			break;
 		case GL_STACK_OVERFLOW:
-			printf("STACK_OVERFLOW | ");
+			printf("OPENGL STACK_OVERFLOW | ");
 			break;
 		case GL_STACK_UNDERFLOW:
-			printf("STACK_UNDERFLOW | ");
+			printf("OPENGL STACK_UNDERFLOW | ");
 			break;
 		case GL_OUT_OF_MEMORY:
-			printf("OUT_OF_MEMORY | ");
+			printf("OPENGL OUT_OF_MEMORY | ");
 			break;
 		case GL_INVALID_FRAMEBUFFER_OPERATION:
-			printf("INVALID_FRAMEBUFFER_OPERATION | ");
+			printf("OPENGL INVALID_FRAMEBUFFER_OPERATION | ");
 			break;
 		}
 		printf("%s (%d)\n", file, line);
 	}
 	return errorCode;
 }
-#define glCheckError() glCheckError_(__FILE__, __LINE__)
 
 #endif

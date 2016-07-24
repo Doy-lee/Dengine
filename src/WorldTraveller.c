@@ -100,12 +100,12 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 	const mat4 projection =
 	    mat4_ortho(0.0f, renderer->size.w, 0.0f, renderer->size.h, 0.0f, 1.0f);
 	shader_uniformSetMat4fv(renderer->shader, "projection", projection);
-	glCheckError();
+	GL_CHECK_ERROR();
 
 	/* Create buffers */
 	glGenVertexArrays(1, &renderer->vao);
 	glGenBuffers(1, &renderer->vbo);
-	glCheckError();
+	GL_CHECK_ERROR();
 
 	/* Bind buffers */
 	glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
@@ -117,12 +117,12 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, numVertexElements, GL_FLOAT, GL_FALSE, vertexSize,
 	                      (GLvoid *)0);
-	glCheckError();
+	GL_CHECK_ERROR();
 
 	/* Unbind */
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
-	glCheckError();
+	GL_CHECK_ERROR();
 }
 
 INTERNAL void addAnim(AssetManager *assetManager, i32 animId, Entity *entity)
@@ -206,7 +206,7 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	                      shaderlist_sprite);
 
 	asset_loadTTFont(assetManager, arena, "C:/Windows/Fonts/Arialbd.ttf");
-	glCheckError();
+	GL_CHECK_ERROR();
 
 #ifdef DENGINE_DEBUG
 	DEBUG_LOG("Assets loaded");
@@ -578,8 +578,6 @@ INTERNAL void updateEntityAnim(Entity *entity, f32 dt)
 	}
 }
 
-// TODO(doyle): Exposed because of debug .. rework debug system so it we don't
-// need to expose any game API to it.
 INTERNAL v4 createCameraBounds(World *world, v2 size)
 {
 	v4 result = math_getRect(world->cameraPos, size);
@@ -887,7 +885,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	if (dt >= 1.0f) dt = 1.0f;
 	/* Update */
 	parseInput(state, dt);
-	glCheckError();
+	GL_CHECK_ERROR();
 
 	AssetManager *assetManager = &state->assetManager;
 	Renderer *renderer         = &state->renderer;
