@@ -4,7 +4,10 @@
 # Custom
 *.swp
 *.opendb
-data/textures/SrcAssets/
+data/textures/
+data/audio/
+dengine_assets.7z
+todo.txt
 
 # User-specific files
 *.suo

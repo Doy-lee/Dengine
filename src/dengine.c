@@ -2,11 +2,15 @@
 #include <OpenAL/al.h>
 #include <OpenAL/alc.h>
 
+#define _CRT_SECURE_NO_WARNINGS
+#include <STB/stb_vorbis.c>
+
 #include "Dengine/AssetManager.h"
 #include "Dengine/Common.h"
 #include "Dengine/Debug.h"
 #include "Dengine/Math.h"
 #include "Dengine/OpenGL.h"
+#include "Dengine/Platform.h"
 
 #include "WorldTraveller/WorldTraveller.h"
 
@@ -126,13 +130,27 @@ int main()
 
 	/*
 	 *******************
+	 * INITIALISE GAME
+	 *******************
+	 */
+	GameState worldTraveller = {0};
+	worldTraveller_gameInit(&worldTraveller,
+	                        V2i(frameBufferWidth, frameBufferHeight));
+#ifdef DENGINE_DEBUG
+	debug_init(&worldTraveller.arena, V2i(windowWidth, windowHeight),
+	           worldTraveller.assetManager.font);
+#endif
+
+	glfwSetWindowUserPointer(window, CAST(void *)(&worldTraveller));
+
+	/*
+	 *******************
 	 * INITIALISE AUDIO
 	 *******************
 	 */
 	alGetError();
 	// TODO(doyle): Read this http://www.gamedev.net/page/resources/_/technical/game-programming/basic-openal-sound-manager-for-your-project-r3791
 	ALCdevice *deviceAL = alcOpenDevice(NULL);
-
 	if (!deviceAL)
 	{
 		printf("alcOpenDevice() failed: Failed to init OpenAL device.\n");
@@ -148,32 +166,47 @@ int main()
 	}
 	AL_CHECK_ERROR();
 
-#define NUM_BUFFERS 3
-#define BUFFER_SIZE 4096
-	ALuint audioBufferIds[NUM_BUFFERS];
-	alGenBuffers(NUM_BUFFERS, audioBufferIds);
+	/* Open audio file */
+	PlatformFileRead fileRead = {0};
+	platform_readFileToBuffer(&worldTraveller.arena,
+	                          "data/audio/Yuki Kajiura - Swordland.ogg",
+	                          &fileRead);
+
+	i32 channels, sampleRate, numSamples;
+	ALshort *vorbisData = NULL;
+	numSamples = stb_vorbis_decode_memory(fileRead.buffer, fileRead.size,
+	                                      &channels, &sampleRate, &vorbisData);
+
+	platform_closeFileRead(&worldTraveller.arena, &fileRead);
+
+	/* Number of concurrent audio files */
+	ALuint audioSourceId;
+	alGenSources(1, &audioSourceId);
 	AL_CHECK_ERROR();
 
-	ALuint audioSourcesIds[NUM_BUFFERS];
-	alGenBuffers(NUM_BUFFERS, audioSourcesIds);
+	/* Audio data buffers */
+	ALuint audioBufferId;
+	alGenBuffers(1, &audioBufferId);
 	AL_CHECK_ERROR();
+
+	alBufferData(audioBufferId, AL_FORMAT_STEREO16, vorbisData,
+	             numSamples * channels * sizeof(i16), sampleRate);
+
+	alSourceQueueBuffers(audioSourceId, 1, &audioBufferId);
+	alSourcePlay(audioSourceId);
+
+#if 0
+	ALuint audioFormat = AL_FORMAT_MONO16;
+	if (vorbisInfo.channels == 2) audioFormat = AL_FORMAT_STEREO16;
+	i32 audioState;
+	alGetSourcei(audioSourceIds[0], AL_SOURCE_STATE, &audioState);
+#endif
 
 	/*
 	 *******************
-	 * INITIALISE GAME
+	 * GAME LOOP
 	 *******************
 	 */
-	GameState worldTraveller = {0};
-	worldTraveller_gameInit(&worldTraveller,
-	                        V2i(frameBufferWidth, frameBufferHeight));
-
-#ifdef DENGINE_DEBUG
-	debug_init(&worldTraveller.arena, V2i(windowWidth, windowHeight),
-	           worldTraveller.assetManager.font);
-#endif
-
-	glfwSetWindowUserPointer(window, CAST(void *)(&worldTraveller));
-
 	f32 startTime      = CAST(f32)(glfwGetTime());
 	f32 secondsElapsed = 0.0f; // Time between current frame and last frame
 
@@ -188,11 +221,6 @@ int main()
 	glfwSwapInterval(1);
 #endif
 
-	/*
-	 *******************
-	 * GAME LOOP
-	 *******************
-	 */
 	while (!glfwWindowShouldClose(window))
 	{
 		/* Check and call events */
