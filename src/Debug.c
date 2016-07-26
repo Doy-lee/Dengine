@@ -32,7 +32,12 @@ void debug_init(MemoryArena *arena, v2 windowSize, Font font)
 
 void debug_consoleLog(char *string, char *file, int lineNum)
 {
+
 	i32 maxConsoleStrLen = ARRAY_COUNT(GLOBAL_debug.console[0]);
+
+	/* Completely clear out current console line */
+	for (i32 i = 0; i < maxConsoleStrLen; i++)
+		GLOBAL_debug.console[GLOBAL_debug.consoleIndex][i] = 0;
 
 	i32 strIndex = 0;
 	i32 fileStrLen = common_strlen(file);

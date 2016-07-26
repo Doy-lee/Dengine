@@ -11,7 +11,6 @@
 #define AL_CHECK_ERROR() alCheckError_(__FILE__, __LINE__);
 void alCheckError_(const char *file, int line)
 {
-
 	ALenum errorCode;
 	while ((errorCode = alGetError()) != AL_NO_ERROR)
 	{
@@ -83,29 +82,16 @@ void audio_streamVorbis(AudioRenderer *audioRenderer, AudioVorbis *vorbis)
 
 	audioRenderer->audio = vorbis;
 	AudioVorbis *audio   = audioRenderer->audio;
-
-	/* Pre-load vorbis data into audio chunks */
-	for (i32 i = 0; i < ARRAY_COUNT(audioRenderer->bufferId); i++)
-	{
-		i16 audioChunk[AUDIO_CHUNK_SIZE_] = {0};
-		stb_vorbis_get_samples_short_interleaved(
-		    audio->file, audio->info.channels, audioChunk, AUDIO_CHUNK_SIZE_);
-
-		alBufferData(audioRenderer->bufferId[i], audioRenderer->format,
-		             audioChunk, AUDIO_CHUNK_SIZE_ * sizeof(i16),
-		             audio->info.sample_rate);
-	}
-
-	/* Queue and play buffers */
-	alSourceQueueBuffers(audioRenderer->sourceId[0],
-	                     ARRAY_COUNT(audioRenderer->bufferId),
-	                     audioRenderer->bufferId);
-	alSourcePlay(audioRenderer->sourceId[0]);
 }
 
 void audio_updateAndPlay(AudioRenderer *audioRenderer)
 {
 	AudioVorbis *audio = audioRenderer->audio;
+	if (!audio)
+	{
+		DEBUG_LOG("audio_updateAndPlay() early exit: No audio stream connected");
+		return;
+	}
 
 	ALint audioState;
 	alGetSourcei(audioRenderer->sourceId[0], AL_SOURCE_STATE, &audioState);
