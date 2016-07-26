@@ -1,6 +1,9 @@
 #ifndef DENGINE_ASSETS_H
 #define DENGINE_ASSETS_H
 
+#define STB_VORBIS_HEADER_ONLY
+#include <STB/stb_vorbis.c>
+
 #include "Dengine/Math.h"
 #include "Dengine/Texture.h"
 
@@ -51,6 +54,23 @@ enum AnimList
 	animlist_count,
 	animlist_invalid,
 };
+
+enum AudioList
+{
+	audiolist_battle,
+	audiolist_overworld,
+	audiolist_count,
+	audiolist_invalid,
+};
+
+typedef struct AudioVorbis
+{
+	stb_vorbis *file;
+	stb_vorbis_info info;
+
+	u32 lengthInSamples;
+	f32 lengthInSeconds;
+} AudioVorbis;
 
 typedef struct TexAtlas
 {

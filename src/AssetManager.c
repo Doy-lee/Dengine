@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #define STBI_FAILURE_USERMSG
 #define STB_IMAGE_IMPLEMENTATION
 #include <STB/stb_image.h>
@@ -6,16 +8,31 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #include <STB/stb_truetype.h>
 
-#include "Dengine/AssetManager.h"
-#include "Dengine/Debug.h"
-#include "Dengine/OpenGL.h"
-#include "Dengine/Platform.h"
-
 //#define WT_RENDER_FONT_FILE
 #ifdef WT_RENDER_FONT_FILE
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <STB/stb_image_write.h>
 #endif
+
+#include <STB/stb_vorbis.c>
+
+#include "Dengine/AssetManager.h"
+#include "Dengine/Debug.h"
+#include "Dengine/OpenGL.h"
+#include "Dengine/Platform.h"
+
+AudioVorbis *asset_getVorbis(AssetManager *assetManager,
+                             const enum AudioList type)
+{
+	if (type < audiolist_count)
+		return &assetManager->audio[type];
+
+#ifdef DENGINE_DEBUG
+	ASSERT(INVALID_CODE_PATH);
+#endif
+
+	return NULL;
+}
 
 Texture *asset_getTexture(AssetManager *assetManager, const enum TexList type)
 {
@@ -40,7 +57,7 @@ TexAtlas *asset_getTextureAtlas(AssetManager *assetManager, const enum TexList t
 	return NULL;
 }
 
-Animation *asset_getAnim(AssetManager *assetManager, i32 type)
+Animation *asset_getAnim(AssetManager *assetManager, const enum AnimList type)
 {
 	if (type < animlist_count)
 		return &assetManager->anims[type];
@@ -50,6 +67,35 @@ Animation *asset_getAnim(AssetManager *assetManager, i32 type)
 #endif
 
 	return NULL;
+}
+
+const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
+                     const char *const path, const enum AudioList type)
+{
+	// TODO(doyle): Remember to free vorbis file if we remove from memory
+	PlatformFileRead fileRead = {0};
+	platform_readFileToBuffer(arena, path, &fileRead);
+
+	i32 error;
+	AudioVorbis audio = {0};
+	audio.file =
+	    stb_vorbis_open_memory(fileRead.buffer, fileRead.size, &error, NULL);
+	
+	if (!audio.file)
+	{
+		printf("stb_vorbis_open_memory() failed: Error code %d\n", error);
+		platform_closeFileRead(arena, &fileRead);
+		stb_vorbis_close(audio.file);
+		return 0;
+	}
+
+	audio.info            = stb_vorbis_get_info(audio.file);
+	audio.lengthInSamples = stb_vorbis_stream_length_in_samples(audio.file);
+	audio.lengthInSeconds = stb_vorbis_stream_length_in_seconds(audio.file);
+
+	assetManager->audio[type] = audio;
+
+	return 0;
 }
 
 const i32 asset_loadTextureImage(AssetManager *assetManager,

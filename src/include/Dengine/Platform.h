@@ -2,7 +2,9 @@
 #define DENGINE_PLATFORM_H
 
 #include "Dengine/Common.h"
-#include "Dengine/MemoryArena.h"
+
+/* Forward Declaration */
+typedef struct MemoryArena MemoryArena;
 
 typedef struct PlatformFileRead
 {

@@ -1,11 +1,6 @@
 #if 1
-#include <OpenAL/al.h>
-#include <OpenAL/alc.h>
-
-#define _CRT_SECURE_NO_WARNINGS
-#include <STB/stb_vorbis.c>
-
 #include "Dengine/AssetManager.h"
+#include "Dengine/Audio.h"
 #include "Dengine/Common.h"
 #include "Dengine/Debug.h"
 #include "Dengine/Math.h"
@@ -14,38 +9,8 @@
 
 #include "WorldTraveller/WorldTraveller.h"
 
-void alCheckError_(const char *file, int line)
-{
-
-	ALenum errorCode;
-	while ((errorCode = alGetError()) != AL_NO_ERROR)
-	{
-		printf("OPENAL ");
-		switch(errorCode)
-		{
-		case AL_INVALID_NAME:
-			printf("INVALID_NAME | ");
-			break;
-		case AL_INVALID_ENUM:
-			printf("INVALID_ENUM | ");
-			break;
-		case AL_INVALID_VALUE:
-			printf("INVALID_VALUE | ");
-			break;
-		case AL_INVALID_OPERATION:
-			printf("INVALID_OPERATION | ");
-			break;
-		case AL_OUT_OF_MEMORY:
-			printf("OUT_OF_MEMORY | ");
-			break;
-		default:
-			printf("UNRECOGNISED ERROR CODE | ");
-			break;
-		}
-		printf("Error %08x, %s (%d)\n", errorCode, file, line);
-	}
-};
-#define AL_CHECK_ERROR() alCheckError_(__FILE__, __LINE__);
+// TODO(doyle): Temporary
+struct AudioRenderer;
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode)
 {
@@ -148,64 +113,20 @@ int main()
 	 * INITIALISE AUDIO
 	 *******************
 	 */
-	alGetError();
-	// TODO(doyle): Read this
-	// http://www.gamedev.net/page/resources/_/technical/game-programming/basic-openal-sound-manager-for-your-project-r3791
-	// https://gist.github.com/Oddity007/965399
-	// https://jogamp.org/joal-demos/www/devmaster/lesson8.html
-	// http://basic-converter.proboards.com/thread/818/play-files-using-vorbis-openal
-	ALCdevice *deviceAL = alcOpenDevice(NULL);
-	if (!deviceAL)
-	{
-		printf("alcOpenDevice() failed: Failed to init OpenAL device.\n");
-		return;
-	}
+	AudioRenderer audioRenderer = {0};
+	audio_rendererInit(&audioRenderer);
 
-	ALCcontext *contextAL = alcCreateContext(deviceAL, NULL);
-	alcMakeContextCurrent(contextAL);
-	if (!contextAL)
-	{
-		printf("alcCreateContext() failed: Failed create AL context.\n");
-		return;
-	}
-	AL_CHECK_ERROR();
+	/* Load audio assets */
+	char *audioPath = "data/audio/Nobuo Uematsu - Battle 1.ogg";
+	asset_loadVorbis(&worldTraveller.assetManager, &worldTraveller.arena,
+	                 audioPath, audiolist_battle);
+	audioPath       = "data/audio/Yuki Kajiura - Swordland.ogg";
+	asset_loadVorbis(&worldTraveller.assetManager, &worldTraveller.arena,
+	                 audioPath, audiolist_overworld);
+	AudioVorbis *audio =
+	    asset_getVorbis(&worldTraveller.assetManager, audiolist_battle);
 
-	/* Open audio file */
-	PlatformFileRead fileRead = {0};
-#if 0
-	platform_readFileToBuffer(&worldTraveller.arena,
-	                          "data/audio/Yuki Kajiura - Swordland.ogg",
-	                          &fileRead);
-#else
-	platform_readFileToBuffer(&worldTraveller.arena,
-	                          "data/audio/Nobuo Uematsu - Battle 1.ogg",
-	                          &fileRead);
-#endif
-
-	i32 error;
-	stb_vorbis *vorbisFile = stb_vorbis_open_memory(fileRead.buffer, fileRead.size,
-	                                                &error, NULL);
-	stb_vorbis_info vorbisInfo = stb_vorbis_get_info(vorbisFile);
-
-	//platform_closeFileRead(&worldTraveller.arena, &fileRead);
-
-	/* Generate number of concurrent audio file listeners */
-	ALuint audioSourceId;
-	alGenSources(1, &audioSourceId);
-	AL_CHECK_ERROR();
-
-	/* Generate audio data buffers */
-	ALuint audioBufferId[4];
-	alGenBuffers(ARRAY_COUNT(audioBufferId), audioBufferId);
-	AL_CHECK_ERROR();
-
-
-#if 0
-	ALuint audioFormat = AL_FORMAT_MONO16;
-	if (vorbisInfo.channels == 2) audioFormat = AL_FORMAT_STEREO16;
-	i32 audioState;
-	alGetSourcei(audioSourceIds[0], AL_SOURCE_STATE, &audioState);
-#endif
+	audio_streamVorbis(&audioRenderer, audio);
 
 	/*
 	 *******************
@@ -237,6 +158,7 @@ int main()
 
 		worldTraveller_gameUpdateAndRender(&worldTraveller, secondsElapsed);
 		GL_CHECK_ERROR();
+		audio_updateAndPlay(&audioRenderer);
 
 		/* Swap the buffers */
 		glfwSwapBuffers(window);
@@ -244,64 +166,6 @@ int main()
 		f32 endTime    = CAST(f32)glfwGetTime();
 		secondsElapsed = endTime - startTime;
 
-#define AUDIO_CHUNK_SIZE 65536
-		ALint audioState;
-		alGetSourcei(audioSourceId, AL_SOURCE_STATE, &audioState);
-		if (audioState == AL_STOPPED || audioState == AL_INITIAL)
-		{
-			// TODO(doyle): This fixes clicking when reusing old buffers
-			if (audioState == AL_STOPPED)
-			{
-				alDeleteBuffers(ARRAY_COUNT(audioBufferId), audioBufferId);
-				alGenBuffers(ARRAY_COUNT(audioBufferId), audioBufferId);
-			}
-
-			stb_vorbis_seek_start(vorbisFile);
-			for (i32 i = 0; i < ARRAY_COUNT(audioBufferId); i++)
-			{
-				i16 audioChunk[AUDIO_CHUNK_SIZE] = {0};
-				stb_vorbis_get_samples_short_interleaved(
-				    vorbisFile, vorbisInfo.channels, audioChunk,
-				    AUDIO_CHUNK_SIZE);
-
-				alBufferData(audioBufferId[i], AL_FORMAT_STEREO16, audioChunk,
-				             AUDIO_CHUNK_SIZE * sizeof(i16),
-				             vorbisInfo.sample_rate);
-			}
-
-			alSourceQueueBuffers(audioSourceId, ARRAY_COUNT(audioBufferId),
-			                     audioBufferId);
-			alSourcePlay(audioSourceId);
-		}
-		else if (audioState == AL_PLAYING)
-		{
-			ALint numProcessedBuffers;
-			alGetSourcei(audioSourceId, AL_BUFFERS_PROCESSED,
-			             &numProcessedBuffers);
-			if (numProcessedBuffers > 0)
-			{
-				ALint numBuffersToUnqueue = 1;
-				ALuint emptyBufferId;
-				alSourceUnqueueBuffers(audioSourceId, numBuffersToUnqueue,
-				                       &emptyBufferId);
-
-				i16 audioChunk[AUDIO_CHUNK_SIZE] = {0};
-				i32 sampleCount = stb_vorbis_get_samples_short_interleaved(
-				    vorbisFile, vorbisInfo.channels, audioChunk,
-				    AUDIO_CHUNK_SIZE);
-
-				/* There are still samples to play */
-				if (sampleCount > 0)
-				{
-					DEBUG_LOG("Buffering new audio data");
-					alBufferData(emptyBufferId, AL_FORMAT_STEREO16, audioChunk,
-					             sampleCount * vorbisInfo.channels *
-					                 sizeof(i16),
-					             vorbisInfo.sample_rate);
-					alSourceQueueBuffers(audioSourceId, 1, &emptyBufferId);
-				}
-			}
-		}
 #if 0
 		// TODO(doyle): Busy waiting, should sleep
 		while (secondsElapsed < targetSecondsPerFrame)

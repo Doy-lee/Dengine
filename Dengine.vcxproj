@@ -121,6 +121,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\AssetManager.c" />
+    <ClCompile Include="src\Audio.c" />
     <ClCompile Include="src\Common.c" />
     <ClCompile Include="src\Debug.c" />
     <ClCompile Include="src\dengine.c" />
@@ -139,6 +140,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\include\Dengine\Assets.h" />
+    <ClInclude Include="src\include\Dengine\Audio.h" />
     <ClInclude Include="src\include\Dengine\Debug.h" />
     <ClInclude Include="src\include\Dengine\MemoryArena.h" />
     <ClInclude Include="src\include\Dengine\Platform.h" />

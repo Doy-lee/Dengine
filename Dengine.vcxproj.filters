@@ -45,6 +45,9 @@
     <ClCompile Include="src\Debug.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Audio.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="data\shaders\default.vert.glsl" />
@@ -93,6 +96,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\include\Dengine\MemoryArena.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\include\Dengine\Audio.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
