@@ -149,7 +149,11 @@ int main()
 	 *******************
 	 */
 	alGetError();
-	// TODO(doyle): Read this http://www.gamedev.net/page/resources/_/technical/game-programming/basic-openal-sound-manager-for-your-project-r3791
+	// TODO(doyle): Read this
+	// http://www.gamedev.net/page/resources/_/technical/game-programming/basic-openal-sound-manager-for-your-project-r3791
+	// https://gist.github.com/Oddity007/965399
+	// https://jogamp.org/joal-demos/www/devmaster/lesson8.html
+	// http://basic-converter.proboards.com/thread/818/play-files-using-vorbis-openal
 	ALCdevice *deviceAL = alcOpenDevice(NULL);
 	if (!deviceAL)
 	{
@@ -168,32 +172,33 @@ int main()
 
 	/* Open audio file */
 	PlatformFileRead fileRead = {0};
+#if 0
 	platform_readFileToBuffer(&worldTraveller.arena,
 	                          "data/audio/Yuki Kajiura - Swordland.ogg",
 	                          &fileRead);
+#else
+	platform_readFileToBuffer(&worldTraveller.arena,
+	                          "data/audio/Nobuo Uematsu - Battle 1.ogg",
+	                          &fileRead);
+#endif
 
-	i32 channels, sampleRate, numSamples;
-	ALshort *vorbisData = NULL;
-	numSamples = stb_vorbis_decode_memory(fileRead.buffer, fileRead.size,
-	                                      &channels, &sampleRate, &vorbisData);
+	i32 error;
+	stb_vorbis *vorbisFile = stb_vorbis_open_memory(fileRead.buffer, fileRead.size,
+	                                                &error, NULL);
+	stb_vorbis_info vorbisInfo = stb_vorbis_get_info(vorbisFile);
 
-	platform_closeFileRead(&worldTraveller.arena, &fileRead);
+	//platform_closeFileRead(&worldTraveller.arena, &fileRead);
 
-	/* Number of concurrent audio files */
+	/* Generate number of concurrent audio file listeners */
 	ALuint audioSourceId;
 	alGenSources(1, &audioSourceId);
 	AL_CHECK_ERROR();
 
-	/* Audio data buffers */
-	ALuint audioBufferId;
-	alGenBuffers(1, &audioBufferId);
+	/* Generate audio data buffers */
+	ALuint audioBufferId[4];
+	alGenBuffers(ARRAY_COUNT(audioBufferId), audioBufferId);
 	AL_CHECK_ERROR();
 
-	alBufferData(audioBufferId, AL_FORMAT_STEREO16, vorbisData,
-	             numSamples * channels * sizeof(i16), sampleRate);
-
-	alSourceQueueBuffers(audioSourceId, 1, &audioBufferId);
-	alSourcePlay(audioSourceId);
 
 #if 0
 	ALuint audioFormat = AL_FORMAT_MONO16;
@@ -239,6 +244,64 @@ int main()
 		f32 endTime    = CAST(f32)glfwGetTime();
 		secondsElapsed = endTime - startTime;
 
+#define AUDIO_CHUNK_SIZE 65536
+		ALint audioState;
+		alGetSourcei(audioSourceId, AL_SOURCE_STATE, &audioState);
+		if (audioState == AL_STOPPED || audioState == AL_INITIAL)
+		{
+			// TODO(doyle): This fixes clicking when reusing old buffers
+			if (audioState == AL_STOPPED)
+			{
+				alDeleteBuffers(ARRAY_COUNT(audioBufferId), audioBufferId);
+				alGenBuffers(ARRAY_COUNT(audioBufferId), audioBufferId);
+			}
+
+			stb_vorbis_seek_start(vorbisFile);
+			for (i32 i = 0; i < ARRAY_COUNT(audioBufferId); i++)
+			{
+				i16 audioChunk[AUDIO_CHUNK_SIZE] = {0};
+				stb_vorbis_get_samples_short_interleaved(
+				    vorbisFile, vorbisInfo.channels, audioChunk,
+				    AUDIO_CHUNK_SIZE);
+
+				alBufferData(audioBufferId[i], AL_FORMAT_STEREO16, audioChunk,
+				             AUDIO_CHUNK_SIZE * sizeof(i16),
+				             vorbisInfo.sample_rate);
+			}
+
+			alSourceQueueBuffers(audioSourceId, ARRAY_COUNT(audioBufferId),
+			                     audioBufferId);
+			alSourcePlay(audioSourceId);
+		}
+		else if (audioState == AL_PLAYING)
+		{
+			ALint numProcessedBuffers;
+			alGetSourcei(audioSourceId, AL_BUFFERS_PROCESSED,
+			             &numProcessedBuffers);
+			if (numProcessedBuffers > 0)
+			{
+				ALint numBuffersToUnqueue = 1;
+				ALuint emptyBufferId;
+				alSourceUnqueueBuffers(audioSourceId, numBuffersToUnqueue,
+				                       &emptyBufferId);
+
+				i16 audioChunk[AUDIO_CHUNK_SIZE] = {0};
+				i32 sampleCount = stb_vorbis_get_samples_short_interleaved(
+				    vorbisFile, vorbisInfo.channels, audioChunk,
+				    AUDIO_CHUNK_SIZE);
+
+				/* There are still samples to play */
+				if (sampleCount > 0)
+				{
+					DEBUG_LOG("Buffering new audio data");
+					alBufferData(emptyBufferId, AL_FORMAT_STEREO16, audioChunk,
+					             sampleCount * vorbisInfo.channels *
+					                 sizeof(i16),
+					             vorbisInfo.sample_rate);
+					alSourceQueueBuffers(audioSourceId, 1, &emptyBufferId);
+				}
+			}
+		}
 #if 0
 		// TODO(doyle): Busy waiting, should sleep
 		while (secondsElapsed < targetSecondsPerFrame)
