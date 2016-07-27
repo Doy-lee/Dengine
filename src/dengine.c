@@ -95,19 +95,6 @@ int main()
 
 	/*
 	 *******************
-	 * INITIALISE AUDIO
-	 *******************
-	 */
-	i32 result = audio_init();
-	if (result)
-	{
-#ifdef DENGINE_DEBUG
-		ASSERT(INVALID_CODE_PATH);
-#endif
-	}
-
-	/*
-	 *******************
 	 * INITIALISE GAME
 	 *******************
 	 */

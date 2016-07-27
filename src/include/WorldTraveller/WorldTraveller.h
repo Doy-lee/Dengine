@@ -2,6 +2,7 @@
 #define WORLDTRAVELLER_GAME_H
 
 #include "Dengine/AssetManager.h"
+#include "Dengine/Audio.h"
 #include "Dengine/Common.h"
 #include "Dengine/Entity.h"
 #include "Dengine/Math.h"
@@ -14,7 +15,6 @@ typedef struct MemoryArena MemoryArena;
 #define NUM_KEYS 1024
 #define METERS_TO_PIXEL 240
 
-enum State;
 
 typedef struct World
 {
@@ -45,6 +45,7 @@ typedef struct GameState
 	i32 tileSize;
 
 	AssetManager assetManager;
+	AudioManager audioManager;
 	MemoryArena arena;
 } GameState;
 

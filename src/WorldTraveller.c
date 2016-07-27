@@ -167,6 +167,20 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
 	MemoryArena *arena = &state->arena;
+
+	/*
+	 ************************
+	 * INITIALISE GAME AUDIO
+	 ************************
+	 */
+	i32 result = audio_init(&state->audioManager);
+	if (result)
+	{
+#ifdef DENGINE_DEBUG
+		ASSERT(INVALID_CODE_PATH);
+#endif
+	}
+
 	/*
 	 *******************
 	 * INITIALISE ASSETS
@@ -352,9 +366,10 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	    addEntity(arena, world, pos, size, type, dir, tex, collides);
 
 	soundscape->audio = PLATFORM_MEM_ALLOC(arena, 1, AudioRenderer);
-	audio_rendererInit(soundscape->audio);
-	audio_streamVorbis(soundscape->audio,
-	                   asset_getVorbis(assetManager, audiolist_battle));
+	soundscape->audio->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
+	audio_beginVorbisStream(&state->audioManager, soundscape->audio,
+	                        asset_getVorbis(assetManager, audiolist_battle),
+	                        AUDIO_REPEAT_INFINITE);
 
 	/* Init hero entity */
 	world->heroIndex   = world->freeEntityIndex;
@@ -937,7 +952,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 		if (entity->audio)
 		{
-			audio_updateAndPlay(entity->audio);
+			audio_updateAndPlay(&state->audioManager, entity->audio);
 		}
 
 		if (entity->state == entitystate_dead)

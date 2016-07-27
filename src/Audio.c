@@ -40,8 +40,11 @@ void alCheckError_(const char *file, int line)
 	}
 };
 
-const i32 audio_init()
+const i32 audio_init(AudioManager *audioManager)
 {
+#ifdef DENGINE_DEBUG
+	ASSERT(audioManager);
+#endif
 	/* Clear error stack */
 	alGetError();
 
@@ -93,14 +96,41 @@ const i32 audio_init()
 	}
 	AL_CHECK_ERROR();
 
+	for (i32 i = 0; i < ARRAY_COUNT(audioManager->sourceList); i++)
+	{
+		alGenSources(1, &audioManager->sourceList[i].id);
+
+		// NOTE(doyle): If last entry, loop the free source to front of list
+		if (i + 1 >= ARRAY_COUNT(audioManager->sourceList))
+			audioManager->sourceList[i].nextFreeIndex = 0;
+		else
+			audioManager->sourceList[i].nextFreeIndex = i+1;
+	}
+	audioManager->freeSourceIndex = 0;
+
 	return 0;
 }
 
-const i32 audio_rendererInit(AudioRenderer *audioRenderer)
+INTERNAL i32 rendererAcquire(AudioManager *audioManager,
+                             AudioRenderer *audioRenderer)
 {
-	/* Generate number of concurrent audio file listeners */
-	alGenSources(ARRAY_COUNT(audioRenderer->sourceId), audioRenderer->sourceId);
-	AL_CHECK_ERROR();
+	i32 vacantSource = audioManager->freeSourceIndex;
+	if (audioManager->sourceList[vacantSource].nextFreeIndex ==
+	    AUDIO_NO_FREE_SOURCE)
+	{
+		// TODO(doyle): Error messaging return paths
+		return -1;
+	}
+
+	/* Assign a vacant source slot to renderer */
+	audioRenderer->sourceIndex = vacantSource;
+
+	/* Update the immediate free source index */
+	audioManager->freeSourceIndex =
+	    audioManager->sourceList[vacantSource].nextFreeIndex;
+
+	/* Mark current source as in use */
+	audioManager->sourceList[vacantSource].nextFreeIndex = AUDIO_NO_FREE_SOURCE;
 
 	/* Generate audio data buffers */
 	alGenBuffers(ARRAY_COUNT(audioRenderer->bufferId), audioRenderer->bufferId);
@@ -111,9 +141,38 @@ const i32 audio_rendererInit(AudioRenderer *audioRenderer)
 	return 0;
 }
 
-#define AUDIO_CHUNK_SIZE_ 65536
-void audio_streamVorbis(AudioRenderer *audioRenderer, AudioVorbis *vorbis)
+INTERNAL void rendererRelease(AudioManager *audioManager,
+                             AudioRenderer *audioRenderer)
 {
+	u32 sourceIndexToFree = audioRenderer->sourceIndex;
+
+	audioManager->sourceList[sourceIndexToFree].nextFreeIndex =
+	    audioManager->freeSourceIndex;
+
+	audioManager->freeSourceIndex = sourceIndexToFree;
+	audioRenderer->sourceIndex    = AUDIO_SOURCE_UNASSIGNED;
+}
+
+#define AUDIO_CHUNK_SIZE_ 65536
+void audio_beginVorbisStream(AudioManager *audioManager,
+                             AudioRenderer *audioRenderer, AudioVorbis *vorbis,
+                             i32 numPlays)
+{
+#ifdef DENGINE_DEBUG
+	ASSERT(audioManager && audioRenderer && vorbis);
+	if (numPlays != AUDIO_REPEAT_INFINITE && numPlays <= 0)
+	{
+		DEBUG_LOG("audio_beginVorbisStream() warning: Number of plays is less than 0");
+	}
+#endif
+
+	i32 result = rendererAcquire(audioManager, audioRenderer);
+	if (result)
+	{
+		DEBUG_LOG("audio_beginVorbisStream() failed: Could not acquire renderer");
+		return;
+	}
+
 	/* Determine format */
 	audioRenderer->format = AL_FORMAT_MONO16;
 	if (vorbis->info.channels == 2)
@@ -121,36 +180,66 @@ void audio_streamVorbis(AudioRenderer *audioRenderer, AudioVorbis *vorbis)
 	else if (vorbis->info.channels != 1)
 	{
 #ifdef DENGINE_DEBUG
-		DEBUG_LOG("audio_streamVorbis() warning: Unaccounted channel format");
+		DEBUG_LOG(
+		    "audio_beginVorbisStream() warning: Unaccounted channel format");
 		ASSERT(INVALID_CODE_PATH);
 #endif
 	}
 
-	audioRenderer->audio = vorbis;
+	audioRenderer->audio    = vorbis;
+	audioRenderer->numPlays = numPlays;
 }
 
-void audio_updateAndPlay(AudioRenderer *audioRenderer)
+void audio_updateAndPlay(AudioManager *audioManager,
+                         AudioRenderer *audioRenderer)
 {
 	AudioVorbis *audio = audioRenderer->audio;
 	if (!audio)
 	{
+#ifdef DENGINE_DEBUG
 		DEBUG_LOG("audio_updateAndPlay() early exit: No audio stream connected");
+#endif
 		return;
 	}
 
+	if (audioRenderer->numPlays != AUDIO_REPEAT_INFINITE &&
+	    audioRenderer->numPlays <= 0)
+	{
+		rendererRelease(audioManager, audioRenderer);
+		return;
+	}
+
+	u32 alSourceId = audioManager->sourceList[audioRenderer->sourceIndex].id;
+
 	ALint audioState;
-	alGetSourcei(audioRenderer->sourceId[0], AL_SOURCE_STATE, &audioState);
+	alGetSourcei(alSourceId, AL_SOURCE_STATE, &audioState);
 	if (audioState == AL_STOPPED || audioState == AL_INITIAL)
 	{
-		// TODO(doyle): This fixes clicking when reusing old buffers
+		// TODO(doyle): Delete and recreate fixes clicking when reusing buffers
 		if (audioState == AL_STOPPED)
 		{
+
+			if (audioRenderer->numPlays != AUDIO_REPEAT_INFINITE)
+				audioRenderer->numPlays--;
+
 			alDeleteBuffers(ARRAY_COUNT(audioRenderer->bufferId),
 			                audioRenderer->bufferId);
-			alGenBuffers(ARRAY_COUNT(audioRenderer->bufferId),
-			             audioRenderer->bufferId);
+
+			if (audioRenderer->numPlays == AUDIO_REPEAT_INFINITE ||
+			    audioRenderer->numPlays > 0)
+			{
+				alGenBuffers(ARRAY_COUNT(audioRenderer->bufferId),
+				             audioRenderer->bufferId);
+			}
+			else
+			{
+				rendererRelease(audioManager, audioRenderer);
+				return;
+			}
 		}
 
+		// TODO(doyle): Possible bug! Multiple sources playing same file seeking
+		// file ptr to start may interrupt other stream
 		stb_vorbis_seek_start(audio->file);
 		for (i32 i = 0; i < ARRAY_COUNT(audioRenderer->bufferId); i++)
 		{
@@ -164,22 +253,21 @@ void audio_updateAndPlay(AudioRenderer *audioRenderer)
 			             audio->info.sample_rate);
 		}
 
-		alSourceQueueBuffers(audioRenderer->sourceId[0],
-		                     ARRAY_COUNT(audioRenderer->bufferId),
+		alSourceQueueBuffers(alSourceId, ARRAY_COUNT(audioRenderer->bufferId),
 		                     audioRenderer->bufferId);
-		alSourcePlay(audioRenderer->sourceId[0]);
+		alSourcePlay(alSourceId);
 	}
 	else if (audioState == AL_PLAYING)
 	{
 		ALint numProcessedBuffers;
-		alGetSourcei(audioRenderer->sourceId[0], AL_BUFFERS_PROCESSED,
+		alGetSourcei(alSourceId, AL_BUFFERS_PROCESSED,
 		             &numProcessedBuffers);
 		if (numProcessedBuffers > 0)
 		{
 			ALint numBuffersToUnqueue = 1;
 			ALuint emptyBufferId;
-			alSourceUnqueueBuffers(audioRenderer->sourceId[0],
-			                       numBuffersToUnqueue, &emptyBufferId);
+			alSourceUnqueueBuffers(alSourceId, numBuffersToUnqueue,
+			                       &emptyBufferId);
 
 			i16 audioChunk[AUDIO_CHUNK_SIZE_] = {0};
 			i32 sampleCount = stb_vorbis_get_samples_short_interleaved(
@@ -189,12 +277,10 @@ void audio_updateAndPlay(AudioRenderer *audioRenderer)
 			/* There are still samples to play */
 			if (sampleCount > 0)
 			{
-				DEBUG_LOG("Buffering new audio data");
 				alBufferData(emptyBufferId, audioRenderer->format, audioChunk,
 				             sampleCount * audio->info.channels * sizeof(i16),
 				             audio->info.sample_rate);
-				alSourceQueueBuffers(audioRenderer->sourceId[0], 1,
-				                     &emptyBufferId);
+				alSourceQueueBuffers(alSourceId, 1, &emptyBufferId);
 			}
 		}
 	}
