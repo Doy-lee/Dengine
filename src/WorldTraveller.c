@@ -2,6 +2,7 @@
 
 #include "Dengine/Debug.h"
 #include "Dengine/Platform.h"
+#include "Dengine/Audio.h"
 
 enum State
 {
@@ -22,7 +23,7 @@ INTERNAL Entity *addEntity(MemoryArena *arena, World *world, v2 pos, v2 size,
 {
 
 #ifdef DENGINE_DEBUG
-	ASSERT(tex && world);
+	ASSERT(world);
 	ASSERT(world->freeEntityIndex < world->maxEntities);
 	ASSERT(type < entitytype_count);
 #endif
@@ -166,7 +167,11 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
 	MemoryArena *arena = &state->arena;
-	/* Initialise assets */
+	/*
+	 *******************
+	 * INITIALISE ASSETS
+	 *******************
+	 */
 	/* Create empty 1x1 4bpp black texture */
 	u32 bitmap       = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
 	Texture emptyTex = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
@@ -263,6 +268,16 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	DEBUG_LOG("Animations created");
 #endif
 
+	/* Load sound */
+
+	char *audioPath = "data/audio/Nobuo Uematsu - Battle 1.ogg";
+	asset_loadVorbis(assetManager, arena, audioPath, audiolist_battle);
+	audioPath = "data/audio/Yuki Kajiura - Swordland.ogg";
+	asset_loadVorbis(assetManager, arena, audioPath, audiolist_overworld);
+
+#ifdef DENGINE_DEBUG
+	DEBUG_LOG("Sound assets initialised");
+#endif
 
 	state->state          = state_active;
 	state->currWorldIndex = 0;
@@ -325,16 +340,31 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	World *const world = &state->world[state->currWorldIndex];
 	world->cameraPos = V2(0.0f, 0.0f);
 
+	/* Add world soundscape */
+	Renderer *renderer   = &state->renderer;
+	v2 size              = V2(10.0f, 10.0f);
+	v2 pos               = V2(0, 0);
+	enum EntityType type = entitytype_soundscape;
+	enum Direction dir   = direction_null;
+	Texture *tex         = NULL;
+	b32 collides         = FALSE;
+	Entity *soundscape =
+	    addEntity(arena, world, pos, size, type, dir, tex, collides);
+
+	soundscape->audio = PLATFORM_MEM_ALLOC(arena, 1, AudioRenderer);
+	audio_rendererInit(soundscape->audio);
+	audio_streamVorbis(soundscape->audio,
+	                   asset_getVorbis(assetManager, audiolist_battle));
+
 	/* Init hero entity */
 	world->heroIndex   = world->freeEntityIndex;
 
-	Renderer *renderer   = &state->renderer;
-	v2 size              = V2(58.0f, 98.0f);
-	v2 pos               = V2(size.x, CAST(f32) state->tileSize);
-	enum EntityType type = entitytype_hero;
-	enum Direction dir   = direction_east;
-	Texture *tex         = asset_getTexture(assetManager, texlist_hero);
-	b32 collides         = TRUE;
+	size            = V2(58.0f, 98.0f);
+	pos             = V2(size.x, CAST(f32) state->tileSize);
+	type            = entitytype_hero;
+	dir             = direction_east;
+	tex             = asset_getTexture(assetManager, texlist_hero);
+	collides        = TRUE;
 	Entity *hero = addEntity(arena, world, pos, size, type, dir, tex, collides);
 
 	/* Populate hero animation references */
@@ -549,11 +579,13 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 
 INTERNAL void updateEntityAnim(Entity *entity, f32 dt)
 {
+	if (!entity->tex) return;
+
 	// TODO(doyle): Recheck why we have this twice
 	EntityAnim_ *entityAnim = &entity->anim[entity->currAnimId];
-	Animation anim         = *entityAnim->anim;
-	i32 frameIndex         = anim.frameIndex[entityAnim->currFrame];
-	v4 texRect             = anim.atlas->texRect[frameIndex];
+	Animation anim          = *entityAnim->anim;
+	i32 frameIndex          = anim.frameIndex[entityAnim->currFrame];
+	v4 texRect              = anim.atlas->texRect[frameIndex];
 
 	entityAnim->currDuration -= dt;
 	if (entityAnim->currDuration <= 0.0f)
@@ -879,7 +911,6 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 	entity->state = newState;
 }
 
-
 void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 {
 	if (dt >= 1.0f) dt = 1.0f;
@@ -903,6 +934,12 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
 		Entity *const entity = &world->entities[i];
+
+		if (entity->audio)
+		{
+			audio_updateAndPlay(entity->audio);
+		}
+
 		if (entity->state == entitystate_dead)
 		{
 #ifdef DENGINE_DEBUG
@@ -1030,9 +1067,13 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		 * Update animations and render entity
 		 **************************************************
 		 */
-		updateEntityAnim(entity, dt);
-		/* Calculate region to render */
-		renderer_entity(renderer, cameraBounds, entity, V2(0, 0), 0, V4(1, 1, 1, 1));
+		if (entity->tex)
+		{
+			updateEntityAnim(entity, dt);
+			/* Calculate region to render */
+			renderer_entity(renderer, cameraBounds, entity, V2(0, 0), 0,
+			                V4(1, 1, 1, 1));
+		}
 	}
 
 	// TODO(doyle): Dead hero not accounted for here
@@ -1104,7 +1145,6 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			              V4(1, 0, 0, 1.0f));
 		}
 	}
-
 #ifdef DENGINE_DEBUG
 	debug_drawUi(state, dt);
 #endif

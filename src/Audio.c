@@ -106,6 +106,8 @@ const i32 audio_rendererInit(AudioRenderer *audioRenderer)
 	alGenBuffers(ARRAY_COUNT(audioRenderer->bufferId), audioRenderer->bufferId);
 	AL_CHECK_ERROR();
 
+	//alSourcef(audioRenderer->sourceId[0], AL_PITCH, 2.0f);
+
 	return 0;
 }
 
@@ -117,10 +119,14 @@ void audio_streamVorbis(AudioRenderer *audioRenderer, AudioVorbis *vorbis)
 	if (vorbis->info.channels == 2)
 		audioRenderer->format = AL_FORMAT_STEREO16;
 	else if (vorbis->info.channels != 1)
+	{
+#ifdef DENGINE_DEBUG
 		DEBUG_LOG("audio_streamVorbis() warning: Unaccounted channel format");
+		ASSERT(INVALID_CODE_PATH);
+#endif
+	}
 
 	audioRenderer->audio = vorbis;
-	AudioVorbis *audio   = audioRenderer->audio;
 }
 
 void audio_updateAndPlay(AudioRenderer *audioRenderer)

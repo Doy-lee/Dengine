@@ -5,6 +5,8 @@
 #include "Dengine/Math.h"
 #include "Dengine/Texture.h"
 
+typedef struct AudioRenderer AudioRenderer;
+
 enum Direction
 {
 	direction_north,
@@ -22,6 +24,7 @@ enum EntityType
 	entitytype_npc,
 	entitytype_mob,
 	entitytype_tile,
+	entitytype_soundscape,
 	entitytype_count,
 };
 
@@ -88,6 +91,7 @@ typedef struct Entity
 	enum AnimList currAnimId;
 
 	EntityStats *stats;
+	AudioRenderer *audio;
 } Entity;
 
 #endif

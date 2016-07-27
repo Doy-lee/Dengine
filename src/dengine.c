@@ -95,6 +95,19 @@ int main()
 
 	/*
 	 *******************
+	 * INITIALISE AUDIO
+	 *******************
+	 */
+	i32 result = audio_init();
+	if (result)
+	{
+#ifdef DENGINE_DEBUG
+		ASSERT(INVALID_CODE_PATH);
+#endif
+	}
+
+	/*
+	 *******************
 	 * INITIALISE GAME
 	 *******************
 	 */
@@ -107,40 +120,6 @@ int main()
 #endif
 
 	glfwSetWindowUserPointer(window, CAST(void *)(&worldTraveller));
-
-	/*
-	 *******************
-	 * INITIALISE AUDIO
-	 *******************
-	 */
-	i32 result = audio_init();
-	if (result)
-	{
-#ifdef DENGINE_DEBUG
-		ASSERT(INVALID_CODE_PATH);
-#endif
-	}
-
-	AudioRenderer audioRenderer = {0};
-	audio_rendererInit(&audioRenderer);
-
-	/* Load audio assets */
-	char *audioPath = "data/audio/Nobuo Uematsu - Battle 1.ogg";
-	asset_loadVorbis(&worldTraveller.assetManager, &worldTraveller.arena,
-	                 audioPath, audiolist_battle);
-	audioPath       = "data/audio/Yuki Kajiura - Swordland.ogg";
-	asset_loadVorbis(&worldTraveller.assetManager, &worldTraveller.arena,
-	                 audioPath, audiolist_overworld);
-	AudioVorbis *audio =
-	    asset_getVorbis(&worldTraveller.assetManager, audiolist_battle);
-
-	audio_streamVorbis(&audioRenderer, audio);
-
-	AudioRenderer overworldAudioRenderer = {0};
-	audio_rendererInit(&overworldAudioRenderer);
-	AudioVorbis *overworldAudio =
-	    asset_getVorbis(&worldTraveller.assetManager, audiolist_overworld);
-	audio_streamVorbis(&overworldAudioRenderer, overworldAudio);
 
 	/*
 	 *******************
@@ -172,8 +151,6 @@ int main()
 
 		worldTraveller_gameUpdateAndRender(&worldTraveller, secondsElapsed);
 		GL_CHECK_ERROR();
-		audio_updateAndPlay(&audioRenderer);
-		//audio_updateAndPlay(&overworldAudioRenderer);
 
 		/* Swap the buffers */
 		glfwSwapBuffers(window);

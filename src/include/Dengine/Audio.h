@@ -5,14 +5,16 @@
 
 #include "Dengine/Common.h"
 
-typedef struct AudioRenderer
+struct AudioRenderer
 {
 	ALuint sourceId[1];
 	ALuint bufferId[4];
 
 	AudioVorbis *audio;
 	ALuint format;
-} AudioRenderer;
+};
+
+typedef struct AudioRenderer AudioRenderer;
 
 const i32 audio_init();
 const i32 audio_rendererInit(AudioRenderer *audioRenderer);
