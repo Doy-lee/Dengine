@@ -31,6 +31,8 @@ typedef struct World
 	i32 heroIndex;
 	i32 freeEntityIndex;
 	u32 uniqueIdAccumulator;
+
+	Entity *soundscape;
 } World;
 
 typedef struct GameState
