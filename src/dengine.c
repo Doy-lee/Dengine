@@ -113,6 +113,14 @@ int main()
 	 * INITIALISE AUDIO
 	 *******************
 	 */
+	i32 result = audio_init();
+	if (result)
+	{
+#ifdef DENGINE_DEBUG
+		ASSERT(INVALID_CODE_PATH);
+#endif
+	}
+
 	AudioRenderer audioRenderer = {0};
 	audio_rendererInit(&audioRenderer);
 
@@ -127,6 +135,12 @@ int main()
 	    asset_getVorbis(&worldTraveller.assetManager, audiolist_battle);
 
 	audio_streamVorbis(&audioRenderer, audio);
+
+	AudioRenderer overworldAudioRenderer = {0};
+	audio_rendererInit(&overworldAudioRenderer);
+	AudioVorbis *overworldAudio =
+	    asset_getVorbis(&worldTraveller.assetManager, audiolist_overworld);
+	audio_streamVorbis(&overworldAudioRenderer, overworldAudio);
 
 	/*
 	 *******************
@@ -159,6 +173,7 @@ int main()
 		worldTraveller_gameUpdateAndRender(&worldTraveller, secondsElapsed);
 		GL_CHECK_ERROR();
 		audio_updateAndPlay(&audioRenderer);
+		//audio_updateAndPlay(&overworldAudioRenderer);
 
 		/* Swap the buffers */
 		glfwSwapBuffers(window);

@@ -3,6 +3,8 @@
 
 #include <OpenAL/al.h>
 
+#include "Dengine/Common.h"
+
 typedef struct AudioRenderer
 {
 	ALuint sourceId[1];
@@ -12,6 +14,7 @@ typedef struct AudioRenderer
 	ALuint format;
 } AudioRenderer;
 
+const i32 audio_init();
 const i32 audio_rendererInit(AudioRenderer *audioRenderer);
 void audio_streamVorbis(AudioRenderer *audioRenderer, AudioVorbis *vorbis);
 void audio_updateAndPlay(AudioRenderer *audioRenderer);
