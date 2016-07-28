@@ -5,20 +5,22 @@
 
 #include "Dengine/Common.h"
 
+/* Forward Declaration */
+typedef struct MemoryArena MemoryArena;
+
 #define AUDIO_NO_FREE_SOURCE -1
 typedef struct AudioSourceEntry
 {
 	u32 id;
-	i32 nextFreeIndex;
+	b32 isFree;
 } AudioSourceEntry;
 
+// TODO(doyle): Incorporate memory arena into managers?
 #define AUDIO_MAX_SOURCES 32
 typedef struct AudioManager
 {
 	// NOTE(doyle): Source entries point to the next free index
 	AudioSourceEntry sourceList[AUDIO_MAX_SOURCES];
-	i32 freeSourceIndex;
-
 } AudioManager;
 
 
@@ -36,15 +38,15 @@ typedef struct AudioRenderer
 
 
 const i32 audio_init(AudioManager *audioManager);
-const i32 audio_streamPlayVorbis(AudioManager *audioManager,
+const i32 audio_streamPlayVorbis(MemoryArena *arena, AudioManager *audioManager,
                                  AudioRenderer *audioRenderer,
                                  AudioVorbis *vorbis, i32 numPlays);
-const i32 audio_streamStopVorbis(AudioManager *audioManager,
+const i32 audio_streamStopVorbis(MemoryArena *arena, AudioManager *audioManager,
                                  AudioRenderer *audioRenderer);
 const i32 audio_streamPauseVorbis(AudioManager *audioManager,
                                   AudioRenderer *audioRenderer);
 const i32 audio_streamResumeVorbis(AudioManager *audioManager,
                                    AudioRenderer *audioRenderer);
-const i32 audio_updateAndPlay(AudioManager *audioManager,
+const i32 audio_updateAndPlay(MemoryArena *arena, AudioManager *audioManager,
                               AudioRenderer *audioRenderer);
 #endif

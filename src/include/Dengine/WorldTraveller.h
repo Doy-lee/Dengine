@@ -15,7 +15,6 @@ typedef struct MemoryArena MemoryArena;
 #define NUM_KEYS 1024
 #define METERS_TO_PIXEL 240
 
-
 typedef struct World
 {
 	Entity *entities;

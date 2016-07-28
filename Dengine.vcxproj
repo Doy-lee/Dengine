@@ -131,7 +131,6 @@
     <ClCompile Include="src\Shader.c" />
     <ClCompile Include="src\WorldTraveller.c" />
     <ClCompile Include="src\Texture.c" />
-    <ClCompile Include="src\Tutorial.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="data\shaders\default.frag.glsl" />

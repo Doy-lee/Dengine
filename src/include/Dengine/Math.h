@@ -55,6 +55,11 @@ INTERNAL inline v2 V2(const f32 x, const f32 y)
 	v2 result = {x, y};
 	return result;
 }
+INTERNAL inline v3 V3i(const i32 x, const i32 y, const i32 z)
+{
+	v3 result = {CAST(f32)x, CAST(f32)y, CAST(f32)z};
+	return result;
+}
 INTERNAL inline v3 V3(const f32 x, const f32 y, const f32 z)
 {
 	v3 result = {x, y, z};

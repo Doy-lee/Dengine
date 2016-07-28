@@ -6,6 +6,8 @@
 #include "Dengine/Assets.h"
 #include "Dengine/Audio.h"
 #include "Dengine/Debug.h"
+#include "Dengine/MemoryArena.h"
+#include "dengine/Platform.h"
 
 #define AL_CHECK_ERROR() alCheckError_(__FILE__, __LINE__);
 void alCheckError_(const char *file, int line)
@@ -101,13 +103,8 @@ const i32 audio_init(AudioManager *audioManager)
 		alGenSources(1, &audioManager->sourceList[i].id);
 		AL_CHECK_ERROR();
 
-		// NOTE(doyle): If last entry, loop the free source to front of list
-		if (i + 1 >= ARRAY_COUNT(audioManager->sourceList))
-			audioManager->sourceList[i].nextFreeIndex = 0;
-		else
-			audioManager->sourceList[i].nextFreeIndex = i+1;
+		audioManager->sourceList[i].isFree = TRUE;
 	}
-	audioManager->freeSourceIndex = 0;
 
 	return 0;
 }
@@ -119,43 +116,40 @@ INTERNAL inline u32 getSourceId(AudioManager *audioManager,
 	return result;
 }
 
-INTERNAL i32 rendererAcquire(AudioManager *audioManager,
+INTERNAL i32 rendererAcquire(MemoryArena *arena, AudioManager *audioManager,
                              AudioRenderer *audioRenderer)
 {
-
-	i32 vacantSource = audioManager->freeSourceIndex;
-
 #ifdef DENGINE_DEBUG
-	ASSERT(audioManager && audioRenderer);
-	ASSERT(vacantSource >= 0);
+	ASSERT(arena && audioManager && audioRenderer);
 #endif
-
-	if (audioManager->sourceList[vacantSource].nextFreeIndex ==
-	    AUDIO_NO_FREE_SOURCE)
-	{
-		// TODO(doyle): Error messaging return paths
-		DEBUG_LOG("rendererAcquire(): Failed to acquire free source, all busy");
-		return -1;
-	}
-
 	u32 checkSource = getSourceId(audioManager, audioRenderer);
 	if (alIsSource(checkSource) == AL_TRUE)
 	{
 		DEBUG_LOG(
 		    "rendererAcquire(): Renderer has not been released before "
 		    "acquiring, force release by stopping stream");
-		audio_streamStopVorbis(audioManager, audioRenderer);
+		audio_streamStopVorbis(arena, audioManager, audioRenderer);
 	}
 
-	/* Assign a vacant source slot to renderer */
+	// TODO(doyle): Super bad linear O(n) search for every audio-enabled entity
+	i32 vacantSource = AUDIO_SOURCE_UNASSIGNED;
+	for (i32 i = 0; i < ARRAY_COUNT(audioManager->sourceList); i++)
+	{
+		if (audioManager->sourceList[i].isFree)
+		{
+			vacantSource = i;
+			audioManager->sourceList[i].isFree = FALSE;
+			break;
+		}
+	}
+
+	if (vacantSource == AUDIO_SOURCE_UNASSIGNED)
+	{
+		DEBUG_LOG("rendererAcquire(): Failed to acquire free source, all busy");
+		return -1;
+	}
+
 	audioRenderer->sourceIndex = vacantSource;
-
-	/* Update the immediate free source index */
-	audioManager->freeSourceIndex =
-	    audioManager->sourceList[vacantSource].nextFreeIndex;
-
-	/* Mark current source as in use */
-	audioManager->sourceList[vacantSource].nextFreeIndex = AUDIO_NO_FREE_SOURCE;
 
 	/* Generate audio data buffers */
 	alGenBuffers(ARRAY_COUNT(audioRenderer->bufferId), audioRenderer->bufferId);
@@ -166,8 +160,8 @@ INTERNAL i32 rendererAcquire(AudioManager *audioManager,
 	return 0;
 }
 
-INTERNAL const i32 rendererRelease(AudioManager *audioManager,
-                             AudioRenderer *audioRenderer)
+INTERNAL const i32 rendererRelease(MemoryArena *arena, AudioManager *audioManager,
+                                   AudioRenderer *audioRenderer)
 {
 
 	i32 result = 0;
@@ -181,8 +175,29 @@ INTERNAL const i32 rendererRelease(AudioManager *audioManager,
 		return result;
 	}
 
-	alSourceUnqueueBuffers(alSourceId, ARRAY_COUNT(audioRenderer->bufferId),
-	                       audioRenderer->bufferId);
+	/*
+	  NOTE(doyle): Doing an alSourceRewind will result in the source going to
+	  the AL_INITIAL state, but the properties of the source (position,
+	  velocity, etc.) will not change.
+	*/
+	alSourceRewind(alSourceId);
+	AL_CHECK_ERROR();
+
+	// TODO(doyle): We can possible remove this by just attaching the null buffer ..
+	ALint numProcessedBuffers;
+	alGetSourcei(alSourceId, AL_BUFFERS_PROCESSED, &numProcessedBuffers);
+	if (numProcessedBuffers > 0)
+	{
+		alSourceUnqueueBuffers(alSourceId, numProcessedBuffers,
+		                       audioRenderer->bufferId);
+	}
+	AL_CHECK_ERROR();
+
+	// NOTE(doyle): Any buffer queued up that has not been played cannot be
+	// deleted without being played once. We can set the source buffers to NULL
+	// (0) to free up the buffer, since we still hold the reference ids for the
+	// buffer in our audio structure we can delete it afterwards ..
+	alSourcei(alSourceId, AL_BUFFER, 0);
 	alDeleteBuffers(ARRAY_COUNT(audioRenderer->bufferId),
 	                audioRenderer->bufferId);
 	AL_CHECK_ERROR();
@@ -192,21 +207,22 @@ INTERNAL const i32 rendererRelease(AudioManager *audioManager,
 		audioRenderer->bufferId[i] = 0;
 	}
 
-	audioRenderer->audio       = NULL;
-	audioRenderer->numPlays    = 0;
+	stb_vorbis_close(audioRenderer->audio->file);
+	PLATFORM_MEM_FREE(arena, audioRenderer->audio, sizeof(AudioVorbis));
+
+	audioRenderer->audio    = NULL;
+	audioRenderer->numPlays = 0;
 
 	u32 sourceIndexToFree      = audioRenderer->sourceIndex;
 	audioRenderer->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
 
-	audioManager->sourceList[sourceIndexToFree].nextFreeIndex =
-	    audioManager->freeSourceIndex;
-	audioManager->freeSourceIndex = sourceIndexToFree;
+	audioManager->sourceList[sourceIndexToFree].isFree = TRUE;
 
 	return result;
 }
 
 #define AUDIO_CHUNK_SIZE_ 65536
-const i32 audio_streamPlayVorbis(AudioManager *audioManager,
+const i32 audio_streamPlayVorbis(MemoryArena *arena, AudioManager *audioManager,
                                  AudioRenderer *audioRenderer,
                                  AudioVorbis *vorbis, i32 numPlays)
 {
@@ -218,7 +234,7 @@ const i32 audio_streamPlayVorbis(AudioManager *audioManager,
 	}
 #endif
 
-	i32 result = rendererAcquire(audioManager, audioRenderer);
+	i32 result = rendererAcquire(arena, audioManager, audioRenderer);
 	if (result)
 	{
 		DEBUG_LOG("audio_streamPlayVorbis() failed: Could not acquire renderer");
@@ -237,14 +253,31 @@ const i32 audio_streamPlayVorbis(AudioManager *audioManager,
 #endif
 	}
 
-	audioRenderer->audio    = vorbis;
+	// NOTE(doyle): We make a copy of the audio vorbis file using all the same
+	// data except the file pointer. If the same sound is playing twice
+	// simultaneously, we need unique file pointers into the data to track song
+	// position uniquely
+	AudioVorbis *copyAudio     = PLATFORM_MEM_ALLOC(arena, 1, AudioVorbis);
+	copyAudio->type            = vorbis->type;
+	copyAudio->info            = vorbis->info;
+	copyAudio->lengthInSamples = vorbis->lengthInSamples;
+	copyAudio->lengthInSeconds = vorbis->lengthInSeconds;
+
+	copyAudio->data            = vorbis->data;
+	copyAudio->size            = vorbis->size;
+
+	i32 error;
+	copyAudio->file =
+	    stb_vorbis_open_memory(copyAudio->data, copyAudio->size, &error, NULL);
+
+	audioRenderer->audio    = copyAudio;
 	audioRenderer->numPlays = numPlays;
 
 	return 0;
 }
 
-const i32 audio_streamStopVorbis(AudioManager *audioManager,
-                            AudioRenderer *audioRenderer)
+const i32 audio_streamStopVorbis(MemoryArena *arena, AudioManager *audioManager,
+                                 AudioRenderer *audioRenderer)
 {
 	i32 result     = 0;
 	u32 alSourceId = getSourceId(audioManager, audioRenderer);
@@ -252,7 +285,7 @@ const i32 audio_streamStopVorbis(AudioManager *audioManager,
 	{
 		alSourceStop(alSourceId);
 		AL_CHECK_ERROR();
-		result = rendererRelease(audioManager, audioRenderer);
+		result = rendererRelease(arena, audioManager, audioRenderer);
 	}
 	else
 	{
@@ -300,18 +333,20 @@ const i32 audio_streamResumeVorbis(AudioManager *audioManager,
 	return result;
 }
 
-const i32 audio_updateAndPlay(AudioManager *audioManager,
+const i32 audio_updateAndPlay(MemoryArena *arena, AudioManager *audioManager,
                               AudioRenderer *audioRenderer)
 {
 	AudioVorbis *audio = audioRenderer->audio;
 	if (!audio) return 0;
 
+#if 0
 	if (audioRenderer->numPlays != AUDIO_REPEAT_INFINITE &&
 	    audioRenderer->numPlays <= 0)
 	{
-		i32 result = rendererRelease(audioManager, audioRenderer);
+		i32 result = rendererRelease(arena, audioManager, audioRenderer);
 		return result;
 	}
+#endif
 
 	u32 alSourceId = getSourceId(audioManager, audioRenderer);
 	if (alIsSource(alSourceId) == AL_FALSE)
@@ -345,13 +380,12 @@ const i32 audio_updateAndPlay(AudioManager *audioManager,
 			}
 			else
 			{
-				i32 result = rendererRelease(audioManager, audioRenderer);
+				i32 result =
+				    rendererRelease(arena, audioManager, audioRenderer);
 				return result;
 			}
 		}
 
-		// TODO(doyle): Possible bug! Multiple sources playing same file seeking
-		// file ptr to start may interrupt other stream
 		stb_vorbis_seek_start(audio->file);
 		for (i32 i = 0; i < ARRAY_COUNT(audioRenderer->bufferId); i++)
 		{
@@ -380,6 +414,7 @@ const i32 audio_updateAndPlay(AudioManager *audioManager,
 		AL_CHECK_ERROR();
 		if (numProcessedBuffers > 0)
 		{
+			// TODO(doyle): Possibly wrong, we should pass in all processed buffers?
 			ALint numBuffersToUnqueue = 1;
 			ALuint emptyBufferId;
 			alSourceUnqueueBuffers(alSourceId, numBuffersToUnqueue,

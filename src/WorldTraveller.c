@@ -187,6 +187,8 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	asset_loadVorbis(assetManager, arena, audioPath, audiolist_battle);
 	audioPath = "data/audio/Yuki Kajiura - Swordland.ogg";
 	asset_loadVorbis(assetManager, arena, audioPath, audiolist_overworld);
+	audioPath = "data/audio/nuindependent_hit22.ogg";
+	asset_loadVorbis(assetManager, arena, audioPath, audiolist_tackle);
 
 #ifdef DENGINE_DEBUG
 	DEBUG_LOG("Sound assets initialised");
@@ -278,6 +280,8 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	tex             = asset_getTexture(assetManager, texlist_hero);
 	collides        = TRUE;
 	Entity *hero = entity_add(arena, world, pos, size, type, dir, tex, collides);
+	hero->audioRenderer = PLATFORM_MEM_ALLOC(arena, 1, AudioRenderer);
+	hero->audioRenderer->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
 
 	/* Populate hero animation references */
 	entity_addAnim(assetManager, hero, animlist_hero_idle);
@@ -579,7 +583,6 @@ INTERNAL inline void resetEntityState(World *world, Entity *entity)
 
 INTERNAL void beginAttack(World *world, Entity *attacker)
 {
-
 #ifdef DENGINE_DEBUG
 	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
 	ASSERT(attacker->state == entitystate_battle);
@@ -596,17 +599,18 @@ INTERNAL void beginAttack(World *world, Entity *attacker)
 			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
 		else
 			attacker->dPos.x -= (1.0f * METERS_TO_PIXEL);
-
 		break;
 	default:
 #ifdef DENGINE_DEBUG
 		ASSERT(INVALID_CODE_PATH);
 #endif
+		break;
 	}
-
 }
 
-INTERNAL void endAttack(World *world, Entity *attacker)
+INTERNAL void endAttack(MemoryArena *arena, AssetManager *assetManager,
+                        AudioManager *audioManager, World *world,
+                        Entity *attacker)
 {
 #ifdef DENGINE_DEBUG
 	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
@@ -621,11 +625,18 @@ INTERNAL void endAttack(World *world, Entity *attacker)
 		else
 			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
 
+#if 1
+		audio_streamPlayVorbis(arena, audioManager, attacker->audioRenderer,
+		                       asset_getVorbis(assetManager, audiolist_tackle),
+		                       1);
+#endif
+
 		break;
 	default:
 #ifdef DENGINE_DEBUG
 		ASSERT(INVALID_CODE_PATH);
 #endif
+		break;
 	}
 
 	/* Compute attack damage */
@@ -681,8 +692,9 @@ INTERNAL void endAttack(World *world, Entity *attacker)
 	}
 }
 
-INTERNAL void entityStateSwitch(World *world, Entity *entity,
-                                enum EntityState newState)
+INTERNAL void entityStateSwitch(MemoryArena *arena, AssetManager *assetManager,
+                                AudioManager *audioManager, World *world,
+                                Entity *entity, enum EntityState newState)
 {
 #ifdef DENGINE_DEBUG
 	ASSERT(world && entity)
@@ -718,6 +730,7 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 #ifdef DENGINE_DEBUG
 			ASSERT(INVALID_CODE_PATH);
 #endif
+			break;
 		}
 		break;
 	case entitystate_battle:
@@ -736,13 +749,14 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 #ifdef DENGINE_DEBUG
 			ASSERT(INVALID_CODE_PATH);
 #endif
+			break;
 		}
 		break;
 	case entitystate_attack:
 		switch (newState)
 		{
 		case entitystate_battle:
-			endAttack(world, entity);
+			endAttack(arena, assetManager, audioManager, world, entity);
 			entity_setActiveAnim(entity, animlist_hero_battlePose);
 			entity->stats->actionTimer  = entity->stats->actionRate;
 			entity->stats->busyDuration = 0;
@@ -756,6 +770,7 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 #ifdef DENGINE_DEBUG
 			ASSERT(INVALID_CODE_PATH);
 #endif
+			break;
 		}
 		break;
 	case entitystate_dead:
@@ -768,12 +783,14 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 #ifdef DENGINE_DEBUG
 			ASSERT(INVALID_CODE_PATH);
 #endif
+			break;
 		}
 		break;
 	default:
 #ifdef DENGINE_DEBUG
 		ASSERT(INVALID_CODE_PATH);
 #endif
+		break;
 	}
 
 	entity->state = newState;
@@ -790,45 +807,64 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	Renderer *renderer         = &state->renderer;
 	World *const world         = &state->world[state->currWorldIndex];
 	Font *font                 = &assetManager->font;
+	MemoryArena *arena         = &state->arena;
 
 	/*
 	 ******************************
 	 * Update entities and render
 	 ******************************
 	 */
-	Entity *hero = getHeroEntity(world);
-	v4 cameraBounds = createCameraBounds(world, renderer->size);
+	Entity *hero               = getHeroEntity(world);
+	v4 cameraBounds            = createCameraBounds(world, renderer->size);
+	AudioManager *audioManager = &state->audioManager;
 	ASSERT(world->freeEntityIndex < world->maxEntities);
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
 		Entity *const entity = &world->entities[i];
 
-		if (entity->audioRenderer)
+		if (entity->type == entitytype_soundscape)
 		{
 			AudioRenderer *audioRenderer = entity->audioRenderer;
 			if (world->numEntitiesInBattle > 0)
 			{
 				AudioVorbis *battleTheme =
 				    asset_getVorbis(assetManager, audiolist_battle);
-				if (audioRenderer->audio != battleTheme)
+				if (audioRenderer->audio)
 				{
-					audio_streamPlayVorbis(&state->audioManager, audioRenderer,
-					                       battleTheme, AUDIO_REPEAT_INFINITE);
+					if (audioRenderer->audio->type != audiolist_battle)
+					{
+						audio_streamPlayVorbis(arena, &state->audioManager,
+						                       audioRenderer, battleTheme,
+						                       AUDIO_REPEAT_INFINITE);
+					}
+				}
+				else
+				{
+					audio_streamPlayVorbis(arena, &state->audioManager,
+					                       audioRenderer, battleTheme,
+					                       AUDIO_REPEAT_INFINITE);
 				}
 			}
 			else
 			{
 				AudioVorbis *overworldTheme =
 				    asset_getVorbis(assetManager, audiolist_overworld);
-				if (audioRenderer->audio != overworldTheme)
+				if (audioRenderer->audio)
 				{
-					audio_streamPlayVorbis(&state->audioManager, audioRenderer,
-					                       overworldTheme,
+					if (audioRenderer->audio->type != audiolist_overworld)
+					{
+						audio_streamPlayVorbis(arena, &state->audioManager,
+						                       audioRenderer, overworldTheme,
+						                       AUDIO_REPEAT_INFINITE);
+					}
+				}
+				else
+				{
+					audio_streamPlayVorbis(arena, &state->audioManager,
+					                       audioRenderer, overworldTheme,
 					                       AUDIO_REPEAT_INFINITE);
 				}
 			}
-
-			audio_updateAndPlay(&state->audioManager, entity->audioRenderer);
 		}
 
 		if (entity->state == entitystate_dead)
@@ -849,6 +885,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			// an entity dies
 #if 1
 			i32 entityIndexInArray = i;
+			audio_streamStopVorbis(arena, &state->audioManager,
+			                       entity->audioRenderer);
 			entity_delete(&state->arena, world, entityIndexInArray);
 
 			// TODO(doyle): DeleteEntity moves elements down 1, so account for i
@@ -888,7 +926,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				newState = entitystate_idle;
 			}
 
-			entityStateSwitch(world, entity, newState);
+			entityStateSwitch(arena, assetManager, audioManager, world, entity,
+			                  newState);
 		}
 
 		/*
@@ -911,7 +950,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 						stats->queuedAttack = entityattack_tackle;
 
 					/* Launch up attack animation */
-					entityStateSwitch(world, entity, entitystate_attack);
+					entityStateSwitch(arena, assetManager, audioManager, world,
+					                  entity, entitystate_attack);
 				}
 			}
 			else if (entity->state == entitystate_attack)
@@ -922,7 +962,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				if (stats->busyDuration <= 0)
 				{
 					/* Apply attack damage */
-					entityStateSwitch(world, entity, entitystate_battle);
+					entityStateSwitch(arena, assetManager, audioManager, world,
+					                  entity, entitystate_battle);
 
 					/* Get target entity that was attacked */
 					Entity *defender = NULL;
@@ -946,11 +987,19 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 #ifdef DENGINE_DEBUG
 						DEBUG_LOG("Entity has died");
 #endif
-						entityStateSwitch(world, defender, entitystate_dead);
-						entityStateSwitch(world, attacker, entitystate_idle);
+						entityStateSwitch(arena, assetManager, audioManager, world, defender,
+						                  entitystate_dead);
+						entityStateSwitch(arena, assetManager, audioManager, world, attacker,
+						                  entitystate_idle);
 					}
 				}
 			}
+		}
+
+		if (entity->audioRenderer)
+		{
+			audio_updateAndPlay(&state->arena, &state->audioManager,
+			                    entity->audioRenderer);
 		}
 
 		/*
@@ -973,10 +1022,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		// NOTE(doyle): If battle entities is 1 then only the hero left
 		if (hero->state == entitystate_battle &&
 		    world->numEntitiesInBattle == 1)
-			entityStateSwitch(world, hero, entitystate_idle);
+			entityStateSwitch(arena, assetManager, audioManager, world, hero, entitystate_idle);
 		else if (hero->state != entitystate_attack)
 		{
-			entityStateSwitch(world, hero, entitystate_battle);
+			entityStateSwitch(arena, assetManager, audioManager, world, hero, entitystate_battle);
 		}
 	}
 	else

@@ -80,6 +80,7 @@ const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
 
 	i32 error;
 	AudioVorbis audio = {0};
+	audio.type = type;
 	audio.file =
 	    stb_vorbis_open_memory(fileRead.buffer, fileRead.size, &error, NULL);
 	
@@ -94,6 +95,8 @@ const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
 	audio.info            = stb_vorbis_get_info(audio.file);
 	audio.lengthInSamples = stb_vorbis_stream_length_in_samples(audio.file);
 	audio.lengthInSeconds = stb_vorbis_stream_length_in_seconds(audio.file);
+	audio.data            = CAST(u8 *) fileRead.buffer;
+	audio.size            = fileRead.size;
 
 	assetManager->audio[type] = audio;
 

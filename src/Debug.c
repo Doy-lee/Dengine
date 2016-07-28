@@ -189,6 +189,13 @@ void debug_pushString(char *formatString, void *data, char *dataType)
 			         ARRAY_COUNT(GLOBAL_debug.debugStrings[0]),
 			         formatString, val.x, val.y);
 		}
+		else if (common_strcmp(dataType, "v3") == 0)
+		{
+			v3 val = *(CAST(v3 *) data);
+			snprintf(GLOBAL_debug.debugStrings[numDebugStrings],
+			         ARRAY_COUNT(GLOBAL_debug.debugStrings[0]),
+			         formatString, val.x, val.y, val.z);
+		}
 		else if (common_strcmp(dataType, "i32") == 0)
 		{
 			i32 val = *(CAST(i32 *) data);
@@ -394,6 +401,19 @@ void debug_drawUi(GameState *state, f32 dt)
 			char *entityStateStr = debug_entitystate_string(entity->state);
 			renderer_string(&state->renderer, &state->arena, cameraBounds, font,
 			                entityStateStr, strPos, V2(0, 0), 0, color);
+
+			if (entity->audioRenderer)
+			{
+				strPos.y -= GLOBAL_debug.stringLineGap;
+				char entityAudioSourceIndex[32];
+				snprintf(entityAudioSourceIndex,
+				         ARRAY_COUNT(entityAudioSourceIndex),
+				         "AudioSource Index: %d",
+				         entity->audioRenderer->sourceIndex);
+				renderer_string(&state->renderer, &state->arena, cameraBounds,
+				                font, entityAudioSourceIndex, strPos, V2(0, 0),
+				                0, color);
+			}
 		}
 	}
 
@@ -417,6 +437,15 @@ void debug_drawUi(GameState *state, f32 dt)
 	DEBUG_PUSH_VAR("TotalMemoryAllocated: %db", debug_bAllocated, "i32");
 	i32 debug_kbAllocated = state->arena.bytesAllocated / 1024;
 	DEBUG_PUSH_VAR("TotalMemoryAllocated: %dkb", debug_kbAllocated, "i32");
+
+	AudioManager *audioManager = &state->audioManager;
+	DEBUG_PUSH_STRING("== Audio System ==");
+	for (i32 i = 0; i < ARRAY_COUNT(audioManager->sourceList); i++)
+	{
+		v3 tmp = V3i(i, audioManager->sourceList[i].id,
+		             audioManager->sourceList[i].isFree);
+		DEBUG_PUSH_VAR("Source ID[%02.0f].id[%02.0f].isFree: %1.0f", tmp, "v3");
+	}
 
 	DEBUG_PUSH_STRING("== EntityIDs in Battle List == ");
 	DEBUG_PUSH_VAR("NumEntitiesInBattle: %d", world->numEntitiesInBattle,
