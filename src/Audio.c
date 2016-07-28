@@ -181,20 +181,11 @@ INTERNAL const i32 rendererRelease(AudioManager *audioManager,
 		return result;
 	}
 
-	for (i32 i = 0; i < ARRAY_COUNT(audioRenderer->bufferId); i++)
-	{
-		if (alIsBuffer(audioRenderer->bufferId[i]) == AL_TRUE)
-		{
-			alSourceUnqueueBuffers(alSourceId, 1, &audioRenderer->bufferId[i]);
-			alDeleteBuffers(1, &audioRenderer->bufferId[i]);
-			AL_CHECK_ERROR();
-		}
-		else
-		{
-			DEBUG_LOG("rendererRelease(): Invalid buffer identified in renderer");
-			result = -1;
-		}
-	}
+	alSourceUnqueueBuffers(alSourceId, ARRAY_COUNT(audioRenderer->bufferId),
+	                       audioRenderer->bufferId);
+	alDeleteBuffers(ARRAY_COUNT(audioRenderer->bufferId),
+	                audioRenderer->bufferId);
+	AL_CHECK_ERROR();
 
 	for (i32 i = 0; i < ARRAY_COUNT(audioRenderer->bufferId); i++)
 	{
@@ -212,7 +203,6 @@ INTERNAL const i32 rendererRelease(AudioManager *audioManager,
 	audioManager->freeSourceIndex = sourceIndexToFree;
 
 	return result;
-
 }
 
 #define AUDIO_CHUNK_SIZE_ 65536

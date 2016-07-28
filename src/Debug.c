@@ -25,7 +25,7 @@ void debug_init(MemoryArena *arena, v2 windowSize, Font font)
 
 	// TODO(doyle): Font max size not entirely correct? using 1 * font.maxSize.w
 	// reveals around 4 characters ..
-	f32 consoleXPos = windowSize.x - (font.maxSize.w * 38);
+	f32 consoleXPos = font.maxSize.w * 20;
 	f32 consoleYPos = windowSize.h - 1.8f * GLOBAL_debug.stringLineGap;
 	GLOBAL_debug.initialConsoleP = V2(consoleXPos, consoleYPos);
 }

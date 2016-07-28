@@ -369,12 +369,8 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	    addEntity(arena, world, pos, size, type, dir, tex, collides);
 
 	world->soundscape = soundscape;
-
 	soundscape->audio = PLATFORM_MEM_ALLOC(arena, 1, AudioRenderer);
 	soundscape->audio->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
-	audio_streamPlayVorbis(&state->audioManager, soundscape->audio,
-	                       asset_getVorbis(assetManager, audiolist_battle),
-	                       AUDIO_REPEAT_INFINITE);
 
 	/* Init hero entity */
 	world->heroIndex   = world->freeEntityIndex;
@@ -502,49 +498,12 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		// TODO(doyle): Revisit key input with state checking for last ended down
 		if (state->keys[GLFW_KEY_SPACE] && spaceBarWasDown == FALSE)
 		{
-#if 0
 			Renderer *renderer = &state->renderer;
 			f32 yPos = CAST(f32)(rand() % CAST(i32)renderer->size.h);
 			f32 xModifier =  5.0f - CAST(f32)(rand() % 3);
 
 			v2 pos = V2(renderer->size.w - (renderer->size.w / xModifier), yPos);
 			addGenericMob(&state->arena, &state->assetManager, world, pos);
-#endif
-#if 0
-			if (world->soundscape->audio->sourceIndex == AUDIO_SOURCE_UNASSIGNED)
-			{
-				audio_streamPlayVorbis(
-				    &state->audioManager, world->soundscape->audio,
-				    asset_getVorbis(&state->assetManager, audiolist_battle),
-				    AUDIO_REPEAT_INFINITE);
-			}
-			else
-			{
-				audio_streamStopVorbis(&state->audioManager,
-				                       world->soundscape->audio);
-				audio_streamPauseVorbis(&state->audioManager,
-				                        world->soundscape->audio);
-			}
-#endif
-
-			if (toggleFlag)
-			{
-				audio_streamPauseVorbis(&state->audioManager,
-				                        world->soundscape->audio);
-				toggleFlag = FALSE;
-			}
-			else
-			{
-				audio_streamResumeVorbis(&state->audioManager,
-				                        world->soundscape->audio);
-#if 0
-				audio_streamPlayVorbis(
-				    &state->audioManager, world->soundscape->audio,
-				    asset_getVorbis(&state->assetManager, audiolist_battle),
-				    AUDIO_REPEAT_INFINITE);
-#endif
-				toggleFlag = TRUE;
-			}
 			spaceBarWasDown = TRUE;
 		}
 		else if (!state->keys[GLFW_KEY_SPACE])
@@ -999,6 +958,29 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 		if (entity->audio)
 		{
+			AudioRenderer *audioRenderer = entity->audio;
+			if (world->numEntitiesInBattle > 0)
+			{
+				AudioVorbis *battleTheme =
+				    asset_getVorbis(assetManager, audiolist_battle);
+				if (audioRenderer->audio != battleTheme)
+				{
+					audio_streamPlayVorbis(&state->audioManager, audioRenderer,
+					                       battleTheme, AUDIO_REPEAT_INFINITE);
+				}
+			}
+			else
+			{
+				AudioVorbis *overworldTheme =
+				    asset_getVorbis(assetManager, audiolist_overworld);
+				if (audioRenderer->audio != overworldTheme)
+				{
+					audio_streamPlayVorbis(&state->audioManager, audioRenderer,
+					                       overworldTheme,
+					                       AUDIO_REPEAT_INFINITE);
+				}
+			}
+
 			audio_updateAndPlay(&state->audioManager, entity->audio);
 		}
 
