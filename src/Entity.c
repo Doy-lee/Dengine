@@ -1,11 +1,7 @@
-#include "Dengine/AssetManager.h"
-#include "Dengine/MemoryArena.h"
-#include "Dengine/Platform.h"
-#include "Dengine/Debug.h"
-
 #include "Dengine/Entity.h"
-
-#include "WorldTraveller/WorldTraveller.h"
+#include "Dengine/Debug.h"
+#include "Dengine/Platform.h"
+#include "Dengine/WorldTraveller.h"
 
 void entity_setActiveAnim(Entity *entity, enum AnimList animId)
 {
@@ -25,7 +21,8 @@ void entity_setActiveAnim(Entity *entity, enum AnimList animId)
 
 void entity_updateAnim(Entity *entity, f32 dt)
 {
-	if (!entity->tex) return;
+	if (!entity->tex)
+		return;
 
 	// TODO(doyle): Recheck why we have this twice
 	EntityAnim_ *entityAnim = &entity->anim[entity->currAnimId];
@@ -47,20 +44,20 @@ void entity_updateAnim(Entity *entity, f32 dt)
 	// may exceed the hitbox size of the entity
 	switch (entity->type)
 	{
-		case entitytype_hero:
-		case entitytype_mob:
-		case entitytype_npc:
-			entity->renderSize = math_getRectSize(texRect);
-		default:
-			break;
+	case entitytype_hero:
+	case entitytype_mob:
+	case entitytype_npc:
+		entity->renderSize = math_getRectSize(texRect);
+	default:
+		break;
 	}
 }
 
 void entity_addAnim(AssetManager *assetManager, Entity *entity, i32 animId)
 {
-	Animation *anim = asset_getAnim(assetManager, animId);
-	entity->anim[animId].anim = anim;
-	entity->anim[animId].currFrame = 0;
+	Animation *anim                   = asset_getAnim(assetManager, animId);
+	entity->anim[animId].anim         = anim;
+	entity->anim[animId].currFrame    = 0;
 	entity->anim[animId].currDuration = anim->frameDuration;
 }
 
@@ -87,12 +84,11 @@ void entity_addGenericMob(MemoryArena *arena, AssetManager *assetManager,
 	entity_addAnim(assetManager, mob, animlist_hero_battlePose);
 	entity_addAnim(assetManager, mob, animlist_hero_tackle);
 	mob->currAnimId = animlist_hero_idle;
-
 }
 
 Entity *entity_add(MemoryArena *arena, World *world, v2 pos, v2 size,
-                           enum EntityType type, enum Direction direction,
-                           Texture *tex, b32 collides)
+                   enum EntityType type, enum Direction direction, Texture *tex,
+                   b32 collides)
 {
 
 #ifdef DENGINE_DEBUG
@@ -111,39 +107,39 @@ Entity *entity_add(MemoryArena *arena, World *world, v2 pos, v2 size,
 	entity.tex        = tex;
 	entity.collides   = collides;
 
-	switch(type)
+	switch (type)
 	{
-		case entitytype_hero:
-		    entity.stats = PLATFORM_MEM_ALLOC(arena, 1, EntityStats);
-		    entity.stats->maxHealth        = 100;
-		    entity.stats->health           = entity.stats->maxHealth;
-		    entity.stats->actionRate       = 100;
-		    entity.stats->actionTimer      = entity.stats->actionRate;
-		    entity.stats->actionSpdMul     = 100;
-		    entity.stats->entityIdToAttack = -1;
-		    entity.stats->queuedAttack     = entityattack_invalid;
-		    entity.state                   = entitystate_idle;
-			break;
-		case entitytype_mob:
-	    {
-		    entity.stats = PLATFORM_MEM_ALLOC(arena, 1, EntityStats);
-		    entity.stats->maxHealth        = 100;
-		    entity.stats->health           = entity.stats->maxHealth;
-		    entity.stats->actionRate       = 100;
-		    entity.stats->actionTimer      = entity.stats->actionRate;
-		    entity.stats->actionSpdMul     = 100;
-		    entity.stats->entityIdToAttack = -1;
-		    entity.stats->queuedAttack     = entityattack_invalid;
-		    entity.state                   = entitystate_idle;
-		    break;
-	    }
-		
-		default:
-			break;
+	case entitytype_hero:
+		entity.stats               = PLATFORM_MEM_ALLOC(arena, 1, EntityStats);
+		entity.stats->maxHealth    = 100;
+		entity.stats->health       = entity.stats->maxHealth;
+		entity.stats->actionRate   = 100;
+		entity.stats->actionTimer  = entity.stats->actionRate;
+		entity.stats->actionSpdMul = 100;
+		entity.stats->entityIdToAttack = -1;
+		entity.stats->queuedAttack     = entityattack_invalid;
+		entity.state                   = entitystate_idle;
+		break;
+	case entitytype_mob:
+	{
+		entity.stats               = PLATFORM_MEM_ALLOC(arena, 1, EntityStats);
+		entity.stats->maxHealth    = 100;
+		entity.stats->health       = entity.stats->maxHealth;
+		entity.stats->actionRate   = 100;
+		entity.stats->actionTimer  = entity.stats->actionRate;
+		entity.stats->actionSpdMul = 100;
+		entity.stats->entityIdToAttack = -1;
+		entity.stats->queuedAttack     = entityattack_invalid;
+		entity.state                   = entitystate_idle;
+		break;
+	}
+
+	default:
+		break;
 	}
 
 	world->entities[world->freeEntityIndex++] = entity;
-	Entity *result = &world->entities[world->freeEntityIndex-1];
+	Entity *result = &world->entities[world->freeEntityIndex - 1];
 
 	return result;
 }
@@ -154,8 +150,8 @@ void entity_delete(MemoryArena *arena, World *world, i32 entityIndex)
 	PLATFORM_MEM_FREE(arena, entity->stats, sizeof(EntityStats));
 
 	// TODO(doyle): Inefficient shuffle down all elements
-	for (i32 i = entityIndex; i < world->freeEntityIndex-1; i++)
-		world->entities[i] = world->entities[i+1];
+	for (i32 i             = entityIndex; i < world->freeEntityIndex - 1; i++)
+		world->entities[i] = world->entities[i + 1];
 
 	world->freeEntityIndex--;
 }

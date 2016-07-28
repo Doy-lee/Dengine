@@ -21,9 +21,10 @@ typedef struct AudioManager
 
 } AudioManager;
 
+
 #define AUDIO_REPEAT_INFINITE -10
 #define AUDIO_SOURCE_UNASSIGNED -1
-struct AudioRenderer
+typedef struct AudioRenderer
 {
 	i32 sourceIndex;
 	ALuint bufferId[4];
@@ -31,9 +32,8 @@ struct AudioRenderer
 	AudioVorbis *audio;
 	ALuint format;
 	i32 numPlays;
-};
+} AudioRenderer;
 
-typedef struct AudioRenderer AudioRenderer;
 
 const i32 audio_init(AudioManager *audioManager);
 const i32 audio_streamPlayVorbis(AudioManager *audioManager,

@@ -1,16 +1,9 @@
-#if 1
 #include "Dengine/AssetManager.h"
-#include "Dengine/Audio.h"
 #include "Dengine/Common.h"
 #include "Dengine/Debug.h"
 #include "Dengine/Math.h"
 #include "Dengine/OpenGL.h"
-#include "Dengine/Platform.h"
-
-#include "WorldTraveller/WorldTraveller.h"
-
-// TODO(doyle): Temporary
-struct AudioRenderer;
+#include "Dengine/WorldTraveller.h"
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode)
 {
@@ -176,7 +169,3 @@ int main()
 	glfwTerminate();
 	return 0;
 }
-
-#else
-#include <Tutorial.cpp>
-#endif

@@ -1,12 +1,15 @@
 #ifndef DENGINE_RENDERER_H
 #define DENGINE_RENDERER_H
 
-#include "Dengine/AssetManager.h"
 #include "Dengine/Common.h"
-#include "Dengine/Entity.h"
 #include "Dengine/Math.h"
-#include "Dengine/Shader.h"
-#include "Dengine/MemoryArena.h"
+
+/* Forward Declaration */
+typedef struct Shader Shader;
+typedef struct Entity Entity;
+typedef struct MemoryArena MemoryArena;
+typedef struct Texture Texture;
+typedef struct Font Font;
 
 typedef struct Renderer
 {

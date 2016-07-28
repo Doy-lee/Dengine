@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 #include "Dengine/Platform.h"
-#include "Dengine/Debug.h"
+#include "Dengine/MemoryArena.h"
 
 void platform_memoryFree(MemoryArena *arena, void *data, i32 numBytes)
 {

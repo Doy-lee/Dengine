@@ -6,6 +6,7 @@
 
 typedef struct AssetManager AssetManager;
 typedef struct AudioRenderer AudioRenderer;
+typedef struct MemoryArena MemoryArena;
 typedef struct Texture Texture;
 typedef struct Animation Animation;
 typedef struct World World;
@@ -101,10 +102,10 @@ typedef struct Entity
 void entity_setActiveAnim(Entity *entity, enum AnimList animId);
 void entity_updateAnim(Entity *entity, f32 dt);
 void entity_addAnim(AssetManager *assetManager, Entity *entity, i32 animId);
-void entity_addGenericMob(MemoryArena *arena, AssetManager *assetManager, World *world,
-                   v2 pos);
+void entity_addGenericMob(MemoryArena *arena, AssetManager *assetManager,
+                          World *world, v2 pos);
 Entity *entity_add(MemoryArena *arena, World *world, v2 pos, v2 size,
-                  enum EntityType type, enum Direction direction, Texture *tex,
-                  b32 collides);
+                   enum EntityType type, enum Direction direction, Texture *tex,
+                   b32 collides);
 void entity_delete(MemoryArena *arena, World *world, i32 entityIndex);
 #endif

@@ -33,9 +33,6 @@
     <ClCompile Include="src\Platform.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\dengine.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\AssetManager.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -49,6 +46,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Entity.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dengine.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -80,9 +80,6 @@
     <ClInclude Include="src\include\Dengine\Renderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\include\WorldTraveller\WorldTraveller.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\include\Dengine\Entity.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -102,6 +99,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\include\Dengine\Audio.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\include\Dengine\WorldTraveller.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

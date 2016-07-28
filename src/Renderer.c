@@ -1,7 +1,10 @@
 #include "Dengine/Renderer.h"
 #include "Dengine/Debug.h"
+#include "Dengine/Entity.h"
 #include "Dengine/OpenGL.h"
 #include "Dengine/Platform.h"
+#include "Dengine/Shader.h"
+#include "Dengine/Texture.h"
 
 #define RENDER_BOUNDING_BOX FALSE
 

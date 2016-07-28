@@ -21,6 +21,8 @@
 #include "Dengine/OpenGL.h"
 #include "Dengine/Platform.h"
 
+// TODO(doyle): Switch to hash based lookup
+// TODO(doyle): Use pointers, so we can forward declare all assets?
 AudioVorbis *asset_getVorbis(AssetManager *assetManager,
                              const enum AudioList type)
 {

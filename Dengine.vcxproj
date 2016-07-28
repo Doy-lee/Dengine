@@ -154,7 +154,7 @@
     <ClInclude Include="src\include\Dengine\Renderer.h" />
     <ClInclude Include="src\include\Dengine\Shader.h" />
     <ClInclude Include="src\include\Dengine\Texture.h" />
-    <ClInclude Include="src\include\WorldTraveller\WorldTraveller.h" />
+    <ClInclude Include="src\include\Dengine\WorldTraveller.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

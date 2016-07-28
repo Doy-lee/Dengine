@@ -4,8 +4,11 @@
 #define STB_VORBIS_HEADER_ONLY
 #include <STB/stb_vorbis.c>
 
+#include "Dengine/Common.h"
 #include "Dengine/Math.h"
-#include "Dengine/Texture.h"
+
+/* Forward Declaration */
+typedef struct Texture Texture;
 
 enum TexList
 {

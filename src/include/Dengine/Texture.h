@@ -7,6 +7,7 @@
 #define TARGET_TEXTURE_SIZE 1024
 #define TARGET_BYTES_PER_PIXEL 4
 
+// TODO(doyle): Look into merging into assets.h file ..
 typedef struct Texture
 {
 	// Holds the ID of the texture object, used for all texture operations to

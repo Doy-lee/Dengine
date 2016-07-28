@@ -8,10 +8,6 @@
 /* Forward declaration */
 typedef struct MemoryArena MemoryArena;
 
-#define MAX_TEXTURE_SIZE 1024
-
-// TODO(doyle): Switch to hash based lookup
-// TODO(doyle): Use pointers, so we can forward declare all assets?
 typedef struct AssetManager
 {
 	Texture textures[32];
@@ -22,7 +18,7 @@ typedef struct AssetManager
 	Font font;
 } AssetManager;
 
-GLOBAL_VAR AssetManager assetManager;
+#define MAX_TEXTURE_SIZE 1024
 
 AudioVorbis *asset_getVorbis(AssetManager *assetManager,
                              const enum AudioList type);
@@ -48,8 +44,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 
 inline i32 asset_getVFontSpacing(FontMetrics metrics)
 {
-	i32 result =
-	    metrics.ascent - metrics.descent + metrics.lineGap;
+	i32 result = metrics.ascent - metrics.descent + metrics.lineGap;
 	return result;
 }
 
