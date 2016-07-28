@@ -48,6 +48,9 @@
     <ClCompile Include="src\Audio.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Entity.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="data\shaders\default.vert.glsl" />

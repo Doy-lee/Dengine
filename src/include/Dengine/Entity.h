@@ -3,9 +3,12 @@
 
 #include "Dengine/Common.h"
 #include "Dengine/Math.h"
-#include "Dengine/Texture.h"
 
+typedef struct AssetManager AssetManager;
 typedef struct AudioRenderer AudioRenderer;
+typedef struct Texture Texture;
+typedef struct Animation Animation;
+typedef struct World World;
 
 enum Direction
 {
@@ -91,7 +94,17 @@ typedef struct Entity
 	enum AnimList currAnimId;
 
 	EntityStats *stats;
-	AudioRenderer *audio;
+	AudioRenderer *audioRenderer;
+	i32 numAudioRenderers;
 } Entity;
 
+void entity_setActiveAnim(Entity *entity, enum AnimList animId);
+void entity_updateAnim(Entity *entity, f32 dt);
+void entity_addAnim(AssetManager *assetManager, Entity *entity, i32 animId);
+void entity_addGenericMob(MemoryArena *arena, AssetManager *assetManager, World *world,
+                   v2 pos);
+Entity *entity_add(MemoryArena *arena, World *world, v2 pos, v2 size,
+                  enum EntityType type, enum Direction direction, Texture *tex,
+                  b32 collides);
+void entity_delete(MemoryArena *arena, World *world, i32 entityIndex);
 #endif

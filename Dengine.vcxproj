@@ -125,6 +125,7 @@
     <ClCompile Include="src\Common.c" />
     <ClCompile Include="src\Debug.c" />
     <ClCompile Include="src\dengine.c" />
+    <ClCompile Include="src\Entity.c" />
     <ClCompile Include="src\Platform.c" />
     <ClCompile Include="src\Renderer.c" />
     <ClCompile Include="src\Shader.c" />

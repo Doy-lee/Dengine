@@ -1,8 +1,9 @@
 #include "WorldTraveller/WorldTraveller.h"
 
-#include "Dengine/Debug.h"
-#include "Dengine/Platform.h"
 #include "Dengine/Audio.h"
+#include "Dengine/Debug.h"
+#include "Dengine/Entity.h"
+#include "Dengine/Platform.h"
 
 enum State
 {
@@ -11,80 +12,10 @@ enum State
 	state_win,
 };
 
-INTERNAL Entity *getHeroEntity(World *world)
+Entity *getHeroEntity(World *world)
 {
 	Entity *result = &world->entities[world->heroIndex];
 	return result;
-}
-
-INTERNAL Entity *addEntity(MemoryArena *arena, World *world, v2 pos, v2 size,
-                           enum EntityType type, enum Direction direction,
-                           Texture *tex, b32 collides)
-{
-
-#ifdef DENGINE_DEBUG
-	ASSERT(world);
-	ASSERT(world->freeEntityIndex < world->maxEntities);
-	ASSERT(type < entitytype_count);
-#endif
-
-	Entity entity     = {0};
-	entity.id         = world->uniqueIdAccumulator++;
-	entity.pos        = pos;
-	entity.hitboxSize = size;
-	entity.renderSize = size;
-	entity.type       = type;
-	entity.direction  = direction;
-	entity.tex        = tex;
-	entity.collides   = collides;
-
-	switch(type)
-	{
-		case entitytype_hero:
-		    entity.stats = PLATFORM_MEM_ALLOC(arena, 1, EntityStats);
-		    entity.stats->maxHealth        = 100;
-		    entity.stats->health           = entity.stats->maxHealth;
-		    entity.stats->actionRate       = 100;
-		    entity.stats->actionTimer      = entity.stats->actionRate;
-		    entity.stats->actionSpdMul     = 100;
-		    entity.stats->entityIdToAttack = -1;
-		    entity.stats->queuedAttack     = entityattack_invalid;
-		    entity.state                   = entitystate_idle;
-			break;
-		case entitytype_mob:
-	    {
-		    entity.stats = PLATFORM_MEM_ALLOC(arena, 1, EntityStats);
-		    entity.stats->maxHealth        = 100;
-		    entity.stats->health           = entity.stats->maxHealth;
-		    entity.stats->actionRate       = 100;
-		    entity.stats->actionTimer      = entity.stats->actionRate;
-		    entity.stats->actionSpdMul     = 100;
-		    entity.stats->entityIdToAttack = -1;
-		    entity.stats->queuedAttack     = entityattack_invalid;
-		    entity.state                   = entitystate_idle;
-		    break;
-	    }
-		
-		default:
-			break;
-	}
-
-	world->entities[world->freeEntityIndex++] = entity;
-	Entity *result = &world->entities[world->freeEntityIndex-1];
-
-	return result;
-}
-
-INTERNAL void deleteEntity(MemoryArena *arena, World *world, i32 entityIndex)
-{
-	Entity *entity = &world->entities[entityIndex];
-	PLATFORM_MEM_FREE(arena, entity->stats, sizeof(EntityStats));
-
-	// TODO(doyle): Inefficient shuffle down all elements
-	for (i32 i = entityIndex; i < world->freeEntityIndex-1; i++)
-		world->entities[i] = world->entities[i+1];
-
-	world->freeEntityIndex--;
 }
 
 INTERNAL void rendererInit(GameState *state, v2 windowSize)
@@ -124,40 +55,6 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 	GL_CHECK_ERROR();
-}
-
-INTERNAL void addAnim(AssetManager *assetManager, i32 animId, Entity *entity)
-{
-	Animation *anim = asset_getAnim(assetManager, animId);
-	entity->anim[animId].anim = anim;
-	entity->anim[animId].currFrame = 0;
-	entity->anim[animId].currDuration = anim->frameDuration;
-}
-
-INTERNAL void addGenericMob(MemoryArena *arena, AssetManager *assetManager,
-                            World *world, v2 pos)
-{
-#ifdef DENGINE_DEBUG
-	DEBUG_LOG("Mob entity spawned");
-#endif
-
-	Entity *hero = &world->entities[world->heroIndex];
-
-	v2 size              = V2(58.0f, 98.0f);
-	enum EntityType type = entitytype_mob;
-	enum Direction dir   = direction_west;
-	Texture *tex         = asset_getTexture(assetManager, texlist_hero);
-	b32 collides         = TRUE;
-	Entity *mob = addEntity(arena, world, pos, size, type, dir, tex, collides);
-
-	/* Populate mob animation references */
-	addAnim(assetManager, animlist_hero_idle, mob);
-	addAnim(assetManager, animlist_hero_walk, mob);
-	addAnim(assetManager, animlist_hero_wave, mob);
-	addAnim(assetManager, animlist_hero_battlePose, mob);
-	addAnim(assetManager, animlist_hero_tackle, mob);
-	mob->currAnimId = animlist_hero_idle;
-
 }
 
 // TODO(doyle): Remove and implement own random generator!
@@ -345,10 +242,10 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 				enum Direction dir = direction_null;
 				Texture *tex = asset_getTexture(assetManager, world->texType);
 				b32 collides = FALSE;
-				Entity *tile = addEntity(arena, world, pos, size, type, dir,
-				                         tex, collides);
+				Entity *tile = entity_add(arena, world, pos, size, type, dir,
+				                          tex, collides);
 
-				addAnim(assetManager, animlist_terrain, tile);
+				entity_addAnim(assetManager, tile, animlist_terrain);
 				tile->currAnimId = animlist_terrain;
 			}
 		}
@@ -366,11 +263,11 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	Texture *tex         = NULL;
 	b32 collides         = FALSE;
 	Entity *soundscape =
-	    addEntity(arena, world, pos, size, type, dir, tex, collides);
+	    entity_add(arena, world, pos, size, type, dir, tex, collides);
 
 	world->soundscape = soundscape;
-	soundscape->audio = PLATFORM_MEM_ALLOC(arena, 1, AudioRenderer);
-	soundscape->audio->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
+	soundscape->audioRenderer = PLATFORM_MEM_ALLOC(arena, 1, AudioRenderer);
+	soundscape->audioRenderer->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
 
 	/* Init hero entity */
 	world->heroIndex   = world->freeEntityIndex;
@@ -381,14 +278,14 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	dir             = direction_east;
 	tex             = asset_getTexture(assetManager, texlist_hero);
 	collides        = TRUE;
-	Entity *hero = addEntity(arena, world, pos, size, type, dir, tex, collides);
+	Entity *hero = entity_add(arena, world, pos, size, type, dir, tex, collides);
 
 	/* Populate hero animation references */
-	addAnim(assetManager, animlist_hero_idle, hero);
-	addAnim(assetManager, animlist_hero_walk, hero);
-	addAnim(assetManager, animlist_hero_wave, hero);
-	addAnim(assetManager, animlist_hero_battlePose, hero);
-	addAnim(assetManager, animlist_hero_tackle, hero);
+	entity_addAnim(assetManager, hero, animlist_hero_idle);
+	entity_addAnim(assetManager, hero, animlist_hero_walk);
+	entity_addAnim(assetManager, hero, animlist_hero_wave);
+	entity_addAnim(assetManager, hero, animlist_hero_battlePose);
+	entity_addAnim(assetManager, hero, animlist_hero_tackle);
 	hero->currAnimId = animlist_hero_idle;
 
 	/* Create a NPC */
@@ -398,38 +295,21 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	dir         = direction_null;
 	tex         = hero->tex;
 	collides    = FALSE;
-	Entity *npc = addEntity(arena, world, pos, size, type, dir, tex, collides);
+	Entity *npc = entity_add(arena, world, pos, size, type, dir, tex, collides);
 
 	/* Populate npc animation references */
-	addAnim(assetManager, animlist_hero_wave, npc);
+	entity_addAnim(assetManager, npc, animlist_hero_wave);
 	npc->currAnimId = animlist_hero_wave;
 
 	/* Create a Mob */
 	pos = V2(renderer->size.w - (renderer->size.w / 3.0f),
 	         CAST(f32) state->tileSize);
-	addGenericMob(arena, assetManager, world, pos);
+	entity_addGenericMob(arena, assetManager, world, pos);
 #ifdef DENGINE_DEBUG
 	DEBUG_LOG("World populated");
 #endif
 
 	srand(CAST(u32)(time(NULL)));
-}
-
-INTERNAL inline void setActiveEntityAnim(Entity *entity,
-                                         enum AnimList animId)
-{
-#ifdef DENGINE_DEBUG
-	ASSERT(animId < animlist_count);
-	ASSERT(entity->anim[animId].anim);
-#endif
-
-	/* Reset current anim data */
-	EntityAnim_ *currAnim  = &entity->anim[entity->currAnimId];
-	currAnim->currDuration = currAnim->anim->frameDuration;
-	currAnim->currFrame    = 0;
-
-	/* Set entity active animation */
-	entity->currAnimId = animId;
 }
 
 INTERNAL inline v4 getEntityScreenRect(Entity entity)
@@ -503,7 +383,8 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			f32 xModifier =  5.0f - CAST(f32)(rand() % 3);
 
 			v2 pos = V2(renderer->size.w - (renderer->size.w / xModifier), yPos);
-			addGenericMob(&state->arena, &state->assetManager, world, pos);
+			entity_addGenericMob(&state->arena, &state->assetManager, world,
+			                     pos);
 			spaceBarWasDown = TRUE;
 		}
 		else if (!state->keys[GLFW_KEY_SPACE])
@@ -522,12 +403,12 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		hero->dPos = V2(0.0f, 0.0f);
 		if (hero->currAnimId == animlist_hero_walk)
 		{
-			setActiveEntityAnim(hero, animlist_hero_idle);
+			entity_setActiveAnim(hero, animlist_hero_idle);
 		}
 	}
 	else if (hero->currAnimId == animlist_hero_idle)
 	{
-		setActiveEntityAnim(hero, animlist_hero_walk);
+		entity_setActiveAnim(hero, animlist_hero_walk);
 	}
 
 	f32 heroSpeed = 6.2f * METERS_TO_PIXEL;
@@ -595,39 +476,6 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		// NOTE(doyle): Hero position is offset to the center so -recenter it
 		offsetFromHeroToOrigin.x += (hero->hitboxSize.x * 0.5f);
 		world->cameraPos = offsetFromHeroToOrigin;
-	}
-}
-
-INTERNAL void updateEntityAnim(Entity *entity, f32 dt)
-{
-	if (!entity->tex) return;
-
-	// TODO(doyle): Recheck why we have this twice
-	EntityAnim_ *entityAnim = &entity->anim[entity->currAnimId];
-	Animation anim          = *entityAnim->anim;
-	i32 frameIndex          = anim.frameIndex[entityAnim->currFrame];
-	v4 texRect              = anim.atlas->texRect[frameIndex];
-
-	entityAnim->currDuration -= dt;
-	if (entityAnim->currDuration <= 0.0f)
-	{
-		entityAnim->currFrame++;
-		entityAnim->currFrame = entityAnim->currFrame % anim.numFrames;
-		frameIndex = entityAnim->anim->frameIndex[entityAnim->currFrame];
-		texRect    = anim.atlas->texRect[frameIndex];
-		entityAnim->currDuration = anim.frameDuration;
-	}
-
-	// NOTE(doyle): If humanoid entity, let animation dictate render size which
-	// may exceed the hitbox size of the entity
-	switch (entity->type)
-	{
-		case entitytype_hero:
-		case entitytype_mob:
-		case entitytype_npc:
-			entity->renderSize = math_getRectSize(texRect);
-		default:
-			break;
 	}
 }
 
@@ -723,7 +571,7 @@ INTERNAL inline void updateWorldBattleEntities(World *world, Entity *entity,
 INTERNAL inline void resetEntityState(World *world, Entity *entity)
 {
 	updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
-	setActiveEntityAnim(entity, animlist_hero_idle);
+	entity_setActiveAnim(entity, animlist_hero_idle);
 	entity->stats->busyDuration     = 0;
 	entity->stats->actionTimer      = entity->stats->actionRate;
 	entity->stats->queuedAttack     = entityattack_invalid;
@@ -744,7 +592,7 @@ INTERNAL void beginAttack(World *world, Entity *attacker)
 		f32 busyDuration       = attackAnim.anim->frameDuration *
 		                   CAST(f32) attackAnim.anim->numFrames;
 		attacker->stats->busyDuration = busyDuration;
-		setActiveEntityAnim(attacker, animlist_hero_tackle);
+		entity_setActiveAnim(attacker, animlist_hero_tackle);
 		if (attacker->direction == direction_east)
 			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
 		else
@@ -859,7 +707,7 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 		// attacking it since there's no check before attack if entity is idle
 		// or not (i.e. has moved out of frame last frame).
 		case entitystate_dead:
-			setActiveEntityAnim(entity, animlist_hero_idle);
+			entity_setActiveAnim(entity, animlist_hero_idle);
 			entity->stats->busyDuration     = 0;
 			entity->stats->actionTimer      = entity->stats->actionRate;
 			entity->stats->queuedAttack     = entityattack_invalid;
@@ -896,7 +744,7 @@ INTERNAL void entityStateSwitch(World *world, Entity *entity,
 		{
 		case entitystate_battle:
 			endAttack(world, entity);
-			setActiveEntityAnim(entity, animlist_hero_battlePose);
+			entity_setActiveAnim(entity, animlist_hero_battlePose);
 			entity->stats->actionTimer  = entity->stats->actionRate;
 			entity->stats->busyDuration = 0;
 			break;
@@ -956,9 +804,9 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	{
 		Entity *const entity = &world->entities[i];
 
-		if (entity->audio)
+		if (entity->audioRenderer)
 		{
-			AudioRenderer *audioRenderer = entity->audio;
+			AudioRenderer *audioRenderer = entity->audioRenderer;
 			if (world->numEntitiesInBattle > 0)
 			{
 				AudioVorbis *battleTheme =
@@ -981,7 +829,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				}
 			}
 
-			audio_updateAndPlay(&state->audioManager, entity->audio);
+			audio_updateAndPlay(&state->audioManager, entity->audioRenderer);
 		}
 
 		if (entity->state == entitystate_dead)
@@ -1002,7 +850,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			// an entity dies
 #if 1
 			i32 entityIndexInArray = i;
-			deleteEntity(&state->arena, world, entityIndexInArray);
+			entity_delete(&state->arena, world, entityIndexInArray);
 
 			// TODO(doyle): DeleteEntity moves elements down 1, so account for i
 			i--;
@@ -1113,7 +961,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		 */
 		if (entity->tex)
 		{
-			updateEntityAnim(entity, dt);
+			entity_updateAnim(entity, dt);
 			/* Calculate region to render */
 			renderer_entity(renderer, cameraBounds, entity, V2(0, 0), 0,
 			                V4(1, 1, 1, 1));
@@ -1138,7 +986,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		{
 			hero->state                       = entitystate_idle;
 			world->entityIdInBattle[hero->id] = FALSE;
-			setActiveEntityAnim(hero, animlist_hero_idle);
+			entity_setActiveAnim(hero, animlist_hero_idle);
 		}
 		hero->stats->entityIdToAttack = -1;
 		hero->stats->actionTimer      = hero->stats->actionRate;
