@@ -36,11 +36,15 @@ struct AudioRenderer
 typedef struct AudioRenderer AudioRenderer;
 
 const i32 audio_init(AudioManager *audioManager);
-void audio_streamPlayVorbis(AudioManager *audioManager,
-                            AudioRenderer *audioRenderer, AudioVorbis *vorbis,
-                            i32 numPlays);
-void audio_streamStopVorbis(AudioManager *audioManager,
-                           AudioRenderer *audioRenderer);
-void audio_updateAndPlay(AudioManager *audioManager,
-                         AudioRenderer *audioRenderer);
+const i32 audio_streamPlayVorbis(AudioManager *audioManager,
+                                 AudioRenderer *audioRenderer,
+                                 AudioVorbis *vorbis, i32 numPlays);
+const i32 audio_streamStopVorbis(AudioManager *audioManager,
+                                 AudioRenderer *audioRenderer);
+const i32 audio_streamPauseVorbis(AudioManager *audioManager,
+                                  AudioRenderer *audioRenderer);
+const i32 audio_streamResumeVorbis(AudioManager *audioManager,
+                                   AudioRenderer *audioRenderer);
+const i32 audio_updateAndPlay(AudioManager *audioManager,
+                              AudioRenderer *audioRenderer);
 #endif

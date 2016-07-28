@@ -224,7 +224,10 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	                      "data/shaders/sprite.frag.glsl",
 	                      shaderlist_sprite);
 
-	asset_loadTTFont(assetManager, arena, "C:/Windows/Fonts/Arialbd.ttf");
+	result =
+	    asset_loadTTFont(assetManager, arena, "C:/Windows/Fonts/Arialbd.ttf");
+	if (result) DEBUG_LOG("Font loading failed");
+
 	GL_CHECK_ERROR();
 
 #ifdef DENGINE_DEBUG
@@ -495,6 +498,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			ddPos = v2_scale(ddPos, 0.70710678118f);
 		}
 
+		LOCAL_PERSIST b32 toggleFlag = TRUE;
 		// TODO(doyle): Revisit key input with state checking for last ended down
 		if (state->keys[GLFW_KEY_SPACE] && spaceBarWasDown == FALSE)
 		{
@@ -506,6 +510,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			v2 pos = V2(renderer->size.w - (renderer->size.w / xModifier), yPos);
 			addGenericMob(&state->arena, &state->assetManager, world, pos);
 #endif
+#if 0
 			if (world->soundscape->audio->sourceIndex == AUDIO_SOURCE_UNASSIGNED)
 			{
 				audio_streamPlayVorbis(
@@ -517,6 +522,28 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			{
 				audio_streamStopVorbis(&state->audioManager,
 				                       world->soundscape->audio);
+				audio_streamPauseVorbis(&state->audioManager,
+				                        world->soundscape->audio);
+			}
+#endif
+
+			if (toggleFlag)
+			{
+				audio_streamPauseVorbis(&state->audioManager,
+				                        world->soundscape->audio);
+				toggleFlag = FALSE;
+			}
+			else
+			{
+				audio_streamResumeVorbis(&state->audioManager,
+				                        world->soundscape->audio);
+#if 0
+				audio_streamPlayVorbis(
+				    &state->audioManager, world->soundscape->audio,
+				    asset_getVorbis(&state->assetManager, audiolist_battle),
+				    AUDIO_REPEAT_INFINITE);
+#endif
+				toggleFlag = TRUE;
 			}
 			spaceBarWasDown = TRUE;
 		}

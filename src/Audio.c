@@ -134,7 +134,17 @@ INTERNAL i32 rendererAcquire(AudioManager *audioManager,
 	    AUDIO_NO_FREE_SOURCE)
 	{
 		// TODO(doyle): Error messaging return paths
+		DEBUG_LOG("rendererAcquire(): Failed to acquire free source, all busy");
 		return -1;
+	}
+
+	u32 checkSource = getSourceId(audioManager, audioRenderer);
+	if (alIsSource(checkSource) == AL_TRUE)
+	{
+		DEBUG_LOG(
+		    "rendererAcquire(): Renderer has not been released before "
+		    "acquiring, force release by stopping stream");
+		audio_streamStopVorbis(audioManager, audioRenderer);
 	}
 
 	/* Assign a vacant source slot to renderer */
@@ -156,18 +166,35 @@ INTERNAL i32 rendererAcquire(AudioManager *audioManager,
 	return 0;
 }
 
-INTERNAL void rendererRelease(AudioManager *audioManager,
+INTERNAL const i32 rendererRelease(AudioManager *audioManager,
                              AudioRenderer *audioRenderer)
 {
 
+	i32 result = 0;
 	u32 alSourceId = getSourceId(audioManager, audioRenderer);
+	if (alIsSource(alSourceId) == AL_FALSE)
+	{
+		DEBUG_LOG(
+		    "rendererRelease(): Trying to release invalid source, early exit");
 
-	alSourceUnqueueBuffers(alSourceId, ARRAY_COUNT(audioRenderer->bufferId),
-	                       audioRenderer->bufferId);
-	AL_CHECK_ERROR();
-	alDeleteBuffers(ARRAY_COUNT(audioRenderer->bufferId),
-	                audioRenderer->bufferId);
-	AL_CHECK_ERROR();
+		result = -1;
+		return result;
+	}
+
+	for (i32 i = 0; i < ARRAY_COUNT(audioRenderer->bufferId); i++)
+	{
+		if (alIsBuffer(audioRenderer->bufferId[i]) == AL_TRUE)
+		{
+			alSourceUnqueueBuffers(alSourceId, 1, &audioRenderer->bufferId[i]);
+			alDeleteBuffers(1, &audioRenderer->bufferId[i]);
+			AL_CHECK_ERROR();
+		}
+		else
+		{
+			DEBUG_LOG("rendererRelease(): Invalid buffer identified in renderer");
+			result = -1;
+		}
+	}
 
 	for (i32 i = 0; i < ARRAY_COUNT(audioRenderer->bufferId); i++)
 	{
@@ -184,12 +211,14 @@ INTERNAL void rendererRelease(AudioManager *audioManager,
 	    audioManager->freeSourceIndex;
 	audioManager->freeSourceIndex = sourceIndexToFree;
 
+	return result;
+
 }
 
 #define AUDIO_CHUNK_SIZE_ 65536
-void audio_streamPlayVorbis(AudioManager *audioManager,
-                             AudioRenderer *audioRenderer, AudioVorbis *vorbis,
-                             i32 numPlays)
+const i32 audio_streamPlayVorbis(AudioManager *audioManager,
+                                 AudioRenderer *audioRenderer,
+                                 AudioVorbis *vorbis, i32 numPlays)
 {
 #ifdef DENGINE_DEBUG
 	ASSERT(audioManager && audioRenderer && vorbis);
@@ -203,7 +232,7 @@ void audio_streamPlayVorbis(AudioManager *audioManager,
 	if (result)
 	{
 		DEBUG_LOG("audio_streamPlayVorbis() failed: Could not acquire renderer");
-		return;
+		return result;
 	}
 
 	/* Determine format */
@@ -214,38 +243,93 @@ void audio_streamPlayVorbis(AudioManager *audioManager,
 	{
 #ifdef DENGINE_DEBUG
 		DEBUG_LOG(
-		    "audio_streamPlayVorbis() warning: Unaccounted channel format");
-		ASSERT(INVALID_CODE_PATH);
+		    "audio_streamPlayVorbis() warning: Unexpected channel format");
 #endif
 	}
 
 	audioRenderer->audio    = vorbis;
 	audioRenderer->numPlays = numPlays;
+
+	return 0;
 }
 
-void audio_streamStopVorbis(AudioManager *audioManager,
-                           AudioRenderer *audioRenderer)
+const i32 audio_streamStopVorbis(AudioManager *audioManager,
+                            AudioRenderer *audioRenderer)
 {
+	i32 result     = 0;
 	u32 alSourceId = getSourceId(audioManager, audioRenderer);
-	alSourceStop(alSourceId);
-	AL_CHECK_ERROR();
-	rendererRelease(audioManager, audioRenderer);
+	if (alIsSource(alSourceId) == AL_TRUE)
+	{
+		alSourceStop(alSourceId);
+		AL_CHECK_ERROR();
+		result = rendererRelease(audioManager, audioRenderer);
+	}
+	else
+	{
+		DEBUG_LOG("audio_streamStopVorbis(): Tried to stop invalid source");
+		result = -1;
+	}
+
+	return result;
 }
 
-void audio_updateAndPlay(AudioManager *audioManager,
-                         AudioRenderer *audioRenderer)
+const i32 audio_streamPauseVorbis(AudioManager *audioManager,
+                                  AudioRenderer *audioRenderer)
+{
+	i32 result     = 0;
+	u32 alSourceId = getSourceId(audioManager, audioRenderer);
+	if (alIsSource(alSourceId) == AL_TRUE)
+	{
+		alSourcePause(alSourceId);
+		AL_CHECK_ERROR();
+	}
+	else
+	{
+		DEBUG_LOG("audio_streamPauseVorbis(): Tried to pause invalid source");
+		result = -1;
+	}
+	return result;
+}
+
+const i32 audio_streamResumeVorbis(AudioManager *audioManager,
+                                   AudioRenderer *audioRenderer)
+{
+	i32 result = 0;
+	u32 alSourceId = getSourceId(audioManager, audioRenderer);
+	if (alIsSource(alSourceId) == AL_TRUE)
+	{
+		alSourcePlay(alSourceId);
+		AL_CHECK_ERROR();
+	}
+	else
+	{
+		DEBUG_LOG("audio_streamResumeVorbis(): Tried to resume invalid source");
+		result = -1;
+	}
+
+	return result;
+}
+
+const i32 audio_updateAndPlay(AudioManager *audioManager,
+                              AudioRenderer *audioRenderer)
 {
 	AudioVorbis *audio = audioRenderer->audio;
-	if (!audio) return;
+	if (!audio) return 0;
 
 	if (audioRenderer->numPlays != AUDIO_REPEAT_INFINITE &&
 	    audioRenderer->numPlays <= 0)
 	{
-		rendererRelease(audioManager, audioRenderer);
-		return;
+		i32 result = rendererRelease(audioManager, audioRenderer);
+		return result;
 	}
 
 	u32 alSourceId = getSourceId(audioManager, audioRenderer);
+	if (alIsSource(alSourceId) == AL_FALSE)
+	{
+		DEBUG_LOG("audio_updateAndPlay(): Update failed on invalid source id");
+		return -1;
+	}
+
 	ALint audioState;
 	alGetSourcei(alSourceId, AL_SOURCE_STATE, &audioState);
 	AL_CHECK_ERROR();
@@ -271,8 +355,8 @@ void audio_updateAndPlay(AudioManager *audioManager,
 			}
 			else
 			{
-				rendererRelease(audioManager, audioRenderer);
-				return;
+				i32 result = rendererRelease(audioManager, audioRenderer);
+				return result;
 			}
 		}
 
@@ -329,4 +413,6 @@ void audio_updateAndPlay(AudioManager *audioManager,
 			}
 		}
 	}
+
+	return 0;
 }

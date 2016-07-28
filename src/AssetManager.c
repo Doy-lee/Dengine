@@ -224,7 +224,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
                            const char *filePath)
 {
 	PlatformFileRead fontFileRead = {0};
-	platform_readFileToBuffer(arena, filePath, &fontFileRead);
+	i32 result = platform_readFileToBuffer(arena, filePath, &fontFileRead);
+	if (result) return result;
 
 	stbtt_fontinfo fontInfo = {0};
 	stbtt_InitFont(&fontInfo, fontFileRead.buffer,
