@@ -287,7 +287,7 @@ void debug_drawUi(GameState *state, f32 dt)
 	AssetManager *assetManager = &state->assetManager;
 	Renderer *renderer         = &state->renderer;
 	World *const world         = &state->world[state->currWorldIndex];
-	Entity *hero               = &world->entities[world->heroIndex];
+	Entity *hero = &world->entities[entity_getIndex(world, world->heroId)];
 
 	// TODO(doyle): Dumb copy function from game so we don't expose api
 	v4 cameraBounds = math_getRect(world->cameraPos, renderer->size);
@@ -442,6 +442,7 @@ void debug_drawUi(GameState *state, f32 dt)
 	DEBUG_PUSH_STRING("== Audio System ==");
 	for (i32 i = 0; i < ARRAY_COUNT(audioManager->sourceList); i++)
 	{
+		if (audioManager->sourceList[i].isFree) continue;
 		v3 tmp = V3i(i, audioManager->sourceList[i].id,
 		             audioManager->sourceList[i].isFree);
 		DEBUG_PUSH_VAR("Source ID[%02.0f].id[%02.0f].isFree: %1.0f", tmp, "v3");

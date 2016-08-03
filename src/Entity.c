@@ -68,7 +68,7 @@ void entity_addGenericMob(MemoryArena *arena, AssetManager *assetManager,
 	DEBUG_LOG("Mob entity spawned");
 #endif
 
-	Entity *hero = &world->entities[world->heroIndex];
+	Entity *hero = &world->entities[entity_getIndex(world, world->heroId)];
 
 	v2 size              = V2(58.0f, 98.0f);
 	enum EntityType type = entitytype_mob;
@@ -147,19 +147,37 @@ Entity *entity_add(MemoryArena *arena, World *world, v2 pos, v2 size,
 	return result;
 }
 
-void entity_delete(MemoryArena *arena, World *world, i32 entityIndex)
+void entity_clearData(MemoryArena *arena, World *world, Entity *entity)
 {
-	Entity *entity = &world->entities[entityIndex];
-
 	if (entity->stats)
 		PLATFORM_MEM_FREE(arena, entity->stats, sizeof(EntityStats));
 
 	if (entity->audioRenderer)
 		PLATFORM_MEM_FREE(arena, entity->audioRenderer, sizeof(AudioRenderer));
 
-	// TODO(doyle): Inefficient shuffle down all elements
-	for (i32 i             = entityIndex; i < world->freeEntityIndex - 1; i++)
-		world->entities[i] = world->entities[i + 1];
-
-	world->freeEntityIndex--;
+	entity->type = entitytype_null;
 }
+
+i32 entity_getIndex(World *world, i32 entityId)
+{
+	i32 first = 0;
+	i32 last  = world->freeEntityIndex - 1;
+
+	while (first <= last)
+	{
+		i32 middle = (first + last) / 2;
+
+		if (world->entities[middle].id > entityId)
+			last = middle - 1;
+		else if (world->entities[middle].id < entityId)
+			first = middle + 1;
+		else
+			return middle;
+	}
+
+#ifdef DENGINE_DEBUG
+	ASSERT(INVALID_CODE_PATH);
+#endif
+	return -1;
+}
+

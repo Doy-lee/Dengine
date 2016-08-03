@@ -125,9 +125,11 @@ INTERNAL i32 rendererAcquire(MemoryArena *arena, AudioManager *audioManager,
 	u32 checkSource = getSourceId(audioManager, audioRenderer);
 	if (alIsSource(checkSource) == AL_TRUE)
 	{
+#if 0
 		DEBUG_LOG(
 		    "rendererAcquire(): Renderer has not been released before "
 		    "acquiring, force release by stopping stream");
+#endif
 		audio_streamStopVorbis(arena, audioManager, audioRenderer);
 	}
 

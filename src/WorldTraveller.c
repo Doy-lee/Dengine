@@ -11,9 +11,32 @@ enum State
 	state_win,
 };
 
-Entity *getHeroEntity(World *world)
+enum EventType
 {
-	Entity *result = &world->entities[world->heroIndex];
+	eventtype_start_attack,
+	eventtype_end_attack,
+	eventtype_start_anim,
+	eventtype_end_anim,
+	eventtype_entity_died,
+	eventtype_count,
+};
+
+typedef struct Event
+{
+	enum EventType type;
+	void *data;
+} Event;
+
+typedef struct EventQueue
+{
+	Event queue[1024];
+	i32 numEvents;
+} EventQueue;
+
+
+INTERNAL Entity *getHeroEntity(World *world)
+{
+	Entity *result = &world->entities[entity_getIndex(world, world->heroId)];
 	return result;
 }
 
@@ -207,8 +230,13 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	/* Init world */
 	const i32 targetWorldWidth  = 100 * METERS_TO_PIXEL;
 	const i32 targetWorldHeight = 10 * METERS_TO_PIXEL;
+#if 0
 	v2 worldDimensionInTiles    = V2i(targetWorldWidth / state->tileSize,
 	                               targetWorldHeight / state->tileSize);
+#else
+	v2 worldDimensionInTiles = V2i(CAST(i32) windowSize.w / state->tileSize,
+	                               CAST(i32) windowSize.h / state->tileSize);
+#endif
 
 	for (i32 i = 0; i < ARRAY_COUNT(state->world); i++)
 	{
@@ -227,7 +255,7 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 		TexAtlas *const atlas =
 		    asset_getTextureAtlas(assetManager, world->texType);
 
-		for (i32 y = 0; y < worldDimensionInTiles.y; y++)
+		for (i32 y = 0; y < 1; y++)
 		{
 			for (i32 x = 0; x < worldDimensionInTiles.x; x++)
 			{
@@ -271,17 +299,18 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	soundscape->audioRenderer->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
 
 	/* Init hero entity */
-	world->heroIndex   = world->freeEntityIndex;
-
 	size            = V2(58.0f, 98.0f);
 	pos             = V2(size.x, CAST(f32) state->tileSize);
 	type            = entitytype_hero;
 	dir             = direction_east;
 	tex             = asset_getTexture(assetManager, texlist_hero);
 	collides        = TRUE;
-	Entity *hero = entity_add(arena, world, pos, size, type, dir, tex, collides);
+	Entity *hero =
+	    entity_add(arena, world, pos, size, type, dir, tex, collides);
+
 	hero->audioRenderer = PLATFORM_MEM_ALLOC(arena, 1, AudioRenderer);
 	hero->audioRenderer->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
+	world->heroId       = hero->id;
 
 	/* Populate hero animation references */
 	entity_addAnim(assetManager, hero, animlist_hero_idle);
@@ -336,8 +365,8 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	 */
 
 	World *const world = &state->world[state->currWorldIndex];
-	Entity *hero       = &world->entities[world->heroIndex];
-	v2 ddPos           = V2(0, 0);
+	Entity *hero = &world->entities[entity_getIndex(world, world->heroId)];
+	v2 ddPos     = V2(0, 0);
 
 	if (hero->stats->busyDuration <= 0)
 	{
@@ -439,10 +468,9 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	{
 		for (i32 i = 0; i < world->maxEntities; i++)
 		{
-			if (i == world->heroIndex) continue;
-
 			Entity entity = world->entities[i];
 			if (entity.state == entitystate_dead) continue;
+			if (entity.id == world->heroId) continue;
 
 			if (entity.collides)
 			{
@@ -520,7 +548,7 @@ INTERNAL i32 findBestEntityToAttack(World *world, Entity attacker)
 	// when we have party members!
 	if (attacker.type == entitytype_mob)
 	{
-		Entity hero = world->entities[world->heroIndex];
+		Entity hero = world->entities[entity_getIndex(world, world->heroId)];
 
 		if (hero.state == entitystate_dead) result = ENTITY_NULL_ID;
 		else result = hero.id;
@@ -530,7 +558,7 @@ INTERNAL i32 findBestEntityToAttack(World *world, Entity attacker)
 
 	/* Attacker is hero */
 	Entity hero = attacker;
-	for (i32 i = 0; i < world->maxEntities; i++)
+	for (i32 i = world->maxEntities; i >= 0; i--)
 	{
 		Entity targetEntity = world->entities[i];
 		if (hero.id == targetEntity.id) continue;
@@ -581,119 +609,18 @@ INTERNAL inline void resetEntityState(World *world, Entity *entity)
 	entity->stats->entityIdToAttack = ENTITY_NULL_ID;
 }
 
-INTERNAL void beginAttack(World *world, Entity *attacker)
+
+INTERNAL registerEvent(EventQueue *eventQueue, enum EventType type, void *data)
 {
 #ifdef DENGINE_DEBUG
-	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
-	ASSERT(attacker->state == entitystate_battle);
+	ASSERT(eventQueue && type < eventtype_count);
+	ASSERT(eventQueue->numEvents+1 < ARRAY_COUNT(eventQueue->queue));
 #endif
-	switch (attacker->stats->queuedAttack)
-	{
-	case entityattack_tackle:
-		EntityAnim_ attackAnim = attacker->anim[animlist_hero_tackle];
-		f32 busyDuration       = attackAnim.anim->frameDuration *
-		                   CAST(f32) attackAnim.anim->numFrames;
-		attacker->stats->busyDuration = busyDuration;
-		entity_setActiveAnim(attacker, animlist_hero_tackle);
-		if (attacker->direction == direction_east)
-			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
-		else
-			attacker->dPos.x -= (1.0f * METERS_TO_PIXEL);
-		break;
-	default:
-#ifdef DENGINE_DEBUG
-		ASSERT(INVALID_CODE_PATH);
-#endif
-		break;
-	}
+	i32 currIndex = eventQueue->numEvents++;
+	eventQueue->queue[currIndex].type = type;
+	eventQueue->queue[currIndex].data = data;
 }
-
-INTERNAL void endAttack(MemoryArena *arena, AssetManager *assetManager,
-                        AudioManager *audioManager, World *world,
-                        Entity *attacker)
-{
-#ifdef DENGINE_DEBUG
-	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
-#endif
-
-	switch (attacker->stats->queuedAttack)
-	{
-	case entityattack_tackle:
-		// TODO(doyle): Move animation offsets out and into animation type
-		if (attacker->direction == direction_east)
-			attacker->dPos.x -= (1.0f * METERS_TO_PIXEL);
-		else
-			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
-
-#if 1
-		audio_streamPlayVorbis(arena, audioManager, attacker->audioRenderer,
-		                       asset_getVorbis(assetManager, audiolist_tackle),
-		                       1);
-#endif
-
-		break;
-	default:
-#ifdef DENGINE_DEBUG
-		ASSERT(INVALID_CODE_PATH);
-#endif
-		break;
-	}
-
-	/* Compute attack damage */
-	Entity *defender = NULL;
-
-	// TODO(doyle): Implement faster lookup for entity id in entity table
-	b32 noMoreValidTargets = FALSE;
-	do
-	{
-		/* Get target entity to attack */
-		for (i32 i = 0; i < world->maxEntities; i++)
-		{
-			i32 entityIdToAttack = attacker->stats->entityIdToAttack;
-			if (world->entities[i].id == entityIdToAttack)
-			{
-				defender = &world->entities[i];
-#ifdef DENGINE_DEBUG
-				ASSERT(defender->type == entitytype_mob ||
-				       defender->type == entitytype_hero);
-#endif
-				break;
-			}
-		}
-
-		/* If no longer exists, find next best */
-		if (!defender)
-		{
-			i32 entityIdToAttack = findBestEntityToAttack(world, *attacker);
-			if (entityIdToAttack == ENTITY_NULL_ID)
-			{
-				noMoreValidTargets = TRUE;
-			}
-			else
-			{
-				attacker->stats->entityIdToAttack =
-				    findBestEntityToAttack(world, *attacker);
-			}
-		}
-	} while (!defender && noMoreValidTargets == TRUE);
-
-	if (!noMoreValidTargets)
-	{
-		i32 damage = -10;
-		// TODO(doyle): Use attacker stats in battle equations
-		if (attacker->type == entitytype_hero)
-		{
-			defender->stats->health += damage;
-		}
-		else
-		{
-			// defender->stats->health--;
-		}
-	}
-}
-
-INTERNAL void entityStateSwitch(MemoryArena *arena, AssetManager *assetManager,
-                                AudioManager *audioManager, World *world,
+INTERNAL void entityStateSwitch(EventQueue *eventQueue, World *world,
                                 Entity *entity, enum EntityState newState)
 {
 #ifdef DENGINE_DEBUG
@@ -718,6 +645,7 @@ INTERNAL void entityStateSwitch(MemoryArena *arena, AssetManager *assetManager,
 		// attacking it since there's no check before attack if entity is idle
 		// or not (i.e. has moved out of frame last frame).
 		case entitystate_dead:
+			registerEvent(eventQueue, eventtype_entity_died, CAST(void *)entity);
 			entity_setActiveAnim(entity, animlist_hero_idle);
 			entity->stats->busyDuration     = 0;
 			entity->stats->actionTimer      = entity->stats->actionRate;
@@ -738,11 +666,13 @@ INTERNAL void entityStateSwitch(MemoryArena *arena, AssetManager *assetManager,
 		{
 		case entitystate_attack:
 		{
-			beginAttack(world, entity);
 			break;
 		}
 		case entitystate_idle:
+			resetEntityState(world, entity);
+			break;
 		case entitystate_dead:
+			registerEvent(eventQueue, eventtype_entity_died, CAST(void *)entity);
 			resetEntityState(world, entity);
 			break;
 		default:
@@ -756,14 +686,16 @@ INTERNAL void entityStateSwitch(MemoryArena *arena, AssetManager *assetManager,
 		switch (newState)
 		{
 		case entitystate_battle:
-			endAttack(arena, assetManager, audioManager, world, entity);
 			entity_setActiveAnim(entity, animlist_hero_battlePose);
 			entity->stats->actionTimer  = entity->stats->actionRate;
 			entity->stats->busyDuration = 0;
 			break;
 		// NOTE(doyle): Entity has been forced out of an attack (out of range)
 		case entitystate_idle:
+			resetEntityState(world, entity);
+			break;
 		case entitystate_dead:
+			registerEvent(eventQueue, eventtype_entity_died, CAST(void *)entity);
 			resetEntityState(world, entity);
 			break;
 		default:
@@ -796,6 +728,138 @@ INTERNAL void entityStateSwitch(MemoryArena *arena, AssetManager *assetManager,
 	entity->state = newState;
 }
 
+INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
+                          Entity *attacker)
+{
+#ifdef DENGINE_DEBUG
+	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
+	ASSERT(attacker->state == entitystate_battle);
+#endif
+
+	entityStateSwitch(eventQueue, world, attacker, entitystate_attack);
+	switch (attacker->stats->queuedAttack)
+	{
+	case entityattack_tackle:
+		EntityAnim_ attackAnim = attacker->anim[animlist_hero_tackle];
+		f32 busyDuration       = attackAnim.anim->frameDuration *
+		                   CAST(f32) attackAnim.anim->numFrames;
+		attacker->stats->busyDuration = busyDuration;
+		entity_setActiveAnim(attacker, animlist_hero_tackle);
+		if (attacker->direction == direction_east)
+			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
+		else
+			attacker->dPos.x -= (1.0f * METERS_TO_PIXEL);
+		break;
+	default:
+#ifdef DENGINE_DEBUG
+		ASSERT(INVALID_CODE_PATH);
+#endif
+		break;
+	}
+}
+
+INTERNAL void endAttack(EventQueue *eventQueue, World *world, Entity *attacker)
+{
+#ifdef DENGINE_DEBUG
+	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
+#endif
+
+	entityStateSwitch(eventQueue, world, attacker, entitystate_battle);
+	registerEvent(eventQueue, eventtype_end_attack, attacker);
+	switch (attacker->stats->queuedAttack)
+	{
+	case entityattack_tackle:
+		// TODO(doyle): Move animation offsets out and into animation type
+		if (attacker->direction == direction_east)
+			attacker->dPos.x -= (1.0f * METERS_TO_PIXEL);
+		else
+			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
+
+		break;
+	default:
+#ifdef DENGINE_DEBUG
+		ASSERT(INVALID_CODE_PATH);
+#endif
+		break;
+	}
+
+	/* Compute attack damage */
+	Entity *defender = NULL;
+
+	// TODO(doyle): Implement faster lookup for entity id in entity table
+	b32 noMoreValidTargets = FALSE;
+	do
+	{
+		/* Get target entity to attack */
+		i32 entityIdToAttack = attacker->stats->entityIdToAttack;
+		i32 entityIndex      = entity_getIndex(world, entityIdToAttack);
+
+		if (entityIndex != -1)
+		{
+			defender = &world->entities[entityIndex];
+#ifdef DENGINE_DEBUG
+			ASSERT(defender->type == entitytype_mob ||
+			       defender->type == entitytype_hero);
+#endif
+		}
+		else
+		{
+			i32 entityIdToAttack = findBestEntityToAttack(world, *attacker);
+			if (entityIdToAttack == ENTITY_NULL_ID)
+			{
+				noMoreValidTargets = TRUE;
+			}
+			else
+			{
+				attacker->stats->entityIdToAttack =
+				    findBestEntityToAttack(world, *attacker);
+			}
+		}
+	} while (!defender && noMoreValidTargets == TRUE);
+
+	if (!noMoreValidTargets)
+	{
+		i32 damage = 50;
+		// TODO(doyle): Use attacker stats in battle equations
+		if (attacker->type == entitytype_hero)
+		{
+			defender->stats->health -= damage;
+		}
+
+		if (defender->stats->health <= 0)
+		{
+			entityStateSwitch(eventQueue, world, defender, entitystate_dead);
+			entityStateSwitch(eventQueue, world, attacker, entitystate_idle);
+		}
+	}
+}
+
+INTERNAL void sortWorldEntityList(World *world, i32 numDeadEntities)
+{
+	b32 listHasChanged       = TRUE;
+	i32 numUnsortedEntities  = world->freeEntityIndex;
+	while (listHasChanged)
+	{
+		listHasChanged = FALSE;
+		for (i32 i = 0; i < numUnsortedEntities-1; i++)
+		{
+			Entity *entityA = &world->entities[i];
+			Entity *entityB = &world->entities[i+1];
+			if (entityA->type == entitytype_null ||
+			    (entityB->type != entitytype_null && entityA->id > entityB->id))
+			{
+				Entity tempEntity         = world->entities[i];
+				world->entities[i]        = world->entities[i + 1];
+				world->entities[i + 1]    = tempEntity;
+				listHasChanged = TRUE;
+			}
+		}
+		numUnsortedEntities--;
+	}
+
+	world->freeEntityIndex -= numDeadEntities;
+}
+
 void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 {
 	if (dt >= 1.0f) dt = 1.0f;
@@ -814,14 +878,16 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	 * Update entities and render
 	 ******************************
 	 */
-	Entity *hero               = getHeroEntity(world);
+	EventQueue eventQueue      = {0};
 	v4 cameraBounds            = createCameraBounds(world, renderer->size);
 	AudioManager *audioManager = &state->audioManager;
 	ASSERT(world->freeEntityIndex < world->maxEntities);
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
 		Entity *const entity = &world->entities[i];
+		if (entity->state == entitystate_dead) continue;
 
+#if 0
 		if (entity->type == entitytype_soundscape)
 		{
 			AudioRenderer *audioRenderer = entity->audioRenderer;
@@ -866,35 +932,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				}
 			}
 		}
-
-		if (entity->state == entitystate_dead)
-		{
-#ifdef DENGINE_DEBUG
-			switch(entity->type)
-			{
-			case entitytype_hero:
-			case entitytype_mob:
-				break;
-			default:
-				// TODO(doyle): Implement variable expansion in DEBUG_LOG
-				DEBUG_LOG("Unexpected entity has been deleted");
-			}
 #endif
-			// TODO(doyle): Accumulate all dead entities and delete at the
-			// end. Hence resort/organise entity array once, not every time
-			// an entity dies
-#if 1
-			i32 entityIndexInArray = i;
-			audio_streamStopVorbis(arena, &state->audioManager,
-			                       entity->audioRenderer);
-			entity_delete(&state->arena, world, entityIndexInArray);
-
-			// TODO(doyle): DeleteEntity moves elements down 1, so account for i
-			i--;
-#endif
-			continue;
-		}
-
 		/*
 		 *****************************************************
 		 * Set mob to battle mode if within distance from hero
@@ -905,7 +943,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			// TODO(doyle): Currently calculated in pixels, how about meaningful
 			// game units?
 			f32 battleThreshold = 500.0f;
-			f32 distance = v2_magnitude(hero->pos, entity->pos);
+			Entity *hero        = getHeroEntity(world);
+			f32 distance        = v2_magnitude(hero->pos, entity->pos);
 
 			enum EntityState newState = entitystate_invalid;
 			if (distance <= battleThreshold)
@@ -926,8 +965,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				newState = entitystate_idle;
 			}
 
-			entityStateSwitch(arena, assetManager, audioManager, world, entity,
-			                  newState);
+			entityStateSwitch(&eventQueue, world, entity, newState);
 		}
 
 		/*
@@ -950,8 +988,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 						stats->queuedAttack = entityattack_tackle;
 
 					/* Launch up attack animation */
-					entityStateSwitch(arena, assetManager, audioManager, world,
-					                  entity, entitystate_attack);
+					beginAttack(&eventQueue, world, entity);
 				}
 			}
 			else if (entity->state == entitystate_attack)
@@ -962,36 +999,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				if (stats->busyDuration <= 0)
 				{
 					/* Apply attack damage */
-					entityStateSwitch(arena, assetManager, audioManager, world,
-					                  entity, entitystate_battle);
-
-					/* Get target entity that was attacked */
-					Entity *defender = NULL;
-					for (i32 i = 0; i < world->maxEntities; i++)
-					{
-						i32 entityIdToAttack =
-						    attacker->stats->entityIdToAttack;
-						if (world->entities[i].id == entityIdToAttack)
-						{
-							defender = &world->entities[i];
-#ifdef DENGINE_DEBUG
-							ASSERT(defender->type == entitytype_mob ||
-							       defender->type == entitytype_hero);
-#endif
-							break;
-						}
-					}
-
-					if (defender->stats->health <= 0)
-					{
-#ifdef DENGINE_DEBUG
-						DEBUG_LOG("Entity has died");
-#endif
-						entityStateSwitch(arena, assetManager, audioManager, world, defender,
-						                  entitystate_dead);
-						entityStateSwitch(arena, assetManager, audioManager, world, attacker,
-						                  entitystate_idle);
-					}
+					endAttack(&eventQueue, world, entity);
 				}
 			}
 		}
@@ -1016,16 +1024,55 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		}
 	}
 
+	i32 numDeadEntities = 0;
+	for (i32 i = 0; i < eventQueue.numEvents; i++)
+	{
+		Event event = eventQueue.queue[i];
+		switch(event.type)
+		{
+			case eventtype_end_attack:
+			{
+				if (!event.data) continue;
+
+				Entity *entity = (CAST(Entity *) event.data);
+			    audio_streamPlayVorbis(
+			        arena, audioManager, entity->audioRenderer,
+			        asset_getVorbis(assetManager, audiolist_tackle), 1);
+				break;
+		    }
+			// NOTE(doyle): We delete dead entities at the end of the update
+			// loop incase a later indexed entity deletes an earlier indexed
+			// entity, the entity will exist for an additional frame
+			case eventtype_entity_died:
+			{
+			    DEBUG_LOG("Entity died: being deleted");
+			    if (!event.data) continue;
+
+			    Entity *entity  = (CAST(Entity *) event.data);
+			    audio_streamStopVorbis(&state->arena, audioManager,
+			                           entity->audioRenderer);
+			    entity_clearData(&state->arena, world, entity);
+			    numDeadEntities++;
+				break;
+		    }
+			default:
+			{
+				break;
+			}
+		}
+	}
+
 	// TODO(doyle): Dead hero not accounted for here
+	Entity *hero = getHeroEntity(world);
 	if (world->numEntitiesInBattle > 0)
 	{
 		// NOTE(doyle): If battle entities is 1 then only the hero left
 		if (hero->state == entitystate_battle &&
 		    world->numEntitiesInBattle == 1)
-			entityStateSwitch(arena, assetManager, audioManager, world, hero, entitystate_idle);
+			entityStateSwitch(&eventQueue, world, hero, entitystate_idle);
 		else if (hero->state != entitystate_attack)
 		{
-			entityStateSwitch(arena, assetManager, audioManager, world, hero, entitystate_battle);
+			entityStateSwitch(&eventQueue, world, hero, entitystate_battle);
 		}
 	}
 	else
@@ -1042,7 +1089,6 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	}
 
 	/* Draw ui */
-
 	/* Draw hero avatar */
 	TexAtlas *heroAtlas  = asset_getTextureAtlas(assetManager, texlist_hero);
 	v4 heroAvatarTexRect = heroAtlas->texRect[herorects_head];
@@ -1085,6 +1131,17 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			              V4(1, 0, 0, 1.0f));
 		}
 	}
+
+	sortWorldEntityList(world, numDeadEntities);
+
+#ifdef DENGINE_DEBUG
+	for (i32 i = 0; i < world->freeEntityIndex-1; i++)
+	{
+		ASSERT(world->entities[i].type != entitytype_null);
+		ASSERT(world->entities[i].id < world->entities[i+1].id);
+	}
+#endif
+
 #ifdef DENGINE_DEBUG
 	debug_drawUi(state, dt);
 #endif

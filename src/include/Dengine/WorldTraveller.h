@@ -27,7 +27,7 @@ typedef struct World
 	v2 cameraPos; // In pixels
 	v4 bounds; // In pixels
 
-	i32 heroIndex;
+	i32 heroId;
 	i32 freeEntityIndex;
 	u32 uniqueIdAccumulator;
 

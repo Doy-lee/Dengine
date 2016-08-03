@@ -107,5 +107,6 @@ void entity_addGenericMob(MemoryArena *arena, AssetManager *assetManager,
 Entity *entity_add(MemoryArena *arena, World *world, v2 pos, v2 size,
                    enum EntityType type, enum Direction direction, Texture *tex,
                    b32 collides);
-void entity_delete(MemoryArena *arena, World *world, i32 entityIndex);
+void entity_clearData(MemoryArena *arena, World *world, Entity *entity);
+i32 entity_getIndex(World *world, i32 entityId);
 #endif
