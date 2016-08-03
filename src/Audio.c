@@ -130,7 +130,7 @@ INTERNAL i32 rendererAcquire(MemoryArena *arena, AudioManager *audioManager,
 		    "rendererAcquire(): Renderer has not been released before "
 		    "acquiring, force release by stopping stream");
 #endif
-		audio_streamStopVorbis(arena, audioManager, audioRenderer);
+		audio_stopVorbis(arena, audioManager, audioRenderer);
 	}
 
 	// TODO(doyle): Super bad linear O(n) search for every audio-enabled entity
@@ -209,8 +209,11 @@ INTERNAL const i32 rendererRelease(MemoryArena *arena, AudioManager *audioManage
 		audioRenderer->bufferId[i] = 0;
 	}
 
-	stb_vorbis_close(audioRenderer->audio->file);
-	PLATFORM_MEM_FREE(arena, audioRenderer->audio, sizeof(AudioVorbis));
+	if (audioRenderer->isStreaming)
+	{
+		stb_vorbis_close(audioRenderer->audio->file);
+		PLATFORM_MEM_FREE(arena, audioRenderer->audio, sizeof(AudioVorbis));
+	}
 
 	audioRenderer->audio    = NULL;
 	audioRenderer->numPlays = 0;
@@ -223,10 +226,10 @@ INTERNAL const i32 rendererRelease(MemoryArena *arena, AudioManager *audioManage
 	return result;
 }
 
-#define AUDIO_CHUNK_SIZE_ 65536
-const i32 audio_streamPlayVorbis(MemoryArena *arena, AudioManager *audioManager,
-                                 AudioRenderer *audioRenderer,
-                                 AudioVorbis *vorbis, i32 numPlays)
+INTERNAL i32 initRendererForPlayback(MemoryArena *arena,
+                                     AudioManager *audioManager,
+                                     AudioRenderer *audioRenderer,
+                                     AudioVorbis *vorbis, i32 numPlays)
 {
 #ifdef DENGINE_DEBUG
 	ASSERT(audioManager && audioRenderer && vorbis);
@@ -255,6 +258,39 @@ const i32 audio_streamPlayVorbis(MemoryArena *arena, AudioManager *audioManager,
 #endif
 	}
 
+	audioRenderer->numPlays = numPlays;
+
+	return result;
+}
+
+const i32 audio_playVorbis(MemoryArena *arena, AudioManager *audioManager,
+                           AudioRenderer *audioRenderer, AudioVorbis *vorbis,
+                           i32 numPlays)
+{
+	i32 result = initRendererForPlayback(arena, audioManager, audioRenderer,
+	                                     vorbis, numPlays);
+
+	i16 *soundSamples;
+	i32 channels, sampleRate;
+	i32 numSamples = stb_vorbis_decode_memory(
+	    vorbis->data, vorbis->size, &channels, &sampleRate, &soundSamples);
+	alBufferData(audioRenderer->bufferId[0], audioRenderer->format,
+	             soundSamples, numSamples * vorbis->info.channels * sizeof(i16),
+	             vorbis->info.sample_rate);
+
+	audioRenderer->audio       = vorbis;
+	audioRenderer->isStreaming = FALSE;
+
+	return result;
+}
+
+const i32 audio_streamPlayVorbis(MemoryArena *arena, AudioManager *audioManager,
+                                 AudioRenderer *audioRenderer,
+                                 AudioVorbis *vorbis, i32 numPlays)
+{
+
+	i32 result = initRendererForPlayback(arena, audioManager, audioRenderer,
+	                                     vorbis, numPlays);
 	// NOTE(doyle): We make a copy of the audio vorbis file using all the same
 	// data except the file pointer. If the same sound is playing twice
 	// simultaneously, we need unique file pointers into the data to track song
@@ -272,14 +308,14 @@ const i32 audio_streamPlayVorbis(MemoryArena *arena, AudioManager *audioManager,
 	copyAudio->file =
 	    stb_vorbis_open_memory(copyAudio->data, copyAudio->size, &error, NULL);
 
-	audioRenderer->audio    = copyAudio;
-	audioRenderer->numPlays = numPlays;
+	audioRenderer->audio       = copyAudio;
+	audioRenderer->isStreaming = TRUE;
 
-	return 0;
+	return result;
 }
 
-const i32 audio_streamStopVorbis(MemoryArena *arena, AudioManager *audioManager,
-                                 AudioRenderer *audioRenderer)
+const i32 audio_stopVorbis(MemoryArena *arena, AudioManager *audioManager,
+                           AudioRenderer *audioRenderer)
 {
 	i32 result     = 0;
 	u32 alSourceId = getSourceId(audioManager, audioRenderer);
@@ -291,15 +327,22 @@ const i32 audio_streamStopVorbis(MemoryArena *arena, AudioManager *audioManager,
 	}
 	else
 	{
-		DEBUG_LOG("audio_streamStopVorbis(): Tried to stop invalid source");
+#ifdef DENGINE_DEBUG
+		if (audioRenderer->audio)
+		{
+			DEBUG_LOG(
+			    "audio_streamStopVorbis(): Tried to stop invalid source, but "
+			    "renderer has valid audio ptr");
+		}
+#endif
 		result = -1;
 	}
 
 	return result;
 }
 
-const i32 audio_streamPauseVorbis(AudioManager *audioManager,
-                                  AudioRenderer *audioRenderer)
+const i32 audio_pauseVorbis(AudioManager *audioManager,
+                            AudioRenderer *audioRenderer)
 {
 	i32 result     = 0;
 	u32 alSourceId = getSourceId(audioManager, audioRenderer);
@@ -316,8 +359,8 @@ const i32 audio_streamPauseVorbis(AudioManager *audioManager,
 	return result;
 }
 
-const i32 audio_streamResumeVorbis(AudioManager *audioManager,
-                                   AudioRenderer *audioRenderer)
+const i32 audio_resumeVorbis(AudioManager *audioManager,
+                             AudioRenderer *audioRenderer)
 {
 	i32 result = 0;
 	u32 alSourceId = getSourceId(audioManager, audioRenderer);
@@ -328,13 +371,16 @@ const i32 audio_streamResumeVorbis(AudioManager *audioManager,
 	}
 	else
 	{
-		DEBUG_LOG("audio_streamResumeVorbis(): Tried to resume invalid source");
+#ifdef DENGINE_DEBUG
+		DEBUG_LOG("audio_resumeVorbis(): Tried to resume invalid source")
+#endif
 		result = -1;
 	}
 
 	return result;
 }
 
+#define AUDIO_CHUNK_SIZE_ 65536
 const i32 audio_updateAndPlay(MemoryArena *arena, AudioManager *audioManager,
                               AudioRenderer *audioRenderer)
 {
@@ -388,22 +434,31 @@ const i32 audio_updateAndPlay(MemoryArena *arena, AudioManager *audioManager,
 			}
 		}
 
-		stb_vorbis_seek_start(audio->file);
-		for (i32 i = 0; i < ARRAY_COUNT(audioRenderer->bufferId); i++)
+		if (audioRenderer->isStreaming)
 		{
-			i16 audioChunk[AUDIO_CHUNK_SIZE_] = {0};
-			stb_vorbis_get_samples_short_interleaved(
-			    audio->file, audio->info.channels, audioChunk,
-			    AUDIO_CHUNK_SIZE_);
+			stb_vorbis_seek_start(audio->file);
+			for (i32 i = 0; i < ARRAY_COUNT(audioRenderer->bufferId); i++)
+			{
+				i16 audioChunk[AUDIO_CHUNK_SIZE_] = {0};
+				stb_vorbis_get_samples_short_interleaved(
+				    audio->file, audio->info.channels, audioChunk,
+				    AUDIO_CHUNK_SIZE_);
 
-			alBufferData(audioRenderer->bufferId[i], audioRenderer->format,
-			             audioChunk, AUDIO_CHUNK_SIZE_ * sizeof(i16),
-			             audio->info.sample_rate);
-			AL_CHECK_ERROR();
+				alBufferData(audioRenderer->bufferId[i], audioRenderer->format,
+				             audioChunk, AUDIO_CHUNK_SIZE_ * sizeof(i16),
+				             audio->info.sample_rate);
+				AL_CHECK_ERROR();
+			}
+
+			alSourceQueueBuffers(alSourceId,
+			                     ARRAY_COUNT(audioRenderer->bufferId),
+			                     audioRenderer->bufferId);
+		}
+		else
+		{
+			alSourceQueueBuffers(alSourceId, 1, audioRenderer->bufferId);
 		}
 
-		alSourceQueueBuffers(alSourceId, ARRAY_COUNT(audioRenderer->bufferId),
-		                     audioRenderer->bufferId);
 		AL_CHECK_ERROR();
 		alSourcePlay(alSourceId);
 		AL_CHECK_ERROR();

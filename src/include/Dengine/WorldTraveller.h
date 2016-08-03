@@ -9,9 +9,6 @@
 #include "Dengine/MemoryArena.h"
 #include "Dengine/Renderer.h"
 
-/* Forward Declaration */
-typedef struct MemoryArena MemoryArena;
-
 #define NUM_KEYS 1024
 #define METERS_TO_PIXEL 240
 

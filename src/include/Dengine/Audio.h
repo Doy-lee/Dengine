@@ -29,23 +29,28 @@ typedef struct AudioManager
 typedef struct AudioRenderer
 {
 	i32 sourceIndex;
-	ALuint bufferId[4];
+	ALuint bufferId[3];
 
 	AudioVorbis *audio;
 	ALuint format;
 	i32 numPlays;
+
+	b32 isStreaming;
 } AudioRenderer;
 
 
 const i32 audio_init(AudioManager *audioManager);
+const i32 audio_playVorbis(MemoryArena *arena, AudioManager *audioManager,
+                           AudioRenderer *audioRenderer, AudioVorbis *vorbis,
+                           i32 numPlays);
 const i32 audio_streamPlayVorbis(MemoryArena *arena, AudioManager *audioManager,
                                  AudioRenderer *audioRenderer,
                                  AudioVorbis *vorbis, i32 numPlays);
-const i32 audio_streamStopVorbis(MemoryArena *arena, AudioManager *audioManager,
+const i32 audio_stopVorbis(MemoryArena *arena, AudioManager *audioManager,
                                  AudioRenderer *audioRenderer);
-const i32 audio_streamPauseVorbis(AudioManager *audioManager,
+const i32 audio_pauseVorbis(AudioManager *audioManager,
                                   AudioRenderer *audioRenderer);
-const i32 audio_streamResumeVorbis(AudioManager *audioManager,
+const i32 audio_resumeVorbis(AudioManager *audioManager,
                                    AudioRenderer *audioRenderer);
 const i32 audio_updateAndPlay(MemoryArena *arena, AudioManager *audioManager,
                               AudioRenderer *audioRenderer);

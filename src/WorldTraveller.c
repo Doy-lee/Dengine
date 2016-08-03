@@ -13,6 +13,7 @@ enum State
 
 enum EventType
 {
+	eventtype_null = 0,
 	eventtype_start_attack,
 	eventtype_end_attack,
 	eventtype_start_anim,
@@ -1035,10 +1036,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				if (!event.data) continue;
 
 				Entity *entity = (CAST(Entity *) event.data);
-			    audio_streamPlayVorbis(
+			    audio_playVorbis(
 			        arena, audioManager, entity->audioRenderer,
 			        asset_getVorbis(assetManager, audiolist_tackle), 1);
-				break;
+			    break;
 		    }
 			// NOTE(doyle): We delete dead entities at the end of the update
 			// loop incase a later indexed entity deletes an earlier indexed
@@ -1049,8 +1050,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			    if (!event.data) continue;
 
 			    Entity *entity  = (CAST(Entity *) event.data);
-			    audio_streamStopVorbis(&state->arena, audioManager,
-			                           entity->audioRenderer);
+			    audio_stopVorbis(&state->arena, audioManager,
+			                     entity->audioRenderer);
 			    entity_clearData(&state->arena, world, entity);
 			    numDeadEntities++;
 				break;
