@@ -729,6 +729,13 @@ INTERNAL void entityStateSwitch(EventQueue *eventQueue, World *world,
 	entity->state = newState;
 }
 
+typedef struct AttackSpec
+{
+	Entity *attacker;
+	Entity *defender;
+	i32 damage;
+} AttackSpec;
+
 INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
                           Entity *attacker)
 {
@@ -759,14 +766,16 @@ INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
 	}
 }
 
-INTERNAL void endAttack(EventQueue *eventQueue, World *world, Entity *attacker)
+// TODO(doyle): MemArena here is temporary until we incorporate AttackSpec to
+// battle in general!
+INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
+                        World *world, Entity *attacker)
 {
 #ifdef DENGINE_DEBUG
 	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
 #endif
 
 	entityStateSwitch(eventQueue, world, attacker, entitystate_battle);
-	registerEvent(eventQueue, eventtype_end_attack, attacker);
 	switch (attacker->stats->queuedAttack)
 	{
 	case entityattack_tackle:
@@ -821,6 +830,13 @@ INTERNAL void endAttack(EventQueue *eventQueue, World *world, Entity *attacker)
 	if (!noMoreValidTargets)
 	{
 		i32 damage = 50;
+
+		AttackSpec *attackSpec = PLATFORM_MEM_ALLOC(arena, 1, AttackSpec);
+		attackSpec->attacker   = attacker;
+		attackSpec->defender   = defender;
+		attackSpec->damage     = damage;
+
+		registerEvent(eventQueue, eventtype_end_attack, attackSpec);
 		// TODO(doyle): Use attacker stats in battle equations
 		if (attacker->type == entitytype_hero)
 		{
@@ -1000,7 +1016,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				if (stats->busyDuration <= 0)
 				{
 					/* Apply attack damage */
-					endAttack(&eventQueue, world, entity);
+					endAttack(&state->arena, &eventQueue, world, entity);
 				}
 			}
 		}
@@ -1035,10 +1051,28 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			{
 				if (!event.data) continue;
 
-				Entity *entity = (CAST(Entity *) event.data);
+				AttackSpec *attackSpec = (CAST(AttackSpec *)event.data);
+				Entity *attacker = attackSpec->attacker;
+				Entity *defender = attackSpec->defender;
+
 			    audio_playVorbis(
-			        arena, audioManager, entity->audioRenderer,
+			        arena, audioManager, attacker->audioRenderer,
 			        asset_getVorbis(assetManager, audiolist_tackle), 1);
+
+				char damageStr[12];
+			    common_itoa(attackSpec->damage, damageStr,
+			                ARRAY_COUNT(damageStr));
+
+			    // TODO(doyle): Incorporate UI into entity list or it's own list
+			    // with a rendering lifetime value
+			    renderer_string(renderer, &state->arena,
+			                    cameraBounds, font,
+			                    damageStr, defender->pos, V2(0, 0),
+			                    0, V4(1, 1, 1, 1));
+
+			    PLATFORM_MEM_FREE(&state->arena, attackSpec,
+			                      sizeof(AttackSpec));
+
 			    break;
 		    }
 			// NOTE(doyle): We delete dead entities at the end of the update
