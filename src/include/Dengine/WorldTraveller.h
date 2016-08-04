@@ -7,10 +7,17 @@
 #include "Dengine/Entity.h"
 #include "Dengine/Math.h"
 #include "Dengine/MemoryArena.h"
+#include "Dengine/Platform.h"
 #include "Dengine/Renderer.h"
 
 #define NUM_KEYS 1024
 #define METERS_TO_PIXEL 240
+
+typedef struct UiState
+{
+	i32 hotItem;
+	i32 activeItem;
+} UiState;
 
 typedef struct World
 {
@@ -34,7 +41,8 @@ typedef struct World
 typedef struct GameState
 {
 	enum State state;
-	b32 keys[NUM_KEYS];
+	KeyInput input;
+	v2 mouse;
 
 	Renderer renderer;
 
@@ -45,6 +53,7 @@ typedef struct GameState
 	AssetManager assetManager;
 	AudioManager audioManager;
 	MemoryArena arena;
+	UiState uiState;
 } GameState;
 
 void worldTraveller_gameInit(GameState *state, v2 windowSize);

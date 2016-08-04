@@ -2,9 +2,40 @@
 #define DENGINE_PLATFORM_H
 
 #include "Dengine/Common.h"
+#include "Dengine/Math.h"
 
 /* Forward Declaration */
 typedef struct MemoryArena MemoryArena;
+
+enum KeyCodes
+{
+	keycode_up,
+	keycode_down,
+	keycode_left,
+	keycode_right,
+	keycode_space,
+	keycode_mouseLeft,
+	keycode_count,
+};
+
+typedef struct KeyInput
+{
+	v2 mouse;
+	union
+	{
+		b32 keys[keycode_count - 1];
+		struct
+		{
+			b32 up;
+			b32 down;
+			b32 left;
+			b32 right;
+			b32 space;
+			b32 leftShift;
+			b32 mouseLeft;
+		};
+	};
+} KeyInput;
 
 typedef struct PlatformFileRead
 {

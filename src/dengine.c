@@ -5,7 +5,14 @@
 #include "Dengine/OpenGL.h"
 #include "Dengine/WorldTraveller.h"
 
-void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode)
+INTERNAL inline void processKey(b32 *currState, int key, int action)
+{
+	if (action == GLFW_PRESS) *currState = TRUE;
+	else if (action == GLFW_RELEASE) *currState = FALSE;
+}
+
+INTERNAL void keyCallback(GLFWwindow *window, int key, int scancode, int action,
+                          int mode)
 {
 	GameState *game = CAST(GameState *)(glfwGetWindowUserPointer(window));
 
@@ -14,20 +21,61 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 		glfwSetWindowShouldClose(window, GL_TRUE);
 	}
 
-	if (key >= 0 && key < NUM_KEYS)
+	switch (key)
 	{
-		if (action == GLFW_PRESS)
-			game->keys[key] = TRUE;
-		else if (action == GLFW_RELEASE)
-			game->keys[key] = FALSE;
+	case GLFW_KEY_UP:
+		processKey(&game->input.up, key, action);
+		break;
+	case GLFW_KEY_DOWN:
+		processKey(&game->input.down, key, action);
+		break;
+	case GLFW_KEY_LEFT:
+		processKey(&game->input.left, key, action);
+		break;
+	case GLFW_KEY_RIGHT:
+		processKey(&game->input.right, key, action);
+		break;
+	case GLFW_KEY_SPACE:
+		processKey(&game->input.space, key, action);
+		break;
+	case GLFW_KEY_LEFT_SHIFT:
+		processKey(&game->input.leftShift, key, action);
+		break;
+	default:
+		break;
 	}
 }
 
-void mouse_callback(GLFWwindow *window, double xPos, double yPos) {}
+INTERNAL void mouseCallback(GLFWwindow *window, double xPos, double yPos)
+{
+	GameState *game = CAST(GameState *)(glfwGetWindowUserPointer(window));
 
-void scroll_callback(GLFWwindow *window, double xOffset, double yOffset) {}
+	// NOTE(doyle): x(0), y(0) of mouse starts from the top left of window
+	v2 windowSize     = game->renderer.size;
+	f32 flipYPos      = windowSize.h - CAST(f32) yPos;
+	game->input.mouse = V2(CAST(f32) xPos, flipYPos);
+}
 
-int main()
+INTERNAL void mouseButtonCallback(GLFWwindow *window, int button, int action,
+                                  int mods)
+{
+	GameState *game = CAST(GameState *)(glfwGetWindowUserPointer(window));
+
+	switch(button)
+	{
+	case GLFW_MOUSE_BUTTON_LEFT:
+		processKey(&game->input.mouseLeft, button, action);
+		break;
+	default:
+		break;
+	}
+}
+
+INTERNAL void scrollCallback(GLFWwindow *window, double xOffset, double yOffset)
+{
+}
+
+i32 main(void)
 {
 	/*
 	 **************************
@@ -75,11 +123,12 @@ int main()
 	glfwGetFramebufferSize(window, &frameBufferWidth, &frameBufferHeight);
 	glViewport(0, 0, frameBufferWidth, frameBufferHeight);
 
-	glfwSetKeyCallback(window, key_callback);
-	glfwSetCursorPosCallback(window, mouse_callback);
-	glfwSetScrollCallback(window, scroll_callback);
+	glfwSetKeyCallback(window, keyCallback);
+	glfwSetCursorPosCallback(window, mouseCallback);
+	glfwSetMouseButtonCallback(window, mouseButtonCallback);
+	glfwSetScrollCallback(window, scrollCallback);
 
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	glEnable(GL_BLEND);
 	glEnable(GL_CULL_FACE);
 

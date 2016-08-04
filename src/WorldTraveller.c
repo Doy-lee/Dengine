@@ -34,7 +34,6 @@ typedef struct EventQueue
 	i32 numEvents;
 } EventQueue;
 
-
 INTERNAL Entity *getHeroEntity(World *world)
 {
 	Entity *result = &world->entities[entity_getIndex(world, world->heroId)];
@@ -376,24 +375,24 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		// if a button ended down
 		LOCAL_PERSIST b32 spaceBarWasDown = FALSE;
 
-		if (state->keys[GLFW_KEY_RIGHT])
+		if (state->input.right)
 		{
 			ddPos.x         = 1.0f;
 			hero->direction = direction_east;
 		}
 
-		if (state->keys[GLFW_KEY_LEFT])
+		if (state->input.left)
 		{
 			ddPos.x         = -1.0f;
 			hero->direction = direction_west;
 		}
 
-		if (state->keys[GLFW_KEY_UP])
+		if (state->input.up)
 		{
 			ddPos.y = 1.0f;
 		}
 
-		if (state->keys[GLFW_KEY_DOWN])
+		if (state->input.down)
 		{
 			ddPos.y = -1.0f;
 		}
@@ -409,7 +408,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 
 		LOCAL_PERSIST b32 toggleFlag = TRUE;
 		// TODO(doyle): Revisit key input with state checking for last ended down
-		if (state->keys[GLFW_KEY_SPACE] && spaceBarWasDown == FALSE)
+		if (state->input.space && spaceBarWasDown == FALSE)
 		{
 			Renderer *renderer = &state->renderer;
 			f32 yPos = CAST(f32)(rand() % CAST(i32)renderer->size.h);
@@ -420,7 +419,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			                     pos);
 			spaceBarWasDown = TRUE;
 		}
-		else if (!state->keys[GLFW_KEY_SPACE])
+		else if (!state->input.space)
 		{
 			spaceBarWasDown = FALSE;
 		}
@@ -445,7 +444,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	}
 
 	f32 heroSpeed = 6.2f * METERS_TO_PIXEL;
-	if (state->keys[GLFW_KEY_LEFT_SHIFT])
+	if (state->input.leftShift)
 		heroSpeed = CAST(f32)(22.0f * 10.0f * METERS_TO_PIXEL);
 
 	ddPos = v2_scale(ddPos, heroSpeed);
@@ -877,6 +876,7 @@ INTERNAL void sortWorldEntityList(World *world, i32 numDeadEntities)
 	world->freeEntityIndex -= numDeadEntities;
 }
 
+UiState uiState = {0};
 void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 {
 	if (dt >= 1.0f) dt = 1.0f;
