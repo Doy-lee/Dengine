@@ -432,7 +432,7 @@ void debug_drawUi(GameState *state, f32 dt)
 	DEBUG_PUSH_VAR("FreeEntityIndex: %d", world->freeEntityIndex, "i32");
 	DEBUG_PUSH_VAR("glDrawArray Calls: %d",
 	               GLOBAL_debug.callCount[debugcallcount_drawArrays], "i32");
-	DEBUG_PUSH_VAR("Mouse Pos: %06.2f, %06.2f", state->input.mouse, "v2");
+	DEBUG_PUSH_VAR("Mouse Pos: %06.2f, %06.2f", state->input.mouseP, "v2");
 
 	i32 debug_bAllocated = state->arena.bytesAllocated;
 	DEBUG_PUSH_VAR("TotalMemoryAllocated: %db", debug_bAllocated, "i32");

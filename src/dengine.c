@@ -51,9 +51,9 @@ INTERNAL void mouseCallback(GLFWwindow *window, double xPos, double yPos)
 	GameState *game = CAST(GameState *)(glfwGetWindowUserPointer(window));
 
 	// NOTE(doyle): x(0), y(0) of mouse starts from the top left of window
-	v2 windowSize     = game->renderer.size;
-	f32 flipYPos      = windowSize.h - CAST(f32) yPos;
-	game->input.mouse = V2(CAST(f32) xPos, flipYPos);
+	v2 windowSize      = game->renderer.size;
+	f32 flipYPos       = windowSize.h - CAST(f32) yPos;
+	game->input.mouseP = V2(CAST(f32) xPos, flipYPos);
 }
 
 INTERNAL void mouseButtonCallback(GLFWwindow *window, int button, int action,

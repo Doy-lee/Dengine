@@ -20,7 +20,7 @@ enum KeyCodes
 
 typedef struct KeyInput
 {
-	v2 mouse;
+	v2 mouseP;
 	union
 	{
 		b32 keys[keycode_count - 1];

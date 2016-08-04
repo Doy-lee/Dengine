@@ -18,7 +18,7 @@
     #
     AllowAllParametersOfDeclarationOnNextLine: true,
     AllowShortBlocksOnASingleLine: false,
-    AllowShortIfStatementsOnASingleLine: false,
+    AllowShortIfStatementsOnASingleLine: true,
     AllowShortLoopsOnASingleLine: false,
     #
     BinPackArguments: true,
@@ -42,4 +42,5 @@
     #
     Cpp11BracedListStyle: true,
     Standard: Cpp11,
+    #
 }

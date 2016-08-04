@@ -15,8 +15,6 @@
 
 typedef struct UiState
 {
-	v2 *mouseP;
-	b32 *mouseIsDown;
 	i32 hotItem;
 	i32 activeItem;
 } UiState;
@@ -55,6 +53,7 @@ typedef struct GameState
 	AssetManager assetManager;
 	AudioManager audioManager;
 	MemoryArena arena;
+	UiState uiState;
 } GameState;
 
 void worldTraveller_gameInit(GameState *state, v2 windowSize);

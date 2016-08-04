@@ -82,9 +82,6 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 // TODO(doyle): Remove and implement own random generator!
 #include <time.h>
 #include <stdlib.h>
-
-GLOBAL_VAR UiState uiState = {0};
-
 void worldTraveller_gameInit(GameState *state, v2 windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
@@ -345,9 +342,6 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 #endif
 
 	srand(CAST(u32)(time(NULL)));
-
-	uiState.mouseP      = &state->input.mouse;
-	uiState.mouseIsDown = &state->input.mouseLeft;
 }
 
 INTERNAL inline v4 getEntityScreenRect(Entity entity)
@@ -884,28 +878,35 @@ INTERNAL void sortWorldEntityList(World *world, i32 numDeadEntities)
 
 INTERNAL b32 pointInRect(Rect rect, v2 point)
 {
-	if (point.x < rect.pos.x || point.x > rect.pos.x + rect.size.w ||
-	    point.y > rect.pos.y + rect.size.h || point.y < rect.pos.y)
-		return FALSE;
-	return TRUE;
+	b32 outsideOfRectX = FALSE;
+	if (point.x < rect.pos.x || point.x > (rect.pos.x + rect.size.w))
+		outsideOfRectX = TRUE;
+
+	b32 outsideOfRectY = FALSE;
+	if (point.y < rect.pos.y || point.y > (rect.pos.y + rect.size.h))
+		outsideOfRectY = TRUE;
+
+	if (outsideOfRectX || outsideOfRectY) return FALSE;
+	else return TRUE;
 }
 
-i32 button(AssetManager *assetManager, Renderer *renderer, i32 id, Rect rect,
-           v2 mouseP)
+INTERNAL i32 button(UiState *uiState, AssetManager *assetManager,
+                    Renderer *renderer, KeyInput input, i32 id, Rect rect)
 {
-	if (pointInRect(rect, mouseP))
+	if (pointInRect(rect, input.mouseP))
 	{
-		uiState.hotItem = id;
-		if (uiState.activeItem == 0 && uiState.mouseIsDown)
-			uiState.activeItem = id;
+		DEBUG_PUSH_STRING("POINT IN RECT");
+		uiState->hotItem = id;
+		if (uiState->activeItem == 0 && input.mouseLeft)
+			uiState->activeItem = id;
 	}
 
 	RenderTex renderTex = renderer_createNullRenderTex(assetManager);
 	renderer_staticRect(renderer, v2_add(V2(8, 8), rect.pos), rect.size,
 	                    V2(0, 0), 0, renderTex, V4(0, 0, 0, 1));
-	if (uiState.hotItem == id)
+	if (uiState->hotItem == id)
 	{
-		if (uiState.activeItem == id)
+		if (uiState->activeItem == id)
 		{
 			renderer_staticRect(renderer, v2_add(V2(2, 2), rect.pos), rect.size,
 			                    V2(0, 0), 0, renderTex, V4(1, 1, 1, 1));
@@ -920,6 +921,13 @@ i32 button(AssetManager *assetManager, Renderer *renderer, i32 id, Rect rect,
 	{
 		renderer_staticRect(renderer, v2_add(V2(0, 0), rect.pos), rect.size,
 		                    V2(0, 0), 0, renderTex, V4(0.5f, 0.5f, 0.5f, 1));
+	}
+
+	if (!input.mouseLeft &&
+	    uiState->hotItem == id &&
+	    uiState->activeItem == id)
+	{
+		return 1;
 	}
 
 	return 0;
@@ -1171,21 +1179,25 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		hero->stats->busyDuration     = 0;
 	}
 
+	// INIT IMGUI
+	state->uiState.hotItem = 0;
+
 	/* Draw ui */
-	RenderTex nullRenderTex = renderer_createNullRenderTex(assetManager);
-	renderer_staticRect(renderer, state->input.mouse, hero->hitboxSize,
-	                    V2(0, 0), 0, nullRenderTex, V4(0.5f, 0, 0, 0.5f));
+	Rect buttonRectA = {V2(300, 500), V2(100, 50)};
+	button(&state->uiState, assetManager, renderer, state->input, 1,
+	       buttonRectA);
 
-#if 0
-	RenderTex renderTex = renderer_createNullRenderTex(assetManager);
-	v2 buttonP = V2(500, 500);
-	v2 buttonSize = V2(100, 100);
-	renderer_staticRect(renderer, v2_add(V2(8, 8), buttonP), buttonSize,
-	                    V2(0, 0), 0, renderTex, V4(0, 0, 0, 1));
-#endif
+	Rect buttonRectB = {V2(500, 500), V2(100, 50)};
+	button(&state->uiState, assetManager, renderer, state->input, 2,
+	       buttonRectB);
 
-	Rect buttonRect = {V2(500, 500), V2(100, 100)};
-	button(assetManager, renderer, 1, buttonRect, *uiState.mouseP);
+	Rect buttonRectC = {V2(700, 500), V2(100, 50)};
+	button(&state->uiState, assetManager, renderer, state->input, 3,
+	       buttonRectC);
+
+	// RESET IMGUI
+	if (!state->input.mouseLeft)             state->uiState.activeItem = 0;
+	else if (state->uiState.activeItem == 0) state->uiState.activeItem = -1;
 
 	/* Draw hero avatar */
 	TexAtlas *heroAtlas  = asset_getTextureAtlas(assetManager, texlist_hero);
