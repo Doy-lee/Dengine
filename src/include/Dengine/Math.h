@@ -45,6 +45,12 @@ typedef union v4
 	f32 e[4];
 } v4;
 
+typedef struct Rect
+{
+	v2 pos;
+	v2 size;
+} Rect;
+
 INTERNAL inline v2 V2i(const i32 x, const i32 y)
 {
 	v2 result = {CAST(f32)x, CAST(f32)y};

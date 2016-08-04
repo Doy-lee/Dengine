@@ -82,6 +82,9 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 // TODO(doyle): Remove and implement own random generator!
 #include <time.h>
 #include <stdlib.h>
+
+GLOBAL_VAR UiState uiState = {0};
+
 void worldTraveller_gameInit(GameState *state, v2 windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
@@ -342,6 +345,9 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 #endif
 
 	srand(CAST(u32)(time(NULL)));
+
+	uiState.mouseP      = &state->input.mouse;
+	uiState.mouseIsDown = &state->input.mouseLeft;
 }
 
 INTERNAL inline v4 getEntityScreenRect(Entity entity)
@@ -609,7 +615,6 @@ INTERNAL inline void resetEntityState(World *world, Entity *entity)
 	entity->stats->entityIdToAttack = ENTITY_NULL_ID;
 }
 
-
 INTERNAL registerEvent(EventQueue *eventQueue, enum EventType type, void *data)
 {
 #ifdef DENGINE_DEBUG
@@ -620,6 +625,7 @@ INTERNAL registerEvent(EventQueue *eventQueue, enum EventType type, void *data)
 	eventQueue->queue[currIndex].type = type;
 	eventQueue->queue[currIndex].data = data;
 }
+
 INTERNAL void entityStateSwitch(EventQueue *eventQueue, World *world,
                                 Entity *entity, enum EntityState newState)
 {
@@ -876,7 +882,49 @@ INTERNAL void sortWorldEntityList(World *world, i32 numDeadEntities)
 	world->freeEntityIndex -= numDeadEntities;
 }
 
-UiState uiState = {0};
+INTERNAL b32 pointInRect(Rect rect, v2 point)
+{
+	if (point.x < rect.pos.x || point.x > rect.pos.x + rect.size.w ||
+	    point.y > rect.pos.y + rect.size.h || point.y < rect.pos.y)
+		return FALSE;
+	return TRUE;
+}
+
+i32 button(AssetManager *assetManager, Renderer *renderer, i32 id, Rect rect,
+           v2 mouseP)
+{
+	if (pointInRect(rect, mouseP))
+	{
+		uiState.hotItem = id;
+		if (uiState.activeItem == 0 && uiState.mouseIsDown)
+			uiState.activeItem = id;
+	}
+
+	RenderTex renderTex = renderer_createNullRenderTex(assetManager);
+	renderer_staticRect(renderer, v2_add(V2(8, 8), rect.pos), rect.size,
+	                    V2(0, 0), 0, renderTex, V4(0, 0, 0, 1));
+	if (uiState.hotItem == id)
+	{
+		if (uiState.activeItem == id)
+		{
+			renderer_staticRect(renderer, v2_add(V2(2, 2), rect.pos), rect.size,
+			                    V2(0, 0), 0, renderTex, V4(1, 1, 1, 1));
+		}
+		else
+		{
+			renderer_staticRect(renderer, v2_add(V2(0, 0), rect.pos), rect.size,
+			                    V2(0, 0), 0, renderTex, V4(1, 1, 1, 1));
+		}
+	}
+	else
+	{
+		renderer_staticRect(renderer, v2_add(V2(0, 0), rect.pos), rect.size,
+		                    V2(0, 0), 0, renderTex, V4(0.5f, 0.5f, 0.5f, 1));
+	}
+
+	return 0;
+}
+
 void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 {
 	if (dt >= 1.0f) dt = 1.0f;
@@ -1127,6 +1175,17 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	RenderTex nullRenderTex = renderer_createNullRenderTex(assetManager);
 	renderer_staticRect(renderer, state->input.mouse, hero->hitboxSize,
 	                    V2(0, 0), 0, nullRenderTex, V4(0.5f, 0, 0, 0.5f));
+
+#if 0
+	RenderTex renderTex = renderer_createNullRenderTex(assetManager);
+	v2 buttonP = V2(500, 500);
+	v2 buttonSize = V2(100, 100);
+	renderer_staticRect(renderer, v2_add(V2(8, 8), buttonP), buttonSize,
+	                    V2(0, 0), 0, renderTex, V4(0, 0, 0, 1));
+#endif
+
+	Rect buttonRect = {V2(500, 500), V2(100, 100)};
+	button(assetManager, renderer, 1, buttonRect, *uiState.mouseP);
 
 	/* Draw hero avatar */
 	TexAtlas *heroAtlas  = asset_getTextureAtlas(assetManager, texlist_hero);
