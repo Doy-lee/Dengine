@@ -1124,6 +1124,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	}
 
 	/* Draw ui */
+	RenderTex nullRenderTex = renderer_createNullRenderTex(assetManager);
+	renderer_staticRect(renderer, state->input.mouse, hero->hitboxSize,
+	                    V2(0, 0), 0, nullRenderTex, V4(0.5f, 0, 0, 0.5f));
+
 	/* Draw hero avatar */
 	TexAtlas *heroAtlas  = asset_getTextureAtlas(assetManager, texlist_hero);
 	v4 heroAvatarTexRect = heroAtlas->texRect[herorects_head];
@@ -1157,9 +1161,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			f32 angle        = math_atan2f(difference.y, difference.x);
 			f32 angleDegrees = RADIANS_TO_DEGREES(angle);
 
-			Texture *emptyTex = asset_getTexture(assetManager, texlist_empty);
 			v2 heroCenter = v2_add(hero->pos, v2_scale(hero->hitboxSize, 0.5f));
-			RenderTex renderTex = {emptyTex, V4(0, 1, 1, 0)};
+			RenderTex renderTex = renderer_createNullRenderTex(assetManager);
 			f32 distance        = v2_magnitude(hero->pos, entity->pos);
 			renderer_rect(&state->renderer, cameraBounds, heroCenter,
 			              V2(distance, 2.0f), V2(0, 0), angle, renderTex,

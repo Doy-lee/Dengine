@@ -1,4 +1,6 @@
 #include "Dengine/Renderer.h"
+#include "Dengine/AssetManager.h"
+#include "Dengine/Assets.h"
 #include "Dengine/Debug.h"
 #include "Dengine/Entity.h"
 #include "Dengine/OpenGL.h"
@@ -136,6 +138,13 @@ INTERNAL void renderObject(Renderer *renderer, v2 pos, v2 size, v2 pivotPoint,
 	glBindVertexArray(0);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	GL_CHECK_ERROR();
+}
+
+RenderTex renderer_createNullRenderTex(AssetManager *assetManager)
+{
+	Texture *emptyTex = asset_getTexture(assetManager, texlist_empty);
+	RenderTex result  = {emptyTex, V4(0, 1, 1, 0)};
+	return result;
 }
 
 void renderer_rect(Renderer *const renderer, v4 cameraBounds, v2 pos, v2 size,

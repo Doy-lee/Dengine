@@ -5,11 +5,12 @@
 #include "Dengine/Math.h"
 
 /* Forward Declaration */
-typedef struct Shader Shader;
+typedef struct AssetManager AssetManager;
 typedef struct Entity Entity;
-typedef struct MemoryArena MemoryArena;
-typedef struct Texture Texture;
 typedef struct Font Font;
+typedef struct MemoryArena MemoryArena;
+typedef struct Shader Shader;
+typedef struct Texture Texture;
 
 typedef struct Renderer
 {
@@ -26,6 +27,8 @@ typedef struct RenderTex
 	Texture *tex;
 	v4 texRect;
 } RenderTex;
+
+RenderTex renderer_createNullRenderTex(AssetManager *assetManager);
 
 // TODO(doyle): Clean up lines
 // Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
