@@ -12,6 +12,9 @@
 
 typedef struct RenderQuad
 {
+	// Vertex composition
+	// x, y: Coordinates
+	// z, w: Texture Coords
 	v4 vertex[4];
 } RenderQuad;
 
@@ -140,6 +143,14 @@ INTERNAL void renderObject(Renderer *renderer, v2 pos, v2 size, v2 pivotPoint,
 	GL_CHECK_ERROR();
 }
 
+INTERNAL v2 mapWorldToCameraSpace(v2 worldPos, v4 cameraBounds)
+{
+	// Convert the world position to the camera coordinate system
+	v2 cameraBottomLeftBound  = V2(cameraBounds.x, cameraBounds.w);
+	v2 posInCameraSpace       = v2_sub(worldPos, cameraBottomLeftBound);
+	return posInCameraSpace;
+}
+
 RenderTex renderer_createNullRenderTex(AssetManager *assetManager)
 {
 	Texture *emptyTex = asset_getTexture(assetManager, texlist_empty);
@@ -147,25 +158,22 @@ RenderTex renderer_createNullRenderTex(AssetManager *assetManager)
 	return result;
 }
 
-void renderer_rect(Renderer *const renderer, v4 cameraBounds, v2 pos, v2 size,
+void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
                    v2 pivotPoint, f32 rotate, RenderTex renderTex, v4 color)
 {
 	RenderQuad quad = createDefaultTexQuad(renderer, renderTex);
 	updateBufferObject(renderer, &quad, 1);
 
-	// NOTE(doyle): Get the origin of cameraBounds in world space, bottom left
-	v2 offsetFromCamOrigin  = V2(cameraBounds.x, cameraBounds.w);
-	v2 rectRelativeToCamera = v2_sub(pos, offsetFromCamOrigin);
-	renderObject(renderer, rectRelativeToCamera, size, pivotPoint, rotate,
+	v2 posInCameraSpace = v2_sub(pos, camera.pos);
+	renderObject(renderer, posInCameraSpace, size, pivotPoint, rotate,
 	             color, renderTex.tex);
 }
 
-void renderer_string(Renderer *const renderer, MemoryArena *arena,
-                     v4 cameraBounds, Font *const font,
-                     const char *const string, v2 pos, v2 pivotPoint,
-                     f32 rotate, v4 color)
+void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
+                     Font *const font, const char *const string, v2 pos,
+                     v2 pivotPoint, f32 rotate, v4 color)
 {
-	i32 strLen       = common_strlen(string);
+	i32 strLen = common_strlen(string);
 	// TODO(doyle): Scale, not too important .. but rudimentary infrastructure
 	// laid out here
 	f32 scale = 1.0f;
@@ -177,16 +185,15 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena,
 	    v2_add(pos, V2(scale *(CAST(f32) font->maxSize.w * CAST(f32) strLen),
 	                   scale * CAST(f32) font->maxSize.h));
 	v2 leftAlignedP  = pos;
-	if ((leftAlignedP.x < cameraBounds.z && rightAlignedP.x >= cameraBounds.x) &&
-	    (leftAlignedP.y < cameraBounds.y && rightAlignedP.y >= cameraBounds.w))
+	if (math_pointInRect(camera, leftAlignedP) ||
+	    math_pointInRect(camera, rightAlignedP))
 	{
 		i32 quadIndex           = 0;
 		RenderQuad *stringQuads = PLATFORM_MEM_ALLOC(arena, strLen, RenderQuad);
 
-		v2 offsetFromCamOrigin    = V2(cameraBounds.x, cameraBounds.w);
-		v2 entityRelativeToCamera = v2_sub(pos, offsetFromCamOrigin);
+		v2 posInCameraSpace = v2_sub(pos, camera.pos);
 
-		pos          = entityRelativeToCamera;
+		pos          = posInCameraSpace;
 		f32 baseline = pos.y;
 		for (i32 i = 0; i < strLen; i++)
 		{
@@ -223,7 +230,7 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena,
 	}
 }
 
-void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
+void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
                      v2 pivotPoint, f32 rotate, v4 color)
 {
 	// TODO(doyle): Batch into render groups
@@ -233,8 +240,8 @@ void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
 	// side of the entity
 	v2 rightAlignedP = v2_add(entity->pos, entity->hitboxSize);
 	v2 leftAlignedP = entity->pos;
-	if ((leftAlignedP.x < cameraBounds.z && rightAlignedP.x >= cameraBounds.x) &&
-	    (leftAlignedP.y < cameraBounds.y && rightAlignedP.y >= cameraBounds.w))
+	if (math_pointInRect(camera, leftAlignedP) ||
+	    math_pointInRect(camera, rightAlignedP))
 	{
 		EntityAnim_ *entityAnim = &entity->anim[entity->currAnimId];
 		Animation *anim = entityAnim->anim;
@@ -252,10 +259,8 @@ void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
 		    createDefaultTexQuad(renderer, renderTex);
 		updateBufferObject(renderer, &entityQuad, 1);
 
-		v2 offsetFromCamOrigin    = V2(cameraBounds.x, cameraBounds.w);
-		v2 entityRelativeToCamera = v2_sub(entity->pos, offsetFromCamOrigin);
-
-		renderObject(renderer, entityRelativeToCamera, entity->renderSize,
+		v2 posInCameraSpace = v2_sub(entity->pos, camera.pos);
+		renderObject(renderer, posInCameraSpace, entity->renderSize,
 		             pivotPoint, rotate, color, entity->tex);
 	}
 }

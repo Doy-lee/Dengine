@@ -290,6 +290,21 @@ INTERNAL inline v4 mat4_mul_v4(const mat4 a, const v4 b)
 	return result;
 }
 
+INTERNAL inline b32 math_pointInRect(Rect rect, v2 point)
+{
+	b32 outsideOfRectX = FALSE;
+	if (point.x < rect.pos.x || point.x > (rect.pos.x + rect.size.w))
+		outsideOfRectX = TRUE;
+
+	b32 outsideOfRectY = FALSE;
+	if (point.y < rect.pos.y || point.y > (rect.pos.y + rect.size.h))
+		outsideOfRectY = TRUE;
+
+	if (outsideOfRectX || outsideOfRectY) return FALSE;
+	else return TRUE;
+}
+
+
 INTERNAL inline v4 math_getRect(v2 origin, v2 size)
 {
 	v2 upperLeftBound  = v2_add(origin, V2(0.0f, size.y));

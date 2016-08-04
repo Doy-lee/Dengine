@@ -290,21 +290,21 @@ void debug_drawUi(GameState *state, f32 dt)
 	Entity *hero = &world->entities[entity_getIndex(world, world->heroId)];
 
 	// TODO(doyle): Dumb copy function from game so we don't expose api
-	v4 cameraBounds = math_getRect(world->cameraPos, renderer->size);
-	if (cameraBounds.x <= world->bounds.x)
-	{
-		cameraBounds.x = world->bounds.x;
-		cameraBounds.z = cameraBounds.x + renderer->size.w;
-	}
+	Rect camera = {world->cameraPos, renderer->size};
+	// NOTE(doyle): Lock camera if it passes the bounds of the world
+	if (camera.pos.x <= world->bounds.x)
+		camera.pos.x = world->bounds.x;
 
-	if (cameraBounds.y >= world->bounds.y) cameraBounds.y = world->bounds.y;
+	// TODO(doyle): Do the Y component when we need it
+	f32 cameraTopBoundInPixels = camera.pos.y + camera.size.h;
+	if (cameraTopBoundInPixels >= world->bounds.y)
+		camera.pos.y = (world->bounds.y - camera.size.h);
 
-	if (cameraBounds.z >= world->bounds.z)
-	{
-		cameraBounds.z = world->bounds.z;
-		cameraBounds.x = cameraBounds.z - renderer->size.w;
-	}
-	if (cameraBounds.w <= world->bounds.w) cameraBounds.w = world->bounds.w;
+	f32 cameraRightBoundInPixels = camera.pos.x + camera.size.w;
+	if (cameraRightBoundInPixels >= world->bounds.z)
+		camera.pos.x = (world->bounds.z - camera.size.w);
+
+	if (camera.pos.y <= world->bounds.w) camera.pos.y = world->bounds.w;
 
 	Font *font = &GLOBAL_debug.font;
 	if (world->numEntitiesInBattle > 0)
@@ -354,7 +354,7 @@ void debug_drawUi(GameState *state, f32 dt)
 			i32 indexOfLowerAInMetrics = 'a' - CAST(i32) font->codepointRange.x;
 			strPos.y += font->charMetrics[indexOfLowerAInMetrics].offset.y;
 
-			renderer_string(&state->renderer, &state->arena, cameraBounds, font,
+			renderer_string(&state->renderer, &state->arena, camera, font,
 			                debugString, strPos, V2(0, 0), 0, color);
 
 			f32 stringLineGap = 1.1f * asset_getVFontSpacing(font->metrics);
@@ -363,14 +363,14 @@ void debug_drawUi(GameState *state, f32 dt)
 			char entityPosStr[128];
 			snprintf(entityPosStr, ARRAY_COUNT(entityPosStr), "%06.2f, %06.2f",
 			         entity->pos.x, entity->pos.y);
-			renderer_string(&state->renderer, &state->arena, cameraBounds, font,
+			renderer_string(&state->renderer, &state->arena, camera, font,
 			                entityPosStr, strPos, V2(0, 0), 0, color);
 
 			strPos.y -= GLOBAL_debug.stringLineGap;
 			char entityIDStr[32];
 			snprintf(entityIDStr, ARRAY_COUNT(entityIDStr), "ID: %4d/%d", entity->id,
 			         world->uniqueIdAccumulator-1);
-			renderer_string(&state->renderer, &state->arena, cameraBounds, font,
+			renderer_string(&state->renderer, &state->arena, camera, font,
 			                entityIDStr, strPos, V2(0, 0), 0, color);
 
 			if (entity->stats)
@@ -379,27 +379,27 @@ void debug_drawUi(GameState *state, f32 dt)
 				char entityHealth[32];
 				snprintf(entityHealth, ARRAY_COUNT(entityHealth), "HP: %3.0f/%3.0f",
 				         entity->stats->health, entity->stats->maxHealth);
-				renderer_string(&state->renderer, &state->arena, cameraBounds,
+				renderer_string(&state->renderer, &state->arena, camera,
 				                font, entityHealth, strPos, V2(0, 0), 0, color);
 
 				strPos.y -= GLOBAL_debug.stringLineGap;
 				char entityTimer[32];
 				snprintf(entityTimer, ARRAY_COUNT(entityTimer), "ATB: %3.0f/%3.0f",
 				         entity->stats->actionTimer, entity->stats->actionRate);
-				renderer_string(&state->renderer, &state->arena, cameraBounds,
+				renderer_string(&state->renderer, &state->arena, camera,
 				                font, entityTimer, strPos, V2(0, 0), 0, color);
 
 				strPos.y -= GLOBAL_debug.stringLineGap;
 				char entityIdTarget[32];
 				snprintf(entityIdTarget, ARRAY_COUNT(entityIdTarget),
 				         "Targetting ID: %d", entity->stats->entityIdToAttack);
-				renderer_string(&state->renderer, &state->arena, cameraBounds,
+				renderer_string(&state->renderer, &state->arena, camera,
 				                font, entityIdTarget, strPos, V2(0, 0), 0, color);
 			}
 
 			strPos.y -= GLOBAL_debug.stringLineGap;
 			char *entityStateStr = debug_entitystate_string(entity->state);
-			renderer_string(&state->renderer, &state->arena, cameraBounds, font,
+			renderer_string(&state->renderer, &state->arena, camera, font,
 			                entityStateStr, strPos, V2(0, 0), 0, color);
 
 			if (entity->audioRenderer)
@@ -410,7 +410,7 @@ void debug_drawUi(GameState *state, f32 dt)
 				         ARRAY_COUNT(entityAudioSourceIndex),
 				         "AudioSource Index: %d",
 				         entity->audioRenderer->sourceIndex);
-				renderer_string(&state->renderer, &state->arena, cameraBounds,
+				renderer_string(&state->renderer, &state->arena, camera,
 				                font, entityAudioSourceIndex, strPos, V2(0, 0),
 				                0, color);
 			}

@@ -234,7 +234,7 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	v2 worldDimensionInTiles    = V2i(targetWorldWidth / state->tileSize,
 	                               targetWorldHeight / state->tileSize);
 #else
-	v2 worldDimensionInTiles = V2i(CAST(i32) windowSize.w / state->tileSize,
+	v2 worldDimensionInTiles = V2i(CAST(i32) (windowSize.w / state->tileSize) * 2,
 	                               CAST(i32) windowSize.h / state->tileSize);
 #endif
 
@@ -510,27 +510,24 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	}
 }
 
-INTERNAL v4 createCameraBounds(World *world, v2 size)
+INTERNAL Rect createWorldBoundedCamera(World *world, v2 size)
 {
-	v4 result = math_getRect(world->cameraPos, size);
+	Rect camera = {world->cameraPos, size};
 	// NOTE(doyle): Lock camera if it passes the bounds of the world
-	if (result.x <= world->bounds.x)
-	{
-		result.x = world->bounds.x;
-		result.z = result.x + size.w;
-	}
+	if (camera.pos.x <= world->bounds.x)
+		camera.pos.x = world->bounds.x;
 
 	// TODO(doyle): Do the Y component when we need it
-	if (result.y >= world->bounds.y) result.y = world->bounds.y;
+	f32 cameraTopBoundInPixels = camera.pos.y + camera.size.h;
+	if (cameraTopBoundInPixels >= world->bounds.y)
+		camera.pos.y = (world->bounds.y - camera.size.h);
 
-	if (result.z >= world->bounds.z)
-	{
-		result.z = world->bounds.z;
-		result.x = result.z - size.w;
-	}
+	f32 cameraRightBoundInPixels = camera.pos.x + camera.size.w;
+	if (cameraRightBoundInPixels >= world->bounds.z)
+		camera.pos.x = (world->bounds.z - camera.size.w);
 
-	if (result.w <= world->bounds.w) result.w = world->bounds.w;
-	return result;
+	if (camera.pos.y <= world->bounds.w) camera.pos.y = world->bounds.w;
+	return camera;
 }
 
 #define ENTITY_IN_BATTLE TRUE
@@ -876,24 +873,10 @@ INTERNAL void sortWorldEntityList(World *world, i32 numDeadEntities)
 	world->freeEntityIndex -= numDeadEntities;
 }
 
-INTERNAL b32 pointInRect(Rect rect, v2 point)
-{
-	b32 outsideOfRectX = FALSE;
-	if (point.x < rect.pos.x || point.x > (rect.pos.x + rect.size.w))
-		outsideOfRectX = TRUE;
-
-	b32 outsideOfRectY = FALSE;
-	if (point.y < rect.pos.y || point.y > (rect.pos.y + rect.size.h))
-		outsideOfRectY = TRUE;
-
-	if (outsideOfRectX || outsideOfRectY) return FALSE;
-	else return TRUE;
-}
-
 INTERNAL i32 button(UiState *uiState, AssetManager *assetManager,
                     Renderer *renderer, KeyInput input, i32 id, Rect rect)
 {
-	if (pointInRect(rect, input.mouseP))
+	if (math_pointInRect(rect, input.mouseP))
 	{
 		DEBUG_PUSH_STRING("POINT IN RECT");
 		uiState->hotItem = id;
@@ -951,8 +934,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	 * Update entities and render
 	 ******************************
 	 */
-	EventQueue eventQueue      = {0};
-	v4 cameraBounds            = createCameraBounds(world, renderer->size);
+	EventQueue eventQueue = {0};
+	Rect camera           = createWorldBoundedCamera(world, renderer->size);
 	AudioManager *audioManager = &state->audioManager;
 	ASSERT(world->freeEntityIndex < world->maxEntities);
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
@@ -1092,7 +1075,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		{
 			entity_updateAnim(entity, dt);
 			/* Calculate region to render */
-			renderer_entity(renderer, cameraBounds, entity, V2(0, 0), 0,
+			renderer_entity(renderer, camera, entity, V2(0, 0), 0,
 			                V4(1, 1, 1, 1));
 		}
 	}
@@ -1122,7 +1105,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			    // TODO(doyle): Incorporate UI into entity list or it's own list
 			    // with a rendering lifetime value
 			    renderer_string(renderer, &state->arena,
-			                    cameraBounds, font,
+			                    camera, font,
 			                    damageStr, defender->pos, V2(0, 0),
 			                    0, V4(1, 1, 1, 1));
 
@@ -1235,7 +1218,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			v2 heroCenter = v2_add(hero->pos, v2_scale(hero->hitboxSize, 0.5f));
 			RenderTex renderTex = renderer_createNullRenderTex(assetManager);
 			f32 distance        = v2_magnitude(hero->pos, entity->pos);
-			renderer_rect(&state->renderer, cameraBounds, heroCenter,
+			renderer_rect(&state->renderer, camera, heroCenter,
 			              V2(distance, 2.0f), V2(0, 0), angle, renderTex,
 			              V4(1, 0, 0, 1.0f));
 		}

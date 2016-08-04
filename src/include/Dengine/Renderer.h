@@ -32,20 +32,20 @@ RenderTex renderer_createNullRenderTex(AssetManager *assetManager);
 
 // TODO(doyle): Clean up lines
 // Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
-void renderer_rect(Renderer *const renderer, v4 cameraBounds, v2 pos, v2 size,
+void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
                    v2 pivotPoint, f32 rotate, RenderTex renderTex, v4 color);
 
 inline void renderer_staticRect(Renderer *const renderer, v2 pos, v2 size,
                                 v2 pivotPoint, f32 rotate, RenderTex renderTex,
                                 v4 color)
 {
-	v4 staticCameraBounds = math_getRect(V2(0, 0), renderer->size);
-	renderer_rect(renderer, staticCameraBounds, pos, size, pivotPoint, rotate,
+	Rect staticCamera = {V2(0, 0), renderer->size};
+	renderer_rect(renderer, staticCamera, pos, size, pivotPoint, rotate,
 	              renderTex, color);
 }
 
 void renderer_string(Renderer *const renderer, MemoryArena *arena,
-                     v4 cameraBounds, Font *const font,
+                     Rect camera, Font *const font,
                      const char *const string, v2 pos, v2 pivotPoint,
                      f32 rotate, v4 color);
 
@@ -53,12 +53,12 @@ inline void renderer_staticString(Renderer *const renderer, MemoryArena *arena,
                                   Font *const font, const char *const string,
                                   v2 pos, v2 pivotPoint, f32 rotate, v4 color)
 {
-	v4 staticCameraBounds = math_getRect(V2(0, 0), renderer->size);
-	renderer_string(renderer, arena, staticCameraBounds, font, string, pos,
+	Rect staticCamera = {V2(0, 0), renderer->size};
+	renderer_string(renderer, arena, staticCamera, font, string, pos,
 	                pivotPoint, rotate, color);
 }
 
-void renderer_entity(Renderer *renderer, v4 cameraBounds, Entity *entity,
+void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
                      v2 pivotPoint, f32 rotate, v4 color);
 
 #endif
