@@ -17,6 +17,12 @@ typedef struct UiState
 {
 	i32 hotItem;
 	i32 activeItem;
+
+	i32 kbdItem;
+	i32 keyEntered;
+	i32 keyMod;
+
+	i32 lastWidget;
 } UiState;
 
 typedef struct World

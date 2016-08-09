@@ -885,8 +885,24 @@ INTERNAL i32 button(UiState *uiState, AssetManager *assetManager,
 	}
 
 	RenderTex renderTex = renderer_createNullRenderTex(assetManager);
+
+	/* If no widget has keyboard focus, take it */
+	if (uiState->kbdItem == 0)
+		uiState->kbdItem = id;
+
+	/* If we have keyboard focus, show it */
+	if (uiState->kbdItem == id)
+	{
+		// Draw outline
+		renderer_staticRect(renderer, v2_add(V2(-6, -6), rect.pos),
+		                    v2_add(V2(20, 20), rect.size), V2(0, 0), 0, renderTex,
+		                    V4(1.0f, 0, 0, 1));
+	}
+
+	// Draw shadow
 	renderer_staticRect(renderer, v2_add(V2(8, 8), rect.pos), rect.size,
 	                    V2(0, 0), 0, renderTex, V4(0, 0, 0, 1));
+
 	if (uiState->hotItem == id)
 	{
 		if (uiState->activeItem == id)
@@ -906,11 +922,79 @@ INTERNAL i32 button(UiState *uiState, AssetManager *assetManager,
 		                    V2(0, 0), 0, renderTex, V4(0.5f, 0.5f, 0.5f, 1));
 	}
 
+	// After renderering before click check, see if we need to process keys
+	if (uiState->kbdItem == id)
+	{
+		if (input.space)
+		{
+			// Set focus to nothing and let next widget get focus
+			uiState->kbdItem = 0;
+			if (input->leftShift)
+				uiState->kbdItem = uiState->lastWidget;
+
+			// Clear key state so next widget doesn't auto grab
+			input->space     = FALSE;
+			input->leftShift = FALSE;
+		}
+	}
+
+	uiState->lastWidget = id;
+
 	if (!input.mouseLeft &&
 	    uiState->hotItem == id &&
 	    uiState->activeItem == id)
 	{
 		return 1;
+	}
+
+	return 0;
+}
+
+INTERNAL i32 scrollBar(UiState *uiState, AssetManager *assetManager,
+                       Renderer *renderer, KeyInput input, i32 id, Rect rect,
+                       i32 *value, i32 max)
+{
+	i32 yPos = ((256 - 16) * (*value)) / max;
+
+	Rect scrollRect;
+	scrollRect.pos = v2_add(rect.pos, V2i(8, 8));
+	scrollRect.size = V2(16, 255);
+	if (math_pointInRect(scrollRect, input.mouseP))
+	{
+		uiState->hotItem = id;
+		if (uiState->activeItem == 0 && input.mouseLeft)
+			uiState->activeItem = id;
+	}
+
+	v2 scrollBarSize    = V2(32, 256 + 16);
+	RenderTex renderTex = renderer_createNullRenderTex(assetManager);
+	renderer_staticRect(renderer, rect.pos, scrollBarSize, V2(0, 0), 0,
+	                    renderTex, V4(0.5f, 0.5f, 0.5f, 1));
+
+	if (uiState->hotItem == id || uiState->activeItem == id)
+	{
+		renderer_staticRect(renderer, v2_add(V2i(8, 8 + yPos), rect.pos),
+		                    V2(16, 16), V2(0, 0), 0, renderTex,
+		                    V4(1.0f, 0, 0, 1));
+	}
+	else
+	{
+		renderer_staticRect(renderer, v2_add(V2i(8, 8 + yPos), rect.pos),
+		                    V2(16, 16), V2(0, 0), 0, renderTex,
+		                    V4(0, 1.0f, 0, 1));
+	}
+
+	if (uiState->activeItem == id)
+	{
+		i32 mousePos = CAST(i32)(input.mouseP.y - (rect.pos.y + 8));
+		if (mousePos < 0) mousePos = 0;
+		if (mousePos > 255) mousePos = 255;
+		i32 v = (mousePos * max) / 255;
+		if (v != *value)
+		{
+			*value = v;
+			return 1;
+		}
 	}
 
 	return 0;
@@ -1177,6 +1261,11 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	Rect buttonRectC = {V2(700, 500), V2(100, 50)};
 	button(&state->uiState, assetManager, renderer, state->input, 3,
 	       buttonRectC);
+
+	LOCAL_PERSIST i32 scrollValue = 30;
+	Rect scrollRectA = {V2(900, 500), V2(16, 255)};
+	scrollBar(&state->uiState, assetManager, renderer, state->input, 3,
+	          scrollRectA, &scrollValue, 160);
 
 	// RESET IMGUI
 	if (!state->input.mouseLeft)             state->uiState.activeItem = 0;

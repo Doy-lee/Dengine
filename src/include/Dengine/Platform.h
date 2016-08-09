@@ -14,6 +14,7 @@ enum KeyCodes
 	keycode_left,
 	keycode_right,
 	keycode_space,
+	keycode_leftShift,
 	keycode_mouseLeft,
 	keycode_count,
 };
