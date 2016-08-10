@@ -929,12 +929,12 @@ INTERNAL i32 button(UiState *uiState, AssetManager *assetManager,
 		{
 			// Set focus to nothing and let next widget get focus
 			uiState->kbdItem = 0;
-			if (input->leftShift)
+			if (input.leftShift)
 				uiState->kbdItem = uiState->lastWidget;
 
 			// Clear key state so next widget doesn't auto grab
-			input->space     = FALSE;
-			input->leftShift = FALSE;
+			input.space     = FALSE;
+			input.leftShift = FALSE;
 		}
 	}
 
@@ -951,48 +951,60 @@ INTERNAL i32 button(UiState *uiState, AssetManager *assetManager,
 }
 
 INTERNAL i32 scrollBar(UiState *uiState, AssetManager *assetManager,
-                       Renderer *renderer, KeyInput input, i32 id, Rect rect,
-                       i32 *value, i32 max)
+                       Renderer *renderer, KeyInput input, i32 id,
+                       Rect scrollBarRect, i32 *value, i32 maxValue)
 {
-	i32 yPos = ((256 - 16) * (*value)) / max;
+#ifdef DENGINE_DEBUG
+	ASSERT(*value <= maxValue);
+#endif
 
-	Rect scrollRect;
-	scrollRect.pos = v2_add(rect.pos, V2i(8, 8));
-	scrollRect.size = V2(16, 255);
-	if (math_pointInRect(scrollRect, input.mouseP))
+	if (math_pointInRect(scrollBarRect, input.mouseP))
 	{
 		uiState->hotItem = id;
 		if (uiState->activeItem == 0 && input.mouseLeft)
 			uiState->activeItem = id;
 	}
 
-	v2 scrollBarSize    = V2(32, 256 + 16);
 	RenderTex renderTex = renderer_createNullRenderTex(assetManager);
-	renderer_staticRect(renderer, rect.pos, scrollBarSize, V2(0, 0), 0,
-	                    renderTex, V4(0.5f, 0.5f, 0.5f, 1));
+
+	// Render scroll bar background
+	renderer_staticRect(renderer, scrollBarRect.pos, scrollBarRect.size,
+	                    V2(0, 0), 0, renderTex, V4(0.75f, 0.5f, 0.5f, 1));
+
+	// Render scroll bar slider
+	v2 sliderSize   = V2(16, 16);
+	v4 sliderColor  = V4(0, 0, 0, 1);
+
+	f32 sliderPercentageOffset = (CAST(f32) *value / CAST(f32) maxValue);
+	f32 sliderYOffsetToBar =
+	    (scrollBarRect.size.h - sliderSize.h) * sliderPercentageOffset;
+	v2 sliderPos   = v2_add(scrollBarRect.pos, V2(0, sliderYOffsetToBar));
 
 	if (uiState->hotItem == id || uiState->activeItem == id)
-	{
-		renderer_staticRect(renderer, v2_add(V2i(8, 8 + yPos), rect.pos),
-		                    V2(16, 16), V2(0, 0), 0, renderTex,
-		                    V4(1.0f, 0, 0, 1));
-	}
+		sliderColor = V4(1.0f, 0, 0, 1);
 	else
-	{
-		renderer_staticRect(renderer, v2_add(V2i(8, 8 + yPos), rect.pos),
-		                    V2(16, 16), V2(0, 0), 0, renderTex,
-		                    V4(0, 1.0f, 0, 1));
-	}
+		sliderColor = V4(0.0f, 1.0f, 0, 1);
+
+	renderer_staticRect(renderer, sliderPos, sliderSize, V2(0, 0), 0, renderTex,
+	                    sliderColor);
 
 	if (uiState->activeItem == id)
 	{
-		i32 mousePos = CAST(i32)(input.mouseP.y - (rect.pos.y + 8));
-		if (mousePos < 0) mousePos = 0;
-		if (mousePos > 255) mousePos = 255;
-		i32 v = (mousePos * max) / 255;
-		if (v != *value)
+		f32 mouseYRelToRect = input.mouseP.y - scrollBarRect.pos.y;
+
+		// Bounds check
+		if (mouseYRelToRect < 0)
+			mouseYRelToRect = 0;
+		else if (mouseYRelToRect > scrollBarRect.size.h)
+			mouseYRelToRect = scrollBarRect.size.h;
+
+		f32 newSliderPercentOffset =
+		    (CAST(f32) mouseYRelToRect / scrollBarRect.size.h);
+
+		i32 newValue = CAST(i32)(newSliderPercentOffset * CAST(f32)maxValue);
+		if (newValue != *value)
 		{
-			*value = v;
+			*value = newValue;
 			return 1;
 		}
 	}
