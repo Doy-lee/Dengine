@@ -19,8 +19,9 @@ typedef struct UiState
 	i32 activeItem;
 
 	i32 kbdItem;
-	i32 keyEntered;
-	i32 keyMod;
+	enum KeyCode keyEntered;
+	enum KeyCode keyMod;
+	enum KeyCode keyChar;
 
 	i32 lastWidget;
 } UiState;

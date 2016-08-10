@@ -90,6 +90,7 @@ INTERNAL inline RenderQuad
 createDefaultTexQuad(Renderer *renderer, RenderTex renderTex)
 {
 	RenderQuad result = {0};
+	// TODO(doyle): We need to switch this so its xy bottom left, zw top right!!
 	v4 defaultQuad    = V4(0.0f, renderer->size.h, renderer->size.w, 0.0f);
 	result            = createTexQuad(renderer, defaultQuad, renderTex);
 	return result;

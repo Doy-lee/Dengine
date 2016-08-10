@@ -24,24 +24,33 @@ INTERNAL void keyCallback(GLFWwindow *window, int key, int scancode, int action,
 	switch (key)
 	{
 	case GLFW_KEY_UP:
-		processKey(&game->input.up, key, action);
+		processKey(&game->input.keys[keycode_up], key, action);
 		break;
 	case GLFW_KEY_DOWN:
-		processKey(&game->input.down, key, action);
+		processKey(&game->input.keys[keycode_down], key, action);
 		break;
 	case GLFW_KEY_LEFT:
-		processKey(&game->input.left, key, action);
+		processKey(&game->input.keys[keycode_left], key, action);
 		break;
 	case GLFW_KEY_RIGHT:
-		processKey(&game->input.right, key, action);
-		break;
-	case GLFW_KEY_SPACE:
-		processKey(&game->input.space, key, action);
+		processKey(&game->input.keys[keycode_right], key, action);
 		break;
 	case GLFW_KEY_LEFT_SHIFT:
-		processKey(&game->input.leftShift, key, action);
+		processKey(&game->input.keys[keycode_leftShift], key, action);
+		break;
+	case GLFW_KEY_ENTER:
+		processKey(&game->input.keys[keycode_enter], key, action);
+		break;
+	case GLFW_KEY_BACKSPACE:
+		processKey(&game->input.keys[keycode_backspace], key, action);
 		break;
 	default:
+		if (key >= ' ' && key <= '~')
+		{
+			processKey(&game->input.keys[key - ' '], key, action);
+			// TODO(doyle): Temporary
+			game->uiState.keyChar = key - ' ';
+		}
 		break;
 	}
 }
@@ -64,7 +73,7 @@ INTERNAL void mouseButtonCallback(GLFWwindow *window, int button, int action,
 	switch(button)
 	{
 	case GLFW_MOUSE_BUTTON_LEFT:
-		processKey(&game->input.mouseLeft, button, action);
+		processKey(&game->input.keys[keycode_mouseLeft], button, action);
 		break;
 	default:
 		break;

@@ -7,35 +7,123 @@
 /* Forward Declaration */
 typedef struct MemoryArena MemoryArena;
 
-enum KeyCodes
+// TODO(doyle): Revise key code system -- should we store the extraneous keys or
+// have a mapping function to map it back to ascii?
+enum KeyCode
 {
+	keycode_space = 0,
+	keycode_exclamation,
+	keycode_dbl_quotes,
+	keycode_hash,
+	keycode_dollar,
+	keycode_percent,
+	keycode_ampersand,
+	keycode_single_quote,
+	keycode_left_parenthesis,
+	keycode_right_parenthesis,
+	keycode_star,
+	keycode_plus,
+	keycode_comma,
+	keycode_minus,
+	keycode_hyphen,
+	keycode_dot,
+	keycode_forward_slash,
+	keycode_0,
+	keycode_1,
+	keycode_2,
+	keycode_3,
+	keycode_4,
+	keycode_5,
+	keycode_6,
+	keycode_7,
+	keycode_8,
+	keycode_9,
+	keycode_colon,
+	keycode_semi_colon,
+	keycode_left_angle_bracket,
+	keycode_equal,
+	keycode_right_angle_bracket,
+	keycode_question_mark,
+	keycode_at,
+	keycode_A,
+	keycode_B,
+	keycode_C,
+	keycode_D,
+	keycode_E,
+	keycode_F,
+	keycode_G,
+	keycode_H,
+	keycode_I,
+	keycode_J,
+	keycode_K,
+	keycode_L,
+	keycode_M,
+	keycode_N,
+	keycode_O,
+	keycode_P,
+	keycode_Q,
+	keycode_R,
+	keycode_S,
+	keycode_T,
+	keycode_U,
+	keycode_V,
+	keycode_W,
+	keycode_X,
+	keycode_Y,
+	keycode_Z,
+	keycode_left_square_bracket,
+	keycode_back_slash,
+	keycode_right_square_bracket,
+	keycode_up_hat,
+	keycode_underscore,
+	keycode_alt_tilda,
+	keycode_a,
+	keycode_b,
+	keycode_c,
+	keycode_d,
+	keycode_e,
+	keycode_f,
+	keycode_g,
+	keycode_h,
+	keycode_i,
+	keycode_j,
+	keycode_k,
+	keycode_l,
+	keycode_m,
+	keycode_n,
+	keycode_o,
+	keycode_p,
+	keycode_q,
+	keycode_r,
+	keycode_s,
+	keycode_t,
+	keycode_u,
+	keycode_v,
+	keycode_w,
+	keycode_x,
+	keycode_y,
+	keycode_z,
+	keycode_left_squiggly_bracket,
+	keycode_pipe,
+	keycode_right_squiggly_bracket,
+	keycode_tilda,
 	keycode_up,
 	keycode_down,
 	keycode_left,
 	keycode_right,
-	keycode_space,
 	keycode_leftShift,
 	keycode_mouseLeft,
+	keycode_enter,
 	keycode_count,
+	keycode_backspace,
+	keycode_tab,
+	keycode_null,
 };
 
 typedef struct KeyInput
 {
 	v2 mouseP;
-	union
-	{
-		b32 keys[keycode_count - 1];
-		struct
-		{
-			b32 up;
-			b32 down;
-			b32 left;
-			b32 right;
-			b32 space;
-			b32 leftShift;
-			b32 mouseLeft;
-		};
-	};
+	b32 keys[keycode_count - 1];
 } KeyInput;
 
 typedef struct PlatformFileRead

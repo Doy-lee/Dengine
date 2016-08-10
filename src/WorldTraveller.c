@@ -341,6 +341,8 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	DEBUG_LOG("World populated");
 #endif
 
+	state->uiState.keyEntered = keycode_null;
+
 	srand(CAST(u32)(time(NULL)));
 }
 
@@ -375,24 +377,24 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		// if a button ended down
 		LOCAL_PERSIST b32 spaceBarWasDown = FALSE;
 
-		if (state->input.right)
+		if (state->input.keys[keycode_right])
 		{
 			ddPos.x         = 1.0f;
 			hero->direction = direction_east;
 		}
 
-		if (state->input.left)
+		if (state->input.keys[keycode_left])
 		{
 			ddPos.x         = -1.0f;
 			hero->direction = direction_west;
 		}
 
-		if (state->input.up)
+		if (state->input.keys[keycode_up])
 		{
 			ddPos.y = 1.0f;
 		}
 
-		if (state->input.down)
+		if (state->input.keys[keycode_down])
 		{
 			ddPos.y = -1.0f;
 		}
@@ -406,10 +408,18 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			ddPos = v2_scale(ddPos, 0.70710678118f);
 		}
 
+		if (state->input.keys[keycode_enter])
+		{
+			state->uiState.keyEntered = keycode_enter;
+		}
+
 		LOCAL_PERSIST b32 toggleFlag = TRUE;
 		// TODO(doyle): Revisit key input with state checking for last ended down
-		if (state->input.space && spaceBarWasDown == FALSE)
+		if (state->input.keys[keycode_space] && spaceBarWasDown == FALSE)
 		{
+			state->uiState.keyEntered = keycode_space;
+
+#if 0
 			Renderer *renderer = &state->renderer;
 			f32 yPos = CAST(f32)(rand() % CAST(i32)renderer->size.h);
 			f32 xModifier =  5.0f - CAST(f32)(rand() % 3);
@@ -417,9 +427,10 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			v2 pos = V2(renderer->size.w - (renderer->size.w / xModifier), yPos);
 			entity_addGenericMob(&state->arena, &state->assetManager, world,
 			                     pos);
+#endif
 			spaceBarWasDown = TRUE;
 		}
-		else if (!state->input.space)
+		else if (!state->input.keys[keycode_space])
 		{
 			spaceBarWasDown = FALSE;
 		}
@@ -444,8 +455,16 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	}
 
 	f32 heroSpeed = 6.2f * METERS_TO_PIXEL;
-	if (state->input.leftShift)
+	if (state->input.keys[keycode_leftShift])
+	{
+		// TODO: Context sensitive command separation
+		state->uiState.keyMod = keycode_leftShift;
 		heroSpeed = CAST(f32)(22.0f * 10.0f * METERS_TO_PIXEL);
+	}
+	else
+	{
+		state->uiState.keyMod = keycode_null;
+	}
 
 	ddPos = v2_scale(ddPos, heroSpeed);
 	// TODO(doyle): Counteracting force on player's acceleration is arbitrary
@@ -878,9 +897,8 @@ INTERNAL i32 button(UiState *uiState, AssetManager *assetManager,
 {
 	if (math_pointInRect(rect, input.mouseP))
 	{
-		DEBUG_PUSH_STRING("POINT IN RECT");
 		uiState->hotItem = id;
-		if (uiState->activeItem == 0 && input.mouseLeft)
+		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft])
 			uiState->activeItem = id;
 	}
 
@@ -925,22 +943,27 @@ INTERNAL i32 button(UiState *uiState, AssetManager *assetManager,
 	// After renderering before click check, see if we need to process keys
 	if (uiState->kbdItem == id)
 	{
-		if (input.space)
+		switch (uiState->keyEntered)
 		{
+		case keycode_space:
 			// Set focus to nothing and let next widget get focus
 			uiState->kbdItem = 0;
-			if (input.leftShift)
+			if (uiState->keyMod == keycode_leftShift)
 				uiState->kbdItem = uiState->lastWidget;
 
 			// Clear key state so next widget doesn't auto grab
-			input.space     = FALSE;
-			input.leftShift = FALSE;
+			uiState->keyEntered = keycode_null;
+			break;
+		case keycode_enter:
+			return 1;
+		default:
+			break;
 		}
 	}
 
 	uiState->lastWidget = id;
 
-	if (!input.mouseLeft &&
+	if (!input.keys[keycode_mouseLeft] &&
 	    uiState->hotItem == id &&
 	    uiState->activeItem == id)
 	{
@@ -961,11 +984,24 @@ INTERNAL i32 scrollBar(UiState *uiState, AssetManager *assetManager,
 	if (math_pointInRect(scrollBarRect, input.mouseP))
 	{
 		uiState->hotItem = id;
-		if (uiState->activeItem == 0 && input.mouseLeft)
+		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft])
 			uiState->activeItem = id;
 	}
 
 	RenderTex renderTex = renderer_createNullRenderTex(assetManager);
+
+	/* If no widget has keyboard focus, take it */
+	if (uiState->kbdItem == 0)
+		uiState->kbdItem = id;
+
+	/* If we have keyboard focus, show it */
+	if (uiState->kbdItem == id)
+	{
+		// Draw outline
+		renderer_staticRect(renderer, v2_add(V2(-6, -6), scrollBarRect.pos),
+		                    v2_add(V2(20, 20), scrollBarRect.size), V2(0, 0), 0,
+		                    renderTex, V4(1.0f, 0, 0, 1));
+	}
 
 	// Render scroll bar background
 	renderer_staticRect(renderer, scrollBarRect.pos, scrollBarRect.size,
@@ -987,6 +1023,38 @@ INTERNAL i32 scrollBar(UiState *uiState, AssetManager *assetManager,
 
 	renderer_staticRect(renderer, sliderPos, sliderSize, V2(0, 0), 0, renderTex,
 	                    sliderColor);
+
+	if (uiState->kbdItem == id)
+	{
+		switch (uiState->keyEntered)
+		{
+		case keycode_space:
+			uiState->kbdItem = 0;
+			if (uiState->keyMod == keycode_leftShift)
+				uiState->kbdItem = uiState->lastWidget;
+
+			// Clear key state so next widget doesn't auto grab
+			uiState->keyEntered = keycode_null;
+			break;
+		case keycode_up:
+			// TODO(doyle): Fix input for this to work, i.e. proper rate limited input poll
+			if (*value < maxValue)
+			{
+				(*value)++;
+				return 1;
+			}
+		case keycode_down:
+			if (*value > 0)
+			{
+				(*value)--;
+				return 1;
+			}
+		default:
+			break;
+		}
+	}
+
+	uiState->lastWidget = id;
 
 	if (uiState->activeItem == id)
 	{
@@ -1010,6 +1078,103 @@ INTERNAL i32 scrollBar(UiState *uiState, AssetManager *assetManager,
 	}
 
 	return 0;
+}
+
+INTERNAL i32 textField(UiState *const uiState, MemoryArena *arena,
+                       AssetManager *const assetManager,
+                       Renderer *const renderer, Font *const font,
+                       KeyInput input, const i32 id, v2 pos,
+                       char *const string)
+{
+	i32 strLen = common_strlen(string);
+	b32 changed = FALSE;
+
+	Rect textRect = {0};
+	textRect.pos = pos;
+	textRect.size = V2(30 * font->maxSize.w, font->maxSize.h);
+	if (math_pointInRect(textRect, input.mouseP))
+	{
+		uiState->hotItem = id;
+		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft])
+		{
+			uiState->activeItem = id;
+		}
+	}
+
+	/* If no widget has keyboard focus, take it */
+	if (uiState->kbdItem == 0)
+		uiState->kbdItem = id;
+
+	RenderTex renderTex = renderer_createNullRenderTex(assetManager);
+	/* If we have keyboard focus, show it */
+	if (uiState->kbdItem == id)
+	{
+		// Draw outline
+		renderer_staticRect(renderer, v2_add(V2(-4, -4), textRect.pos),
+		                    v2_add(V2(16, 16), textRect.size), V2(0, 0), 0,
+		                    renderTex, V4(1.0f, 0, 0, 1));
+	}
+
+	// Render
+	renderer_staticRect(renderer, textRect.pos, textRect.size, V2(0, 0), 0,
+	                    renderTex, V4(0.75f, 0.5f, 0.5f, 1));
+
+	if (uiState->activeItem == id || uiState->hotItem == id)
+	{
+		renderer_staticRect(renderer, textRect.pos, textRect.size, V2(0, 0), 0,
+		                    renderTex, V4(0.75f, 0.75f, 0.0f, 1));
+	}
+	else
+	{
+		renderer_staticRect(renderer, textRect.pos, textRect.size, V2(0, 0), 0,
+		                    renderTex, V4(0.5f, 0.5f, 0.5f, 1));
+	}
+
+	renderer_staticString(renderer, arena, font, string, textRect.pos, V2(0, 0),
+	                      0, V4(0, 0, 0, 1));
+
+	if (uiState->kbdItem == id)
+	{
+		switch (uiState->keyEntered)
+		{
+		case keycode_space:
+			uiState->kbdItem = 0;
+			if (uiState->keyMod == keycode_leftShift)
+				uiState->kbdItem = uiState->lastWidget;
+
+			uiState->keyEntered = keycode_null;
+			break;
+
+		case keycode_backspace:
+			if (strLen > 0)
+			{
+				strLen--;
+				string[strLen] = 0;
+				changed        = TRUE;
+			}
+			break;
+		default:
+			break;
+		}
+
+		if (uiState->keyChar >= keycode_space &&
+		    uiState->keyChar <= keycode_Z && strLen < 30)
+		{
+			string[strLen++] = uiState->keyChar;
+			string[strLen] = 0;
+			changed = TRUE;
+		}
+	}
+
+	if (!input.keys[keycode_mouseLeft] &&
+	    uiState->hotItem == id &&
+	    uiState->activeItem == id)
+	{
+		uiState->kbdItem = id;
+	}
+
+	uiState->lastWidget = id;
+	return changed;
 }
 
 void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
@@ -1276,12 +1441,22 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 	LOCAL_PERSIST i32 scrollValue = 30;
 	Rect scrollRectA = {V2(900, 500), V2(16, 255)};
-	scrollBar(&state->uiState, assetManager, renderer, state->input, 3,
+	scrollBar(&state->uiState, assetManager, renderer, state->input, 4,
 	          scrollRectA, &scrollValue, 160);
 
+	LOCAL_PERSIST char fieldString[80] = "Hello world";
+	textField(&state->uiState, &state->arena, assetManager, renderer, font,
+	          state->input, 5, V2(1000, 500), fieldString);
+
 	// RESET IMGUI
-	if (!state->input.mouseLeft)             state->uiState.activeItem = 0;
-	else if (state->uiState.activeItem == 0) state->uiState.activeItem = -1;
+	if (!state->input.keys[keycode_mouseLeft])
+		state->uiState.activeItem = 0;
+	else if (state->uiState.activeItem == 0)
+		state->uiState.activeItem = -1;
+
+	if (state->uiState.keyEntered == keycode_space) state->uiState.kbdItem = 0;
+	state->uiState.keyEntered = keycode_null;
+	state->uiState.keyChar    = keycode_null;
 
 	/* Draw hero avatar */
 	TexAtlas *heroAtlas  = asset_getTextureAtlas(assetManager, texlist_hero);
