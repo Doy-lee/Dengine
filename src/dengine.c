@@ -5,10 +5,13 @@
 #include "Dengine/OpenGL.h"
 #include "Dengine/WorldTraveller.h"
 
-INTERNAL inline void processKey(b32 *currState, int key, int action)
+INTERNAL inline void processKey(KeyState *state, int action)
 {
-	if (action == GLFW_PRESS) *currState = TRUE;
-	else if (action == GLFW_RELEASE) *currState = FALSE;
+	// TODO(doyle): Handle GLFW_REPEAT, and probably remove this function
+	if (action == GLFW_PRESS || action == GLFW_RELEASE)
+	{
+		state->newHalfTransitionCount++;
+	}
 }
 
 INTERNAL void keyCallback(GLFWwindow *window, int key, int scancode, int action,
@@ -24,32 +27,38 @@ INTERNAL void keyCallback(GLFWwindow *window, int key, int scancode, int action,
 	switch (key)
 	{
 	case GLFW_KEY_UP:
-		processKey(&game->input.keys[keycode_up], key, action);
+		processKey(&game->input.keys[keycode_up], action);
 		break;
 	case GLFW_KEY_DOWN:
-		processKey(&game->input.keys[keycode_down], key, action);
+		processKey(&game->input.keys[keycode_down], action);
 		break;
 	case GLFW_KEY_LEFT:
-		processKey(&game->input.keys[keycode_left], key, action);
+		processKey(&game->input.keys[keycode_left], action);
 		break;
 	case GLFW_KEY_RIGHT:
-		processKey(&game->input.keys[keycode_right], key, action);
+		processKey(&game->input.keys[keycode_right], action);
 		break;
 	case GLFW_KEY_LEFT_SHIFT:
-		processKey(&game->input.keys[keycode_leftShift], key, action);
+		processKey(&game->input.keys[keycode_leftShift], action);
 		break;
 	case GLFW_KEY_ENTER:
-		processKey(&game->input.keys[keycode_enter], key, action);
+		processKey(&game->input.keys[keycode_enter], action);
 		break;
 	case GLFW_KEY_BACKSPACE:
-		processKey(&game->input.keys[keycode_backspace], key, action);
+		processKey(&game->input.keys[keycode_backspace], action);
 		break;
 	default:
 		if (key >= ' ' && key <= '~')
 		{
-			processKey(&game->input.keys[key - ' '], key, action);
-			// TODO(doyle): Temporary
-			game->uiState.keyChar = key - ' ';
+			i32 offset = 0;
+			if (key >= 'A' && key <= 'Z')
+			{
+				if (!game->input.keys[keycode_leftShift].endedDown)
+					offset = 'a' - 'A';
+			}
+
+			i32 glfwCodeToPlatformCode = (key - ' ') + offset;
+			processKey(&game->input.keys[glfwCodeToPlatformCode], action);
 		}
 		break;
 	}
@@ -73,7 +82,7 @@ INTERNAL void mouseButtonCallback(GLFWwindow *window, int button, int action,
 	switch(button)
 	{
 	case GLFW_MOUSE_BUTTON_LEFT:
-		processKey(&game->input.keys[keycode_mouseLeft], button, action);
+		processKey(&game->input.keys[keycode_mouseLeft], action);
 		break;
 	default:
 		break;

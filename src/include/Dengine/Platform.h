@@ -11,7 +11,7 @@ typedef struct MemoryArena MemoryArena;
 // have a mapping function to map it back to ascii?
 enum KeyCode
 {
-	keycode_space = 0,
+	keycode_space,
 	keycode_exclamation,
 	keycode_dbl_quotes,
 	keycode_hash,
@@ -24,7 +24,6 @@ enum KeyCode
 	keycode_star,
 	keycode_plus,
 	keycode_comma,
-	keycode_minus,
 	keycode_hyphen,
 	keycode_dot,
 	keycode_forward_slash,
@@ -114,16 +113,22 @@ enum KeyCode
 	keycode_leftShift,
 	keycode_mouseLeft,
 	keycode_enter,
-	keycode_count,
 	keycode_backspace,
-	keycode_tab,
+	keycode_count,
 	keycode_null,
 };
+
+typedef struct KeyState
+{
+	u32 oldHalfTransitionCount;
+	u32 newHalfTransitionCount;
+	b32 endedDown;
+} KeyState;
 
 typedef struct KeyInput
 {
 	v2 mouseP;
-	b32 keys[keycode_count - 1];
+	KeyState keys[keycode_count];
 } KeyInput;
 
 typedef struct PlatformFileRead

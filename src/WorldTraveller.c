@@ -352,6 +352,42 @@ INTERNAL inline v4 getEntityScreenRect(Entity entity)
 	return result;
 }
 
+enum ReadKeyType
+{
+	readkeytype_oneShot,
+	readkeytype_delayedRepeat,
+	readkeytype_repeat,
+	readkeytype_count,
+};
+
+INTERNAL b32 getKeyStatus(KeyState key, enum ReadKeyType readType)
+{
+	switch(readType)
+	{
+	case readkeytype_oneShot:
+	{
+		if (key.endedDown &&
+		    (key.newHalfTransitionCount > key.oldHalfTransitionCount))
+			return TRUE;
+		break;
+	}
+	case readkeytype_repeat:
+	{
+		if (key.endedDown) return TRUE;
+		break;
+	}
+	case readkeytype_delayedRepeat:
+	default:
+	// TODO(doyle): Add delayed repeat of keys
+#ifdef DENGINE_DEBUG
+		ASSERT(INVALID_CODE_PATH);
+#endif
+		break;
+	}
+
+	return FALSE;
+}
+
 INTERNAL void parseInput(GameState *state, const f32 dt)
 {
 	/*
@@ -370,31 +406,52 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	Entity *hero = &world->entities[entity_getIndex(world, world->heroId)];
 	v2 ddPos     = V2(0, 0);
 
+	KeyState *keys = state->input.keys;
+	for (i32 i = 0; i < keycode_count; i++)
+	{
+		KeyState *currKey = &keys[i];
+		if (currKey->newHalfTransitionCount > currKey->oldHalfTransitionCount)
+		{
+			i32 numTransitions = currKey->newHalfTransitionCount -
+			                     currKey->oldHalfTransitionCount;
+
+			if ((numTransitions & 1) == 1)
+			{
+				currKey->endedDown = ~currKey->endedDown;
+			}
+
+			// TODO(doyle): Multi press within frame override UI input parsing
+			if ((i >= keycode_A && i <= keycode_Z) ||
+			    (i >= keycode_a && i <= keycode_z))
+			{
+				if (getKeyStatus(*currKey, readkeytype_oneShot))
+				{
+					state->uiState.keyChar = i;
+				}
+			}
+		}
+	}
+
 	if (hero->stats->busyDuration <= 0)
 	{
-		// TODO(doyle): As we need to handle more key spam input, we want to
-		// track
-		// if a button ended down
-		LOCAL_PERSIST b32 spaceBarWasDown = FALSE;
-
-		if (state->input.keys[keycode_right])
+		if (getKeyStatus(keys[keycode_right], readkeytype_repeat))
 		{
 			ddPos.x         = 1.0f;
 			hero->direction = direction_east;
 		}
 
-		if (state->input.keys[keycode_left])
+		if (getKeyStatus(keys[keycode_left], readkeytype_repeat))
 		{
 			ddPos.x         = -1.0f;
 			hero->direction = direction_west;
 		}
 
-		if (state->input.keys[keycode_up])
+		if (getKeyStatus(keys[keycode_up], readkeytype_repeat))
 		{
 			ddPos.y = 1.0f;
 		}
 
-		if (state->input.keys[keycode_down])
+		if (getKeyStatus(keys[keycode_down], readkeytype_repeat))
 		{
 			ddPos.y = -1.0f;
 		}
@@ -408,18 +465,16 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			ddPos = v2_scale(ddPos, 0.70710678118f);
 		}
 
-		if (state->input.keys[keycode_enter])
+		if (getKeyStatus(keys[keycode_enter], readkeytype_oneShot))
 		{
 			state->uiState.keyEntered = keycode_enter;
 		}
 
-		LOCAL_PERSIST b32 toggleFlag = TRUE;
-		// TODO(doyle): Revisit key input with state checking for last ended down
-		if (state->input.keys[keycode_space] && spaceBarWasDown == FALSE)
+		if (getKeyStatus(keys[keycode_space], readkeytype_oneShot))
 		{
 			state->uiState.keyEntered = keycode_space;
+			DEBUG_LOG("push space");
 
-#if 0
 			Renderer *renderer = &state->renderer;
 			f32 yPos = CAST(f32)(rand() % CAST(i32)renderer->size.h);
 			f32 xModifier =  5.0f - CAST(f32)(rand() % 3);
@@ -427,12 +482,6 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			v2 pos = V2(renderer->size.w - (renderer->size.w / xModifier), yPos);
 			entity_addGenericMob(&state->arena, &state->assetManager, world,
 			                     pos);
-#endif
-			spaceBarWasDown = TRUE;
-		}
-		else if (!state->input.keys[keycode_space])
-		{
-			spaceBarWasDown = FALSE;
 		}
 	}
 
@@ -455,7 +504,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	}
 
 	f32 heroSpeed = 6.2f * METERS_TO_PIXEL;
-	if (state->input.keys[keycode_leftShift])
+	if (state->input.keys[keycode_leftShift].endedDown)
 	{
 		// TODO: Context sensitive command separation
 		state->uiState.keyMod = keycode_leftShift;
@@ -898,7 +947,7 @@ INTERNAL i32 button(UiState *uiState, AssetManager *assetManager,
 	if (math_pointInRect(rect, input.mouseP))
 	{
 		uiState->hotItem = id;
-		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft])
+		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft].endedDown)
 			uiState->activeItem = id;
 	}
 
@@ -963,7 +1012,7 @@ INTERNAL i32 button(UiState *uiState, AssetManager *assetManager,
 
 	uiState->lastWidget = id;
 
-	if (!input.keys[keycode_mouseLeft] &&
+	if (!input.keys[keycode_mouseLeft].endedDown &&
 	    uiState->hotItem == id &&
 	    uiState->activeItem == id)
 	{
@@ -984,7 +1033,7 @@ INTERNAL i32 scrollBar(UiState *uiState, AssetManager *assetManager,
 	if (math_pointInRect(scrollBarRect, input.mouseP))
 	{
 		uiState->hotItem = id;
-		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft])
+		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft].endedDown)
 			uiState->activeItem = id;
 	}
 
@@ -1095,7 +1144,7 @@ INTERNAL i32 textField(UiState *const uiState, MemoryArena *arena,
 	if (math_pointInRect(textRect, input.mouseP))
 	{
 		uiState->hotItem = id;
-		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft])
+		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft].endedDown)
 		{
 			uiState->activeItem = id;
 		}
@@ -1158,15 +1207,15 @@ INTERNAL i32 textField(UiState *const uiState, MemoryArena *arena,
 		}
 
 		if (uiState->keyChar >= keycode_space &&
-		    uiState->keyChar <= keycode_Z && strLen < 30)
+		    uiState->keyChar <= keycode_tilda && strLen < 30)
 		{
-			string[strLen++] = uiState->keyChar;
+			string[strLen++] = uiState->keyChar + ' ';
 			string[strLen] = 0;
 			changed = TRUE;
 		}
 	}
 
-	if (!input.keys[keycode_mouseLeft] &&
+	if (!input.keys[keycode_mouseLeft].endedDown &&
 	    uiState->hotItem == id &&
 	    uiState->activeItem == id)
 	{
@@ -1449,7 +1498,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	          state->input, 5, V2(1000, 500), fieldString);
 
 	// RESET IMGUI
-	if (!state->input.keys[keycode_mouseLeft])
+	if (!state->input.keys[keycode_mouseLeft].endedDown)
 		state->uiState.activeItem = 0;
 	else if (state->uiState.activeItem == 0)
 		state->uiState.activeItem = -1;
@@ -1498,6 +1547,12 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			              V2(distance, 2.0f), V2(0, 0), angle, renderTex,
 			              V4(1, 0, 0, 1.0f));
 		}
+	}
+
+	for (i32 i = 0; i < keycode_count; i++)
+	{
+		state->input.keys[i].oldHalfTransitionCount =
+		    state->input.keys[i].newHalfTransitionCount;
 	}
 
 	sortWorldEntityList(world, numDeadEntities);
