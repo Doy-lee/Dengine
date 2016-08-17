@@ -30,6 +30,9 @@ typedef double f64;
 
 i32 common_strlen(const char *const string);
 i32 common_strcmp(const char *a, const char *b);
+char *common_memset(char *const ptr, const i32 value, const i32 numBytes);
+
+// Max buffer size should be 11 for 32 bit integers
 void common_itoa(i32 value, char *buf, i32 bufSize);
 
 #endif

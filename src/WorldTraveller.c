@@ -78,34 +78,17 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 	GL_CHECK_ERROR();
+
+#ifdef DENGINE_DEBUG
+	DEBUG_LOG("Renderer initialised");
+#endif
 }
 
-// TODO(doyle): Remove and implement own random generator!
-#include <time.h>
-#include <stdlib.h>
-void worldTraveller_gameInit(GameState *state, v2 windowSize)
+INTERNAL void assetInit(GameState *state)
 {
 	AssetManager *assetManager = &state->assetManager;
 	MemoryArena *arena = &state->arena;
 
-	/*
-	 ************************
-	 * INITIALISE GAME AUDIO
-	 ************************
-	 */
-	i32 result = audio_init(&state->audioManager);
-	if (result)
-	{
-#ifdef DENGINE_DEBUG
-		ASSERT(INVALID_CODE_PATH);
-#endif
-	}
-
-	/*
-	 *******************
-	 * INITIALISE ASSETS
-	 *******************
-	 */
 	/* Create empty 1x1 4bpp black texture */
 	u32 bitmap       = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
 	Texture emptyTex = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
@@ -144,7 +127,7 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	                      "data/shaders/sprite.frag.glsl",
 	                      shaderlist_sprite);
 
-	result =
+	i32 result =
 	    asset_loadTTFont(assetManager, arena, "C:/Windows/Fonts/Arialbd.ttf");
 	if (result) DEBUG_LOG("Font loading failed");
 
@@ -217,16 +200,12 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 #ifdef DENGINE_DEBUG
 	DEBUG_LOG("Sound assets initialised");
 #endif
+}
 
-	state->state          = state_active;
-	state->currWorldIndex = 0;
-	state->tileSize       = 64;
-
-	/* Init renderer */
-	rendererInit(state, windowSize);
-#ifdef DENGINE_DEBUG
-	DEBUG_LOG("Renderer initialised");
-#endif
+INTERNAL void entityInit(GameState *state, v2 windowSize)
+{
+	AssetManager *assetManager = &state->assetManager;
+	MemoryArena *arena = &state->arena;
 
 	/* Init world */
 	const i32 targetWorldWidth  = 100 * METERS_TO_PIXEL;
@@ -235,8 +214,9 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	v2 worldDimensionInTiles    = V2i(targetWorldWidth / state->tileSize,
 	                               targetWorldHeight / state->tileSize);
 #else
-	v2 worldDimensionInTiles = V2i(CAST(i32) (windowSize.w / state->tileSize) * 2,
-	                               CAST(i32) windowSize.h / state->tileSize);
+	v2 worldDimensionInTiles =
+	    V2i(CAST(i32)(windowSize.w / state->tileSize) * 2,
+	        CAST(i32) windowSize.h / state->tileSize);
 #endif
 
 	for (i32 i = 0; i < ARRAY_COUNT(state->world); i++)
@@ -338,11 +318,35 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	pos = V2(renderer->size.w - (renderer->size.w / 3.0f),
 	         CAST(f32) state->tileSize);
 	entity_addGenericMob(arena, assetManager, world, pos);
+
 #ifdef DENGINE_DEBUG
 	DEBUG_LOG("World populated");
 #endif
+}
 
+// TODO(doyle): Remove and implement own random generator!
+#include <time.h>
+#include <stdlib.h>
+void worldTraveller_gameInit(GameState *state, v2 windowSize)
+{
+	i32 result = audio_init(&state->audioManager);
+	if (result)
+	{
+#ifdef DENGINE_DEBUG
+		ASSERT(INVALID_CODE_PATH);
+#endif
+	}
+
+	state->state              = state_active;
+	state->currWorldIndex     = 0;
+	state->tileSize           = 64;
 	state->uiState.keyEntered = keycode_null;
+	state->uiState.keyMod     = keycode_null;
+	state->uiState.keyChar    = keycode_null;
+
+	assetInit(state);
+	rendererInit(state, windowSize);
+	entityInit(state, windowSize);
 
 	srand(CAST(u32)(time(NULL)));
 }
@@ -985,6 +989,7 @@ INTERNAL void sortWorldEntityList(World *world, i32 numDeadEntities)
 		listHasChanged = FALSE;
 		for (i32 i = 0; i < numUnsortedEntities-1; i++)
 		{
+			// TODO(doyle): Better sort algorithm
 			Entity *entityA = &world->entities[i];
 			Entity *entityB = &world->entities[i+1];
 			if (entityA->type == entitytype_null ||
@@ -1001,6 +1006,20 @@ INTERNAL void sortWorldEntityList(World *world, i32 numDeadEntities)
 
 	world->freeEntityIndex -= numDeadEntities;
 }
+
+typedef struct DamageDisplay
+{
+	char damageStr[12];
+	v2 pos;
+	f32 lifetime;
+} DamageDisplay;
+
+typedef struct BattleState
+{
+	DamageDisplay damageDisplay[128];
+} BattleState;
+
+BattleState battleState = {0};
 
 void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 {
@@ -1172,53 +1191,79 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		Event event = eventQueue.queue[i];
 		switch(event.type)
 		{
-			case eventtype_end_attack:
+		case eventtype_end_attack:
+		{
+			if (!event.data) continue;
+
+			AttackSpec *attackSpec = (CAST(AttackSpec *) event.data);
+			Entity *attacker       = attackSpec->attacker;
+			Entity *defender       = attackSpec->defender;
+
+			audio_playVorbis(arena, audioManager, attacker->audioRenderer,
+			                 asset_getVorbis(assetManager, audiolist_tackle),
+			                 1);
+
+			/* Get first free string position and store the damage str data */
+			for (i32 i = 0; i < ARRAY_COUNT(battleState.damageDisplay); i++)
 			{
-				if (!event.data) continue;
+				if (battleState.damageDisplay[i].lifetime <= 0.0f)
+				{
+					common_memset(
+					    battleState.damageDisplay[i].damageStr, 0,
+					    ARRAY_COUNT(battleState.damageDisplay[i].damageStr));
 
-				AttackSpec *attackSpec = (CAST(AttackSpec *)event.data);
-				Entity *attacker = attackSpec->attacker;
-				Entity *defender = attackSpec->defender;
+					battleState.damageDisplay[i].lifetime = 1.0f;
+					battleState.damageDisplay[i].pos      = defender->pos;
+					common_itoa(
+					    attackSpec->damage,
+					    battleState.damageDisplay[i].damageStr,
+					    ARRAY_COUNT(battleState.damageDisplay[i].damageStr));
 
-			    audio_playVorbis(
-			        arena, audioManager, attacker->audioRenderer,
-			        asset_getVorbis(assetManager, audiolist_tackle), 1);
-
-				char damageStr[12];
-			    common_itoa(attackSpec->damage, damageStr,
-			                ARRAY_COUNT(damageStr));
-
-			    // TODO(doyle): Incorporate UI into entity list or it's own list
-			    // with a rendering lifetime value
-			    renderer_string(renderer, &state->arena,
-			                    camera, font,
-			                    damageStr, defender->pos, V2(0, 0),
-			                    0, V4(1, 1, 1, 1));
-
-			    PLATFORM_MEM_FREE(&state->arena, attackSpec,
-			                      sizeof(AttackSpec));
-
-			    break;
-		    }
-			// NOTE(doyle): We delete dead entities at the end of the update
-			// loop incase a later indexed entity deletes an earlier indexed
-			// entity, the entity will exist for an additional frame
-			case eventtype_entity_died:
-			{
-			    DEBUG_LOG("Entity died: being deleted");
-			    if (!event.data) continue;
-
-			    Entity *entity  = (CAST(Entity *) event.data);
-			    audio_stopVorbis(&state->arena, audioManager,
-			                     entity->audioRenderer);
-			    entity_clearData(&state->arena, world, entity);
-			    numDeadEntities++;
-				break;
-		    }
-			default:
-			{
-				break;
+					break;
+				}
 			}
+
+			PLATFORM_MEM_FREE(&state->arena, attackSpec, sizeof(AttackSpec));
+			break;
+		}
+		// NOTE(doyle): We delete dead entities at the end of the update
+		// loop incase a later indexed entity deletes an earlier indexed
+		// entity, the entity will exist for an additional frame
+		case eventtype_entity_died:
+		{
+			DEBUG_LOG("Entity died: being deleted");
+			if (!event.data) continue;
+
+			Entity *entity = (CAST(Entity *) event.data);
+			audio_stopVorbis(&state->arena, audioManager,
+			                 entity->audioRenderer);
+			entity_clearData(&state->arena, world, entity);
+			numDeadEntities++;
+			break;
+		}
+		default:
+		{
+			break;
+		}
+		}
+	}
+
+	/* Render all damage strings */
+	for (i32 i = 0; i < ARRAY_COUNT(battleState.damageDisplay); i++)
+	{
+		if (battleState.damageDisplay[i].lifetime > 0.0f)
+		{
+			battleState.damageDisplay[i].lifetime -= dt;
+
+			char *damageString = battleState.damageDisplay[i].damageStr;
+			v2 damagePos       = battleState.damageDisplay[i].pos;
+			f32 lifetime       = battleState.damageDisplay[i].lifetime;
+
+			// TODO(doyle): Incorporate UI into entity list or it's own list
+			// with a rendering lifetime value
+			renderer_string(renderer, &state->arena, camera, font,
+			                damageString, damagePos, V2(0, 0), 0,
+			                V4(1, 1, 1, lifetime));
 		}
 	}
 
@@ -1250,6 +1295,13 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 	// INIT IMGUI
 	state->uiState.hotItem = 0;
+
+#if 0
+	UiItem damageString = {0};
+	damageString.id = 6;
+	damageString.rect = {V2(500, 500), V2(font->maxSize.w * 30, font->maxSize.h)};
+	damageString.type = uitype_string;
+#endif
 
 	/* Draw ui */
 	Rect buttonRectA = {V2(300, 500), V2(100, 50)};

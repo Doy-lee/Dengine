@@ -11,17 +11,35 @@ typedef struct Font Font;
 typedef struct MemoryArena MemoryArena;
 typedef struct Renderer Renderer;
 
+enum UiType
+{
+	uitype_button,
+	uitype_scrollbar,
+	uitype_textfield,
+	uitype_string,
+	uitype_count,
+};
+
+typedef struct UiItem
+{
+	i32 id;
+	Rect rect;
+	enum UiType type;
+} UiItem;
+
 typedef struct UiState
 {
+	UiItem uiList[128];
+	i32 numItems;
+
 	i32 hotItem;
 	i32 activeItem;
+	i32 lastWidget;
 
 	i32 kbdItem;
 	enum KeyCode keyEntered;
 	enum KeyCode keyMod;
 	enum KeyCode keyChar;
-
-	i32 lastWidget;
 } UiState;
 
 i32 userInterface_button(UiState *const uiState,
