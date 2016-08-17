@@ -51,8 +51,8 @@ INTERNAL void updateBufferObject(Renderer *const renderer,
 INTERNAL RenderQuad createTexQuad(Renderer *renderer, v4 quadRect,
                                   RenderTex renderTex)
 {
-	// NOTE(doyle): Draws a series of triangles (three-sided polygons) using
-	// vertices v0, v1, v2, then v2, v1, v3 (note the order)
+	// NOTE(doyle): Draws a series of triangles using vertices v0, v1, v2, then
+	// v2, v1, v3 (note the order)
 	RenderQuad result = {0};
 
 	/* Convert screen coordinates to normalised device coordinates */
@@ -75,6 +75,7 @@ INTERNAL RenderQuad createTexQuad(Renderer *renderer, v4 quadRect,
 	}
 
 	/* Form the quad */
+#if 0
 	result.vertex[0] = V4(quadRectNdc.x, quadRectNdc.y, texRectNdc.x,
 	                      texRectNdc.y); // Top left
 	result.vertex[1] = V4(quadRectNdc.x, quadRectNdc.w, texRectNdc.x,
@@ -83,6 +84,16 @@ INTERNAL RenderQuad createTexQuad(Renderer *renderer, v4 quadRect,
 	                      texRectNdc.y); // Top right
 	result.vertex[3] = V4(quadRectNdc.z, quadRectNdc.w, texRectNdc.z,
 	                      texRectNdc.w); // Bottom right
+#else
+	result.vertex[0] = V4(quadRectNdc.x, quadRectNdc.w, texRectNdc.x,
+	                      texRectNdc.w); // Top left
+	result.vertex[1] = V4(quadRectNdc.x, quadRectNdc.y, texRectNdc.x,
+	                      texRectNdc.y); // Bottom left
+	result.vertex[2] = V4(quadRectNdc.z, quadRectNdc.w, texRectNdc.z,
+	                      texRectNdc.w); // Top right
+	result.vertex[3] = V4(quadRectNdc.z, quadRectNdc.y, texRectNdc.z,
+	                      texRectNdc.y); // Bottom right
+#endif
 	return result;
 }
 
@@ -91,7 +102,11 @@ createDefaultTexQuad(Renderer *renderer, RenderTex renderTex)
 {
 	RenderQuad result = {0};
 	// TODO(doyle): We need to switch this so its xy bottom left, zw top right!!
+#if 0
 	v4 defaultQuad    = V4(0.0f, renderer->size.h, renderer->size.w, 0.0f);
+#else
+	v4 defaultQuad = V4(0.0f, 0.0f, renderer->size.w, renderer->size.h);
+#endif
 	result            = createTexQuad(renderer, defaultQuad, renderTex);
 	return result;
 }
@@ -100,10 +115,11 @@ INTERNAL void renderObject(Renderer *renderer, v2 pos, v2 size, v2 pivotPoint,
                            f32 rotate, v4 color, Texture *tex)
 {
 	mat4 transMatrix  = mat4_translate(pos.x, pos.y, 0.0f);
-	// NOTE(doyle): Rotate from pivot point of the object, (0, 0) is top left
+	// NOTE(doyle): Rotate from pivot point of the object, (0, 0) is bottom left
 	mat4 rotateMatrix = mat4_translate(pivotPoint.x, pivotPoint.y, 0.0f);
 	rotateMatrix = mat4_mul(rotateMatrix, mat4_rotate(rotate, 0.0f, 0.0f, 1.0f));
-	rotateMatrix = mat4_mul(rotateMatrix, mat4_translate(-pivotPoint.x, -pivotPoint.y, 0.0f));
+	rotateMatrix = mat4_mul(rotateMatrix,
+	                        mat4_translate(-pivotPoint.x, -pivotPoint.y, 0.0f));
 
 	// NOTE(doyle): We draw everything as a unit square in OGL. Scale it to size
 	mat4 scaleMatrix = mat4_scale(size.x, size.y, 1.0f);
@@ -245,13 +261,12 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 	    math_pointInRect(camera, rightAlignedP))
 	{
 		EntityAnim_ *entityAnim = &entity->anim[entity->currAnimId];
-		Animation *anim = entityAnim->anim;
-		i32 frameIndex = anim->frameIndex[entityAnim->currFrame];
-		v4 animTexRect = anim->atlas->texRect[frameIndex];
+		Animation *anim         = entityAnim->anim;
+		i32 frameIndex          = anim->frameIndex[entityAnim->currFrame];
+		v4 animTexRect          = anim->atlas->texRect[frameIndex];
 
 		if (entity->direction == direction_east)
 		{
-			// NOTE(doyle): Flip the x coordinates to flip the tex
 			flipTexCoord(&animTexRect, TRUE, FALSE);
 		}
 

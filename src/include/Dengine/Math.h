@@ -307,11 +307,8 @@ INTERNAL inline b32 math_pointInRect(Rect rect, v2 point)
 
 INTERNAL inline v4 math_getRect(v2 origin, v2 size)
 {
-	v2 upperLeftBound  = v2_add(origin, V2(0.0f, size.y));
-	v2 lowerRightBound = v2_add(origin, V2(size.x, 0.0f));
-
-	v4 result = V4(upperLeftBound.x, upperLeftBound.y, lowerRightBound.x,
-	               lowerRightBound.y);
+	v2 upperRightBound = v2_add(origin, V2(size.x, size.y));
+	v4 result = V4(origin.x, origin.y, upperRightBound.x, upperRightBound.y);
 
 	return result;
 }

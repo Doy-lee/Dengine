@@ -295,16 +295,16 @@ void debug_drawUi(GameState *state, f32 dt)
 	if (camera.pos.x <= world->bounds.x)
 		camera.pos.x = world->bounds.x;
 
-	// TODO(doyle): Do the Y component when we need it
+	// TODO(doyle): Allow Y panning when we need it
 	f32 cameraTopBoundInPixels = camera.pos.y + camera.size.h;
-	if (cameraTopBoundInPixels >= world->bounds.y)
-		camera.pos.y = (world->bounds.y - camera.size.h);
+	if (cameraTopBoundInPixels >= world->bounds.w)
+		camera.pos.y = (world->bounds.w - camera.size.h);
 
 	f32 cameraRightBoundInPixels = camera.pos.x + camera.size.w;
 	if (cameraRightBoundInPixels >= world->bounds.z)
 		camera.pos.x = (world->bounds.z - camera.size.w);
 
-	if (camera.pos.y <= world->bounds.w) camera.pos.y = world->bounds.w;
+	if (camera.pos.y <= world->bounds.y) camera.pos.y = world->bounds.y;
 
 	Font *font = &GLOBAL_debug.font;
 	if (world->numEntitiesInBattle > 0)

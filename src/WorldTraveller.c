@@ -115,16 +115,16 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	                       "data/textures/WorldTraveller/TerraSprite1024.png",
 	                       texlist_hero);
 	TexAtlas *heroAtlas = asset_getTextureAtlas(assetManager, texlist_hero);
-	heroAtlas->texRect[herorects_idle]       = V4(746, 1018, 804, 920);
-	heroAtlas->texRect[herorects_walkA]      = V4(641, 1018, 699, 920);
-	heroAtlas->texRect[herorects_walkB]      = V4(849, 1018, 904, 920);
-	heroAtlas->texRect[herorects_head]       = V4(108, 1024, 159, 975);
-	heroAtlas->texRect[herorects_waveA]      = V4(944, 918, 1010, 816);
-	heroAtlas->texRect[herorects_waveB]      = V4(944, 812, 1010, 710);
-	heroAtlas->texRect[herorects_battlePose] = V4(8, 910, 71, 814);
-	heroAtlas->texRect[herorects_castA]      = V4(428, 910, 493, 814);
-	heroAtlas->texRect[herorects_castB]      = V4(525, 919, 590, 816);
-	heroAtlas->texRect[herorects_castC]      = V4(640, 916, 698, 816);
+	heroAtlas->texRect[herorects_idle]       = V4(746, 920, 804, 1018);
+	heroAtlas->texRect[herorects_walkA]      = V4(641, 920, 699, 1018);
+	heroAtlas->texRect[herorects_walkB]      = V4(849, 920, 904, 1018);
+	heroAtlas->texRect[herorects_head]       = V4(108, 975, 159, 1024);
+	heroAtlas->texRect[herorects_waveA]      = V4(944, 816, 1010, 918);
+	heroAtlas->texRect[herorects_waveB]      = V4(944, 710, 1010, 812);
+	heroAtlas->texRect[herorects_battlePose] = V4(8, 814, 71, 910);
+	heroAtlas->texRect[herorects_castA]      = V4(428, 814, 493, 910);
+	heroAtlas->texRect[herorects_castB]      = V4(525, 816, 590, 919);
+	heroAtlas->texRect[herorects_castC]      = V4(640, 816, 698, 916);
 
 	asset_loadTextureImage(assetManager,
 	                       "data/textures/WorldTraveller/Terrain.png",
@@ -133,10 +133,10 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	    asset_getTextureAtlas(assetManager, texlist_terrain);
 	f32 atlasTileSize = 128.0f;
 	const i32 texSize = 1024;
-	v2 texOrigin = V2(0, CAST(f32)(texSize - 128));
+	v2 texOrigin = V2(0, 768);
 	terrainAtlas->texRect[terrainrects_ground] =
 	    V4(texOrigin.x, texOrigin.y, texOrigin.x + atlasTileSize,
-	       texOrigin.y - atlasTileSize);
+	       texOrigin.y + atlasTileSize);
 
 	/* Load shaders */
 	asset_loadShaderFiles(assetManager, arena, "data/shaders/sprite.vert.glsl",
@@ -628,12 +628,13 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 		hero->dPos = v2_add(hero->dPos, v2_scale(ddPos, dt));
 		hero->pos  = newHeroP;
 
-		v2 offsetFromHeroToOrigin =
+		// NOTE(doyle): Set the camera such that the hero is centered
+		v2 offsetFromHeroToCameraOrigin =
 		    V2((hero->pos.x - (0.5f * state->renderer.size.w)), (0.0f));
 
-		// NOTE(doyle): Hero position is offset to the center so -recenter it
-		offsetFromHeroToOrigin.x += (hero->hitboxSize.x * 0.5f);
-		world->cameraPos = offsetFromHeroToOrigin;
+		// NOTE(doyle): Account for the hero's origin being the bottom left
+		offsetFromHeroToCameraOrigin.x += (hero->hitboxSize.x * 0.5f);
+		world->cameraPos = offsetFromHeroToCameraOrigin;
 	}
 }
 
@@ -644,16 +645,16 @@ INTERNAL Rect createWorldBoundedCamera(World *world, v2 size)
 	if (camera.pos.x <= world->bounds.x)
 		camera.pos.x = world->bounds.x;
 
-	// TODO(doyle): Do the Y component when we need it
+	// TODO(doyle): Allow Y panning when we need it
 	f32 cameraTopBoundInPixels = camera.pos.y + camera.size.h;
-	if (cameraTopBoundInPixels >= world->bounds.y)
-		camera.pos.y = (world->bounds.y - camera.size.h);
+	if (cameraTopBoundInPixels >= world->bounds.w)
+		camera.pos.y = (world->bounds.w - camera.size.h);
 
 	f32 cameraRightBoundInPixels = camera.pos.x + camera.size.w;
 	if (cameraRightBoundInPixels >= world->bounds.z)
 		camera.pos.x = (world->bounds.z - camera.size.w);
 
-	if (camera.pos.y <= world->bounds.w) camera.pos.y = world->bounds.w;
+	if (camera.pos.y <= world->bounds.y) camera.pos.y = world->bounds.y;
 	return camera;
 }
 
