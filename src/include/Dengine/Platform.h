@@ -114,6 +114,7 @@ enum KeyCode
 	keycode_mouseLeft,
 	keycode_enter,
 	keycode_backspace,
+	keycode_tab,
 	keycode_count,
 	keycode_null,
 };

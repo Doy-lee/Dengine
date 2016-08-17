@@ -428,6 +428,13 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	   f (t) = (a/2)*t^2 + v*t + p, where p is a constant, old position
 	 */
 
+#ifdef DENGINE_DEBUG
+	DEBUG_PUSH_STRING("== Controls ==");
+	DEBUG_PUSH_STRING("    [: Spawn a mob");
+	DEBUG_PUSH_STRING("<TAB>: Switch UI element");
+	DEBUG_PUSH_STRING("<ESC>: Close program");
+#endif
+
 	World *const world = &state->world[state->currWorldIndex];
 	Entity *hero = &world->entities[entity_getIndex(world, world->heroId)];
 	v2 ddPos     = V2(0, 0);
@@ -504,11 +511,27 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			state->uiState.keyEntered = keycode_enter;
 		}
 
+		if (getKeyStatus(&keys[keycode_tab], readkeytype_delayedRepeat, 0.25f,
+		                 dt))
+		{
+			state->uiState.keyEntered = keycode_tab;
+		}
+
 		if (getKeyStatus(&keys[keycode_space], readkeytype_delayedRepeat, 0.25f,
 		                 dt))
 		{
-			state->uiState.keyEntered = keycode_space;
-			DEBUG_LOG("push space");
+			state->uiState.keyChar = keycode_space;
+		}
+
+		if (getKeyStatus(&keys[keycode_backspace], readkeytype_delayedRepeat,
+		                 0.1f, dt))
+		{
+			state->uiState.keyEntered = keycode_backspace;
+		}
+
+		if (getKeyStatus(&keys[keycode_left_square_bracket],
+		                 readkeytype_delayedRepeat, 0.25f, dt))
+		{
 
 			Renderer *renderer = &state->renderer;
 			f32 yPos = CAST(f32)(rand() % CAST(i32)renderer->size.h);
@@ -1030,7 +1053,7 @@ INTERNAL i32 button(UiState *uiState, AssetManager *assetManager,
 	{
 		switch (uiState->keyEntered)
 		{
-		case keycode_space:
+		case keycode_tab:
 			// Set focus to nothing and let next widget get focus
 			uiState->kbdItem = 0;
 			if (uiState->keyMod == keycode_leftShift)
@@ -1113,7 +1136,7 @@ INTERNAL i32 scrollBar(UiState *uiState, AssetManager *assetManager,
 	{
 		switch (uiState->keyEntered)
 		{
-		case keycode_space:
+		case keycode_tab:
 			uiState->kbdItem = 0;
 			if (uiState->keyMod == keycode_leftShift)
 				uiState->kbdItem = uiState->lastWidget;
@@ -1221,7 +1244,7 @@ INTERNAL i32 textField(UiState *const uiState, MemoryArena *arena,
 	{
 		switch (uiState->keyEntered)
 		{
-		case keycode_space:
+		case keycode_tab:
 			uiState->kbdItem = 0;
 			if (uiState->keyMod == keycode_leftShift)
 				uiState->kbdItem = uiState->lastWidget;
@@ -1232,8 +1255,7 @@ INTERNAL i32 textField(UiState *const uiState, MemoryArena *arena,
 		case keycode_backspace:
 			if (strLen > 0)
 			{
-				strLen--;
-				string[strLen] = 0;
+				string[--strLen] = 0;
 				changed        = TRUE;
 			}
 			break;
@@ -1538,7 +1560,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	else if (state->uiState.activeItem == 0)
 		state->uiState.activeItem = -1;
 
-	if (state->uiState.keyEntered == keycode_space) state->uiState.kbdItem = 0;
+	if (state->uiState.keyEntered == keycode_tab) state->uiState.kbdItem = 0;
 	state->uiState.keyEntered = keycode_null;
 	state->uiState.keyChar    = keycode_null;
 

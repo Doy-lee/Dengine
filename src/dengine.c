@@ -7,7 +7,6 @@
 
 INTERNAL inline void processKey(KeyState *state, int action)
 {
-	// TODO(doyle): Handle GLFW_REPEAT, and probably remove this function
 	if (action == GLFW_PRESS || action == GLFW_RELEASE)
 	{
 		state->newHalfTransitionCount++;
@@ -46,6 +45,9 @@ INTERNAL void keyCallback(GLFWwindow *window, int key, int scancode, int action,
 		break;
 	case GLFW_KEY_BACKSPACE:
 		processKey(&game->input.keys[keycode_backspace], action);
+		break;
+	case GLFW_KEY_TAB:
+		processKey(&game->input.keys[keycode_tab], action);
 		break;
 	default:
 		if (key >= ' ' && key <= '~')
