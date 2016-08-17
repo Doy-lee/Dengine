@@ -22,7 +22,8 @@ typedef struct AssetManager
 
 AudioVorbis *asset_getVorbis(AssetManager *assetManager,
                              const enum AudioList type);
-Texture *asset_getTexture(AssetManager *assetManager, const enum TexList type);
+Texture *asset_getTexture(AssetManager *const assetManager,
+                          const enum TexList type);
 Shader *asset_getShader(AssetManager *assetManager, const enum ShaderList type);
 TexAtlas *asset_getTextureAtlas(AssetManager *assetManager,
                                 const enum TexList type);

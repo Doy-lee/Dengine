@@ -36,7 +36,8 @@ AudioVorbis *asset_getVorbis(AssetManager *assetManager,
 	return NULL;
 }
 
-Texture *asset_getTexture(AssetManager *assetManager, const enum TexList type)
+Texture *asset_getTexture(AssetManager *const assetManager,
+                          const enum TexList type)
 {
 	if (type < texlist_count)
 		return &assetManager->textures[type];

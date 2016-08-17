@@ -129,6 +129,7 @@
     <ClCompile Include="src\Platform.c" />
     <ClCompile Include="src\Renderer.c" />
     <ClCompile Include="src\Shader.c" />
+    <ClCompile Include="src\UserInterface.c" />
     <ClCompile Include="src\WorldTraveller.c" />
     <ClCompile Include="src\Texture.c" />
   </ItemGroup>
@@ -153,6 +154,7 @@
     <ClInclude Include="src\include\Dengine\Renderer.h" />
     <ClInclude Include="src\include\Dengine\Shader.h" />
     <ClInclude Include="src\include\Dengine\Texture.h" />
+    <ClInclude Include="src\include\Dengine\UserInterface.h" />
     <ClInclude Include="src\include\Dengine\WorldTraveller.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

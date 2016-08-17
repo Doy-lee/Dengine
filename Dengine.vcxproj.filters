@@ -48,6 +48,9 @@
     <ClCompile Include="src\dengine.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\UserInterface.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="data\shaders\default.vert.glsl" />
@@ -99,6 +102,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\include\Dengine\WorldTraveller.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\include\Dengine\UserInterface.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

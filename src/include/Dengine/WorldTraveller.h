@@ -4,27 +4,17 @@
 #include "Dengine/AssetManager.h"
 #include "Dengine/Audio.h"
 #include "Dengine/Common.h"
-#include "Dengine/Entity.h"
 #include "Dengine/Math.h"
 #include "Dengine/MemoryArena.h"
 #include "Dengine/Platform.h"
 #include "Dengine/Renderer.h"
+#include "Dengine/UserInterface.h"
 
 #define NUM_KEYS 1024
 #define METERS_TO_PIXEL 240
 
-typedef struct UiState
-{
-	i32 hotItem;
-	i32 activeItem;
-
-	i32 kbdItem;
-	enum KeyCode keyEntered;
-	enum KeyCode keyMod;
-	enum KeyCode keyChar;
-
-	i32 lastWidget;
-} UiState;
+/* Forward declaration */
+typedef struct Entity Entity;
 
 typedef struct World
 {

@@ -28,7 +28,7 @@ typedef struct RenderTex
 	v4 texRect;
 } RenderTex;
 
-RenderTex renderer_createNullRenderTex(AssetManager *assetManager);
+RenderTex renderer_createNullRenderTex(AssetManager *const assetManager);
 
 // TODO(doyle): Clean up lines
 // Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
