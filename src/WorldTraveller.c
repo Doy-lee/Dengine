@@ -360,25 +360,51 @@ enum ReadKeyType
 	readkeytype_count,
 };
 
-INTERNAL b32 getKeyStatus(KeyState key, enum ReadKeyType readType)
+#define KEY_DELAY_NONE 0.0f
+
+INTERNAL b32 getKeyStatus(KeyState *key, enum ReadKeyType readType,
+                          f32 delayInterval, f32 dt)
 {
+
+	if (!key->endedDown) return FALSE;
+
 	switch(readType)
 	{
 	case readkeytype_oneShot:
 	{
-		if (key.endedDown &&
-		    (key.newHalfTransitionCount > key.oldHalfTransitionCount))
+		if (key->newHalfTransitionCount > key->oldHalfTransitionCount)
 			return TRUE;
 		break;
 	}
 	case readkeytype_repeat:
+	case readkeytype_delayedRepeat:
 	{
-		if (key.endedDown) return TRUE;
+		if (key->newHalfTransitionCount > key->oldHalfTransitionCount)
+		{
+			if (readType == readkeytype_delayedRepeat)
+			{
+				// TODO(doyle): Let user set arbitrary delay after initial input
+				key->delayInterval = 2 * delayInterval;
+			}
+			else
+			{
+				key->delayInterval = delayInterval;
+			}
+			return TRUE;
+		}
+		else if (key->delayInterval <= 0.0f)
+		{
+			key->delayInterval = delayInterval;
+			return TRUE;
+		}
+		else
+		{
+			key->delayInterval -= dt;
+		}
 		break;
 	}
-	case readkeytype_delayedRepeat:
 	default:
-	// TODO(doyle): Add delayed repeat of keys
+		DEBUG_LOG("getKeyStatus() error: Invalid ReadKeyType enum");
 #ifdef DENGINE_DEBUG
 		ASSERT(INVALID_CODE_PATH);
 #endif
@@ -407,7 +433,7 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	v2 ddPos     = V2(0, 0);
 
 	KeyState *keys = state->input.keys;
-	for (i32 i = 0; i < keycode_count; i++)
+	for (enum KeyCode i = 0; i < keycode_count; i++)
 	{
 		KeyState *currKey = &keys[i];
 		if (currKey->newHalfTransitionCount > currKey->oldHalfTransitionCount)
@@ -415,43 +441,50 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			i32 numTransitions = currKey->newHalfTransitionCount -
 			                     currKey->oldHalfTransitionCount;
 
-			if ((numTransitions & 1) == 1)
+			if (!IS_EVEN(numTransitions))
 			{
 				currKey->endedDown = ~currKey->endedDown;
 			}
 
-			// TODO(doyle): Multi press within frame override UI input parsing
-			if ((i >= keycode_A && i <= keycode_Z) ||
-			    (i >= keycode_a && i <= keycode_z))
+		}
+
+		// Parse ui input
+		// TODO(doyle): Multi press within frame overrides UI input parsing
+		if ((i >= keycode_A && i <= keycode_Z) ||
+		    (i >= keycode_a && i <= keycode_z))
+		{
+
+			if (getKeyStatus(currKey, readkeytype_repeat, 0.15f, dt))
 			{
-				if (getKeyStatus(*currKey, readkeytype_oneShot))
-				{
-					state->uiState.keyChar = i;
-				}
+				state->uiState.keyChar = i;
 			}
 		}
 	}
 
 	if (hero->stats->busyDuration <= 0)
 	{
-		if (getKeyStatus(keys[keycode_right], readkeytype_repeat))
+		if (getKeyStatus(&keys[keycode_right], readkeytype_repeat,
+		                 KEY_DELAY_NONE, dt))
 		{
 			ddPos.x         = 1.0f;
 			hero->direction = direction_east;
 		}
 
-		if (getKeyStatus(keys[keycode_left], readkeytype_repeat))
+		if (getKeyStatus(&keys[keycode_left], readkeytype_repeat,
+		                 KEY_DELAY_NONE, dt))
 		{
 			ddPos.x         = -1.0f;
 			hero->direction = direction_west;
 		}
 
-		if (getKeyStatus(keys[keycode_up], readkeytype_repeat))
+		if (getKeyStatus(&keys[keycode_up], readkeytype_repeat, KEY_DELAY_NONE,
+		                 dt))
 		{
 			ddPos.y = 1.0f;
 		}
 
-		if (getKeyStatus(keys[keycode_down], readkeytype_repeat))
+		if (getKeyStatus(&keys[keycode_down], readkeytype_repeat,
+		                 KEY_DELAY_NONE, dt))
 		{
 			ddPos.y = -1.0f;
 		}
@@ -465,12 +498,14 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			ddPos = v2_scale(ddPos, 0.70710678118f);
 		}
 
-		if (getKeyStatus(keys[keycode_enter], readkeytype_oneShot))
+		if (getKeyStatus(&keys[keycode_enter], readkeytype_oneShot,
+		                 KEY_DELAY_NONE, dt))
 		{
 			state->uiState.keyEntered = keycode_enter;
 		}
 
-		if (getKeyStatus(keys[keycode_space], readkeytype_oneShot))
+		if (getKeyStatus(&keys[keycode_space], readkeytype_delayedRepeat, 0.25f,
+		                 dt))
 		{
 			state->uiState.keyEntered = keycode_space;
 			DEBUG_LOG("push space");
@@ -504,7 +539,8 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	}
 
 	f32 heroSpeed = 6.2f * METERS_TO_PIXEL;
-	if (state->input.keys[keycode_leftShift].endedDown)
+	if (getKeyStatus(&state->input.keys[keycode_leftShift], readkeytype_repeat,
+	                 KEY_DELAY_NONE, dt))
 	{
 		// TODO: Context sensitive command separation
 		state->uiState.keyMod = keycode_leftShift;
@@ -1132,8 +1168,7 @@ INTERNAL i32 scrollBar(UiState *uiState, AssetManager *assetManager,
 INTERNAL i32 textField(UiState *const uiState, MemoryArena *arena,
                        AssetManager *const assetManager,
                        Renderer *const renderer, Font *const font,
-                       KeyInput input, const i32 id, v2 pos,
-                       char *const string)
+                       KeyInput input, const i32 id, v2 pos, char *const string)
 {
 	i32 strLen = common_strlen(string);
 	b32 changed = FALSE;

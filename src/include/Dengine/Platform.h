@@ -120,6 +120,7 @@ enum KeyCode
 
 typedef struct KeyState
 {
+	f32 delayInterval;
 	u32 oldHalfTransitionCount;
 	u32 newHalfTransitionCount;
 	b32 endedDown;
