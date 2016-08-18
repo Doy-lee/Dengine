@@ -75,16 +75,6 @@ INTERNAL RenderQuad createTexQuad(Renderer *renderer, v4 quadRect,
 	}
 
 	/* Form the quad */
-#if 0
-	result.vertex[0] = V4(quadRectNdc.x, quadRectNdc.y, texRectNdc.x,
-	                      texRectNdc.y); // Top left
-	result.vertex[1] = V4(quadRectNdc.x, quadRectNdc.w, texRectNdc.x,
-	                      texRectNdc.w); // Bottom left
-	result.vertex[2] = V4(quadRectNdc.z, quadRectNdc.y, texRectNdc.z,
-	                      texRectNdc.y); // Top right
-	result.vertex[3] = V4(quadRectNdc.z, quadRectNdc.w, texRectNdc.z,
-	                      texRectNdc.w); // Bottom right
-#else
 	result.vertex[0] = V4(quadRectNdc.x, quadRectNdc.w, texRectNdc.x,
 	                      texRectNdc.w); // Top left
 	result.vertex[1] = V4(quadRectNdc.x, quadRectNdc.y, texRectNdc.x,
@@ -93,7 +83,6 @@ INTERNAL RenderQuad createTexQuad(Renderer *renderer, v4 quadRect,
 	                      texRectNdc.w); // Top right
 	result.vertex[3] = V4(quadRectNdc.z, quadRectNdc.y, texRectNdc.z,
 	                      texRectNdc.y); // Bottom right
-#endif
 	return result;
 }
 
@@ -101,12 +90,7 @@ INTERNAL inline RenderQuad
 createDefaultTexQuad(Renderer *renderer, RenderTex renderTex)
 {
 	RenderQuad result = {0};
-	// TODO(doyle): We need to switch this so its xy bottom left, zw top right!!
-#if 0
-	v4 defaultQuad    = V4(0.0f, renderer->size.h, renderer->size.w, 0.0f);
-#else
-	v4 defaultQuad = V4(0.0f, 0.0f, renderer->size.w, renderer->size.h);
-#endif
+	v4 defaultQuad    = V4(0.0f, 0.0f, renderer->size.w, renderer->size.h);
 	result            = createTexQuad(renderer, defaultQuad, renderTex);
 	return result;
 }
@@ -210,7 +194,7 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 
 		v2 posInCameraSpace = v2_sub(pos, camera.pos);
 
-		pos          = posInCameraSpace;
+		pos = posInCameraSpace;
 
 		// TODO(doyle): Find why font is 1px off, might be arial font semantics
 		f32 baseline = pos.y - font->verticalSpacing + 1;

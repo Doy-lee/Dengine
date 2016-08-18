@@ -64,7 +64,6 @@ i32 userInterface_button(UiState *const uiState,
 	if (label)
 	{
 		v2 labelDim = asset_stringDimInPixels(font, label);
-		DEBUG_PUSH_VAR("label dim: %4.2f, %4.2f", labelDim, "v2");
 		v2 labelPos = rect.pos;
 		if (labelDim.w < rect.size.w)
 		{
@@ -85,11 +84,6 @@ i32 userInterface_button(UiState *const uiState,
 		labelPos = v2_add(labelPos, buttonOffset);
 		renderer_staticString(renderer, arena, font, label, labelPos, V2(0, 0),
 		                      0, V4(0, 0, 0, 1));
-
-		v2 rulerPos = rect.pos;
-		rulerPos.y -= 10;
-		renderer_staticRect(renderer, rulerPos, V2(10, 10), V2(0, 0), 0,
-		                    renderTex, V4(0.5f, 0.1f, 0.7f, 1));
 	}
 
 	// After renderering before click check, see if we need to process keys

@@ -1048,17 +1048,33 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		Entity *const entity = &world->entities[i];
 		if (entity->state == entitystate_dead) continue;
 
-#if 0
 		if (entity->type == entitytype_soundscape)
 		{
 			AudioRenderer *audioRenderer = entity->audioRenderer;
-			if (world->numEntitiesInBattle > 0)
+			if (!state->config.playWorldAudio)
 			{
-				AudioVorbis *battleTheme =
-				    asset_getVorbis(assetManager, audiolist_battle);
-				if (audioRenderer->audio)
+				// TODO(doyle): Use is playing flag, not just streaming flag
+				if (audioRenderer->state == audiostate_playing)
 				{
-					if (audioRenderer->audio->type != audiolist_battle)
+					audio_pauseVorbis(&state->audioManager, audioRenderer);
+				}
+			}
+			else
+			{
+				if (world->numEntitiesInBattle > 0)
+				{
+					AudioVorbis *battleTheme =
+					    asset_getVorbis(assetManager, audiolist_battle);
+					if (audioRenderer->audio)
+					{
+						if (audioRenderer->audio->type != audiolist_battle)
+						{
+							audio_streamPlayVorbis(arena, &state->audioManager,
+							                       audioRenderer, battleTheme,
+							                       AUDIO_REPEAT_INFINITE);
+						}
+					}
+					else
 					{
 						audio_streamPlayVorbis(arena, &state->audioManager,
 						                       audioRenderer, battleTheme,
@@ -1067,33 +1083,32 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				}
 				else
 				{
-					audio_streamPlayVorbis(arena, &state->audioManager,
-					                       audioRenderer, battleTheme,
-					                       AUDIO_REPEAT_INFINITE);
-				}
-			}
-			else
-			{
-				AudioVorbis *overworldTheme =
-				    asset_getVorbis(assetManager, audiolist_overworld);
-				if (audioRenderer->audio)
-				{
-					if (audioRenderer->audio->type != audiolist_overworld)
+					AudioVorbis *overworldTheme =
+					    asset_getVorbis(assetManager, audiolist_overworld);
+					if (audioRenderer->audio)
+					{
+						if (audioRenderer->audio->type != audiolist_overworld)
+						{
+							audio_streamPlayVorbis(
+							    arena, &state->audioManager, audioRenderer,
+							    overworldTheme, AUDIO_REPEAT_INFINITE);
+						}
+					}
+					else
 					{
 						audio_streamPlayVorbis(arena, &state->audioManager,
 						                       audioRenderer, overworldTheme,
 						                       AUDIO_REPEAT_INFINITE);
 					}
 				}
-				else
+
+				if (audioRenderer->state == audiostate_paused)
 				{
-					audio_streamPlayVorbis(arena, &state->audioManager,
-					                       audioRenderer, overworldTheme,
-					                       AUDIO_REPEAT_INFINITE);
+					audio_resumeVorbis(&state->audioManager, audioRenderer);
 				}
 			}
 		}
-#endif
+
 		/*
 		 *****************************************************
 		 * Set mob to battle mode if within distance from hero
@@ -1296,34 +1311,27 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	// INIT IMGUI
 	state->uiState.hotItem = 0;
 
-#if 0
-	UiItem damageString = {0};
-	damageString.id = 6;
-	damageString.rect = {V2(500, 500), V2(font->maxSize.w * 30, font->maxSize.h)};
-	damageString.type = uitype_string;
-#endif
-
 	/* Draw ui */
-	Rect buttonRectA = {V2(300, 500), V2(100, 50)};
-	userInterface_button(&state->uiState, &state->arena, assetManager, renderer,
-	                     font, state->input, 1, buttonRectA, "HELLO WORLD");
+	// TODO(doyle): Bug in font rendering once button reaches 700-800+ pixels
+	Rect buttonRectA = {V2(1000, 800), V2(100, 50)};
 
-	Rect buttonRectB = {V2(500, 500), V2(100, 50)};
-	userInterface_button(&state->uiState, &state->arena, assetManager, renderer,
-	                     font, state->input, 2, buttonRectB, "button2");
+	b32 isClicked = userInterface_button(
+	    &state->uiState, &state->arena, assetManager, renderer, font,
+	    state->input, 1, buttonRectA, "Toggle Music");
 
-	Rect buttonRectC = {V2(700, 500), V2(100, 50)};
-	userInterface_button(&state->uiState, &state->arena, assetManager, renderer,
-	                     font, state->input, 3, buttonRectC, "button3");
+	if (isClicked)
+	{
+		state->config.playWorldAudio = ~state->config.playWorldAudio;
+	}
 
 	LOCAL_PERSIST i32 scrollValue = 30;
-	Rect scrollRectA              = {V2(900, 500), V2(16, 255)};
+	Rect scrollRectA              = {V2(1500, 600), V2(16, 255)};
 	userInterface_scrollBar(&state->uiState, assetManager, renderer,
-	                        state->input, 4, scrollRectA, &scrollValue, 160);
+	                        state->input, 2, scrollRectA, &scrollValue, 160);
 
 	LOCAL_PERSIST char fieldString[80] = "Hello world";
 	userInterface_textField(&state->uiState, &state->arena, assetManager,
-	                        renderer, font, state->input, 5, V2(1000, 500),
+	                        renderer, font, state->input, 3, V2(1000, 750),
 	                        fieldString);
 
 	// RESET IMGUI

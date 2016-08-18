@@ -310,6 +310,7 @@ const i32 audio_streamPlayVorbis(MemoryArena *arena, AudioManager *audioManager,
 
 	audioRenderer->audio       = copyAudio;
 	audioRenderer->isStreaming = TRUE;
+	audioRenderer->state       = audiostate_playing;
 
 	return result;
 }
@@ -324,6 +325,7 @@ const i32 audio_stopVorbis(MemoryArena *arena, AudioManager *audioManager,
 		alSourceStop(alSourceId);
 		AL_CHECK_ERROR();
 		result = rendererRelease(arena, audioManager, audioRenderer);
+		audioRenderer->state = audiostate_stopped;
 	}
 	else
 	{
@@ -350,6 +352,7 @@ const i32 audio_pauseVorbis(AudioManager *audioManager,
 	{
 		alSourcePause(alSourceId);
 		AL_CHECK_ERROR();
+		audioRenderer->state = audiostate_paused;
 	}
 	else
 	{
@@ -368,6 +371,7 @@ const i32 audio_resumeVorbis(AudioManager *audioManager,
 	{
 		alSourcePlay(alSourceId);
 		AL_CHECK_ERROR();
+		audioRenderer->state = audiostate_playing;
 	}
 	else
 	{

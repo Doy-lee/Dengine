@@ -23,7 +23,15 @@ typedef struct AudioManager
 	AudioSourceEntry sourceList[AUDIO_MAX_SOURCES];
 } AudioManager;
 
+enum AudioState
+{
+	audiostate_stopped = 0,
+	audiostate_paused,
+	audiostate_playing,
+	audiostate_count,
+};
 
+// TODO(doyle): Add object pool for assets, in particular audio
 #define AUDIO_REPEAT_INFINITE -10
 #define AUDIO_SOURCE_UNASSIGNED -1
 typedef struct AudioRenderer
@@ -36,6 +44,7 @@ typedef struct AudioRenderer
 	i32 numPlays;
 
 	b32 isStreaming;
+	enum AudioState state;
 } AudioRenderer;
 
 
