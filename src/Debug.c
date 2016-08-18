@@ -81,7 +81,7 @@ void debug_init(MemoryArena *arena, v2 windowSize, Font font)
 {
 	GLOBAL_debug.font                 = font;
 	GLOBAL_debug.callCount = PLATFORM_MEM_ALLOC(arena, debugcallcount_num, i32);
-	GLOBAL_debug.stringLineGap = 1.1f * asset_getVFontSpacing(font.metrics);
+	GLOBAL_debug.stringLineGap = CAST(f32)font.verticalSpacing;
 
 	/* Init debug string stack */
 	GLOBAL_debug.numDebugStrings   = 0;
@@ -357,7 +357,7 @@ void debug_drawUi(GameState *state, f32 dt)
 			renderer_string(&state->renderer, &state->arena, camera, font,
 			                debugString, strPos, V2(0, 0), 0, color);
 
-			f32 stringLineGap = 1.1f * asset_getVFontSpacing(font->metrics);
+			f32 stringLineGap = 1.1f * font->verticalSpacing;
 			strPos.y -= GLOBAL_debug.stringLineGap;
 
 			char entityPosStr[128];

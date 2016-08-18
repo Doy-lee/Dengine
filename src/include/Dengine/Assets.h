@@ -118,7 +118,12 @@ typedef struct Font
 	Texture *tex;
 
 	FontMetrics metrics;
+
+	// NOTE(doyle): Array of character's by ASCII value starting from
+	// codepointRange and their metrics
 	CharMetrics *charMetrics;
+
+	i32 verticalSpacing;
 
 	v2 codepointRange;
 	v2 maxSize;

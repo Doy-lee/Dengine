@@ -211,7 +211,9 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 		v2 posInCameraSpace = v2_sub(pos, camera.pos);
 
 		pos          = posInCameraSpace;
-		f32 baseline = pos.y;
+
+		// TODO(doyle): Find why font is 1px off, might be arial font semantics
+		f32 baseline = pos.y - font->verticalSpacing + 1;
 		for (i32 i = 0; i < strLen; i++)
 		{
 			// NOTE(doyle): Atlas packs fonts tightly, so offset the codepoint

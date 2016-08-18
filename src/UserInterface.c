@@ -1,11 +1,16 @@
 #include "Dengine/UserInterface.h"
+#include "Dengine/AssetManager.h"
 #include "Dengine/Assets.h"
 #include "Dengine/Renderer.h"
+#include "Dengine/Debug.h"
 
 i32 userInterface_button(UiState *const uiState,
+                         MemoryArena *const arena,
                          AssetManager *const assetManager,
-                         Renderer *const renderer, const KeyInput input,
-                         const i32 id, const Rect rect)
+                         Renderer *const renderer,
+                         Font *const font,
+                         const KeyInput input,
+                         const i32 id, const Rect rect, const char *const label)
 {
 	if (math_pointInRect(rect, input.mouseP))
 	{
@@ -33,23 +38,58 @@ i32 userInterface_button(UiState *const uiState,
 	renderer_staticRect(renderer, v2_add(V2(8, 8), rect.pos), rect.size,
 	                    V2(0, 0), 0, renderTex, V4(0, 0, 0, 1));
 
+	v2 buttonOffset = V2(0, 0);
 	if (uiState->hotItem == id)
 	{
 		if (uiState->activeItem == id)
 		{
-			renderer_staticRect(renderer, v2_add(V2(2, 2), rect.pos), rect.size,
-			                    V2(0, 0), 0, renderTex, V4(1, 1, 1, 1));
+			buttonOffset = V2(2, 2);
+			renderer_staticRect(renderer, v2_add(buttonOffset, rect.pos),
+			                    rect.size, V2(0, 0), 0, renderTex,
+			                    V4(1, 1, 1, 1));
 		}
 		else
 		{
-			renderer_staticRect(renderer, v2_add(V2(0, 0), rect.pos), rect.size,
-			                    V2(0, 0), 0, renderTex, V4(1, 1, 1, 1));
+			renderer_staticRect(renderer, v2_add(buttonOffset, rect.pos),
+			                    rect.size, V2(0, 0), 0, renderTex,
+			                    V4(1, 1, 1, 1));
 		}
 	}
 	else
 	{
-		renderer_staticRect(renderer, v2_add(V2(0, 0), rect.pos), rect.size,
+		renderer_staticRect(renderer, v2_add(buttonOffset, rect.pos), rect.size,
 		                    V2(0, 0), 0, renderTex, V4(0.5f, 0.5f, 0.5f, 1));
+	}
+
+	if (label)
+	{
+		v2 labelDim = asset_stringDimInPixels(font, label);
+		DEBUG_PUSH_VAR("label dim: %4.2f, %4.2f", labelDim, "v2");
+		v2 labelPos = rect.pos;
+		if (labelDim.w < rect.size.w)
+		{
+			// Initially position the label to half the width of the button
+			labelPos.x += (rect.size.w * 0.5f);
+
+			// Move the label pos back half the length of the string (i.e.
+			// center it)
+			labelPos.x -= (CAST(f32)labelDim.w * 0.5f);
+		}
+
+		if (labelDim.h < rect.size.h)
+		{
+			labelPos.y += (rect.size.h * 0.5f);
+			labelPos.y -= (CAST(f32)labelDim.h * 0.5f);
+		}
+
+		labelPos = v2_add(labelPos, buttonOffset);
+		renderer_staticString(renderer, arena, font, label, labelPos, V2(0, 0),
+		                      0, V4(0, 0, 0, 1));
+
+		v2 rulerPos = rect.pos;
+		rulerPos.y -= 10;
+		renderer_staticRect(renderer, rulerPos, V2(10, 10), V2(0, 0), 0,
+		                    renderTex, V4(0.5f, 0.1f, 0.7f, 1));
 	}
 
 	// After renderering before click check, see if we need to process keys
@@ -194,7 +234,7 @@ i32 userInterface_scrollBar(UiState *const uiState,
 	return 0;
 }
 
-i32 userInterface_textField(UiState *const uiState, MemoryArena *arena,
+i32 userInterface_textField(UiState *const uiState, MemoryArena *const arena,
                             AssetManager *const assetManager,
                             Renderer *const renderer, Font *const font,
                             KeyInput input, const i32 id, v2 pos,
@@ -244,8 +284,7 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena *arena,
 		                    renderTex, V4(0.5f, 0.5f, 0.5f, 1));
 	}
 
-	// TODO(doyle): Figure out why we need to offset text ..
-	v2 strPos = v2_add(textRect.pos, V2(0, -font->maxSize.h));
+	v2 strPos = textRect.pos;
 
 	renderer_staticString(renderer, arena, font, string, strPos, V2(0, 0), 0,
 	                      V4(0, 0, 0, 1));

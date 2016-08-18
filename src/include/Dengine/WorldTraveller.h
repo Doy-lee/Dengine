@@ -16,6 +16,11 @@
 /* Forward declaration */
 typedef struct Entity Entity;
 
+typedef struct Config
+{
+	b32 playWorldAudio;
+} Config;
+
 typedef struct World
 {
 	Entity *entities;
@@ -49,6 +54,7 @@ typedef struct GameState
 
 	AssetManager assetManager;
 	AudioManager audioManager;
+	Config config;
 	MemoryArena arena;
 	UiState uiState;
 } GameState;

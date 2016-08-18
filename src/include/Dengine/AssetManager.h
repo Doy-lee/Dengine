@@ -43,14 +43,10 @@ const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena *arena,
 const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
                            const char *filePath);
 
-inline i32 asset_getVFontSpacing(FontMetrics metrics)
-{
-	i32 result = metrics.ascent - metrics.descent + metrics.lineGap;
-	return result;
-}
-
 void asset_addAnimation(AssetManager *assetManager, MemoryArena *arena,
                         i32 texId, i32 animId, i32 *atlasIndexes, i32 numFrames,
                         f32 frameDuration);
+
+v2 asset_stringDimInPixels(const Font *const font, const char *const string);
 
 #endif

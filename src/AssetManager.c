@@ -455,6 +455,10 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 	font->tex = &assetManager->textures[texlist_font];
 	font->atlas = &assetManager->texAtlas[texlist_font];
 
+	// NOTE(doyle): Formula derived from STB Font
+	font->verticalSpacing =
+	    font->metrics.ascent - font->metrics.descent + font->metrics.lineGap;
+
 	for (i32 i = 0; i < numGlyphs; i++)
 	{
 		i32 glyphBitmapSizeInBytes = CAST(i32) glyphBitmaps[i].dimensions.w *
@@ -488,4 +492,26 @@ void asset_addAnimation(AssetManager *assetManager, MemoryArena *arena,
 	anim.frameDuration = frameDuration;
 
 	assetManager->anims[animId] = anim;
+}
+
+v2 asset_stringDimInPixels(const Font *const font, const char *const string)
+{
+	v2 stringDim = V2(0, 0);
+	for (i32 i = 0; i < common_strlen(string); i++)
+	{
+		i32 codepoint = string[i];
+
+#ifdef DENGINE_DEBUG
+		ASSERT(codepoint >= font->codepointRange.x &&
+		       codepoint <= font->codepointRange.y)
+#endif
+
+		i32 relativeIndex = CAST(i32)(codepoint - font->codepointRange.x);
+
+		v2 charDim  = font->charMetrics[relativeIndex].trueSize;
+		stringDim.x += charDim.x;
+		stringDim.y = (charDim.y > stringDim.y) ? charDim.y : stringDim.y;
+	}
+
+	return stringDim;
 }

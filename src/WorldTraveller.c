@@ -1305,16 +1305,16 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 	/* Draw ui */
 	Rect buttonRectA = {V2(300, 500), V2(100, 50)};
-	userInterface_button(&state->uiState, assetManager, renderer, state->input,
-	                     1, buttonRectA);
+	userInterface_button(&state->uiState, &state->arena, assetManager, renderer,
+	                     font, state->input, 1, buttonRectA, "HELLO WORLD");
 
 	Rect buttonRectB = {V2(500, 500), V2(100, 50)};
-	userInterface_button(&state->uiState, assetManager, renderer, state->input,
-	                     2, buttonRectB);
+	userInterface_button(&state->uiState, &state->arena, assetManager, renderer,
+	                     font, state->input, 2, buttonRectB, "button2");
 
 	Rect buttonRectC = {V2(700, 500), V2(100, 50)};
-	userInterface_button(&state->uiState, assetManager, renderer, state->input,
-	                     3, buttonRectC);
+	userInterface_button(&state->uiState, &state->arena, assetManager, renderer,
+	                     font, state->input, 3, buttonRectC, "button3");
 
 	LOCAL_PERSIST i32 scrollValue = 30;
 	Rect scrollRectA              = {V2(900, 500), V2(16, 255)};
@@ -1353,6 +1353,9 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	f32 strLenInPixels =
 	    CAST(f32)(font->maxSize.w * common_strlen(heroAvatarStr));
 	v2 strPos = V2(heroAvatarP.x, heroAvatarP.y - (0.5f * heroAvatarSize.h));
+	renderer_staticString(&state->renderer, &state->arena, font, heroAvatarStr,
+	                      strPos, V2(0, 0), 0, V4(0, 0, 1, 1));
+
 	renderer_staticString(&state->renderer, &state->arena, font, heroAvatarStr,
 	                      strPos, V2(0, 0), 0, V4(0, 0, 1, 1));
 
