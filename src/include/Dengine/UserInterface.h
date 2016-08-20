@@ -33,11 +33,11 @@ typedef struct WindowState
 	char title[64];
 
 	Rect rect;
-	v2 prevFramePos;
+	// TODO(doyle): Store this in the input data not window?
+	v2 prevMouseP;
 
 	b32 prevFrameWindowHeld;
 	b32 windowHeld;
-
 } WindowState;
 
 typedef struct UiState
@@ -54,14 +54,14 @@ typedef struct UiState
 	enum KeyCode keyMod;
 	enum KeyCode keyChar;
 
-	WindowState statMenuState;
+	WindowState statWindow;
+	WindowState debugWindow;
 } UiState;
 
 i32 userInterface_window(UiState *const uiState, MemoryArena *const arena,
                          AssetManager *const assetManager,
                          Renderer *const renderer, Font *const font,
-                         const KeyInput input, const i32 id, const Rect rect,
-                         const char *const title);
+                         const KeyInput input, WindowState *window);
 
 i32 userInterface_button(UiState *const uiState,
                          MemoryArena *const arena,

@@ -343,13 +343,21 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	state->uiState.keyMod     = keycode_null;
 	state->uiState.keyChar    = keycode_null;
 
-	common_strncpy(state->uiState.statMenuState.title, "Stat Menu",
+	common_strncpy(state->uiState.statWindow.title, "Stat Menu",
 	               common_strlen("Stat Menu"));
-	state->uiState.statMenuState.id                  = 99;
-	state->uiState.statMenuState.rect.pos            = V2(300, 400);
-	state->uiState.statMenuState.rect.size           = V2(300, 400);
-	state->uiState.statMenuState.prevFrameWindowHeld = FALSE;
-	state->uiState.statMenuState.windowHeld          = FALSE;
+	state->uiState.statWindow.id                  = 99;
+	state->uiState.statWindow.rect.pos            = V2(300, 400);
+	state->uiState.statWindow.rect.size           = V2(300, 400);
+	state->uiState.statWindow.prevFrameWindowHeld = FALSE;
+	state->uiState.statWindow.windowHeld          = FALSE;
+
+	common_strncpy(state->uiState.debugWindow.title, "Debug Menu",
+	               common_strlen("Debug Menu"));
+	state->uiState.debugWindow.id                  = 98;
+	state->uiState.debugWindow.rect.pos            = V2(800, 400);
+	state->uiState.debugWindow.rect.size           = V2(750, 400);
+	state->uiState.debugWindow.prevFrameWindowHeld = FALSE;
+	state->uiState.debugWindow.windowHeld          = FALSE;
 
 	state->config.playWorldAudio   = FALSE;
 	state->config.showDebugDisplay = TRUE;
@@ -1031,6 +1039,71 @@ typedef struct BattleState
 
 GLOBAL_VAR BattleState battleState = {0};
 
+enum RectBaseline
+{
+	rectbaseline_top,
+	rectbaseline_topLeft,
+	rectbaseline_topRight,
+	rectbaseline_bottom,
+	rectbaseline_bottomRight,
+	rectbaseline_bottomLeft,
+	rectbaseline_left,
+	rectbaseline_right,
+	rectbaseline_center,
+	rectbaseline_count,
+
+};
+
+INTERNAL v2 getPosRelativeToRect(Rect rect, v2 offset,
+                                 enum RectBaseline baseline)
+{
+#ifdef DENGINE_DEBUG
+	ASSERT(baseline < rectbaseline_count);
+#endif
+	v2 result = {0};
+
+	v2 posToOffsetFrom = rect.pos;
+	switch (baseline)
+	{
+		case rectbaseline_top:
+			posToOffsetFrom.y += (rect.size.h);
+			posToOffsetFrom.x += (rect.size.w * 0.5f);
+		    break;
+		case rectbaseline_topLeft:
+			posToOffsetFrom.y += (rect.size.h);
+			break;
+		case rectbaseline_topRight:
+			posToOffsetFrom.y += (rect.size.h);
+			posToOffsetFrom.x += (rect.size.w);
+			break;
+		case rectbaseline_bottom:
+			posToOffsetFrom.x += (rect.size.w * 0.5f);
+			break;
+		case rectbaseline_bottomRight:
+			posToOffsetFrom.x += (rect.size.w);
+			break;
+		case rectbaseline_left:
+			posToOffsetFrom.y += (rect.size.h * 0.5f);
+			break;
+		case rectbaseline_right:
+			posToOffsetFrom.x += (rect.size.w);
+			posToOffsetFrom.y += (rect.size.h * 0.5f);
+			break;
+
+		case rectbaseline_bottomLeft:
+		    break;
+		default:
+#ifdef DENGINE_DEBUG
+		    DEBUG_LOG(
+		        "getPosRelativeToRect() warning: baseline enum not recognised");
+#endif
+			break;
+	}
+
+	result = v2_add(posToOffsetFrom, offset);
+	return result;
+}
+
 void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 {
 	if (dt >= 1.0f) dt = 1.0f;
@@ -1324,8 +1397,30 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	state->uiState.hotItem = 0;
 
 	/* Draw ui */
+	if (state->uiState.keyChar == keycode_i)
+	{
+		state->config.showStatMenu =
+		    (state->config.showStatMenu == TRUE) ? FALSE : TRUE;
+	}
+
+	if (state->config.showStatMenu)
+	{
+		WindowState *statWindow = &state->uiState.statWindow;
+		userInterface_window(&state->uiState, &state->arena, assetManager,
+		                     renderer, font, state->input, statWindow);
+	}
+
+	/* Draw debug window */
+	WindowState *debugWindow = &state->uiState.debugWindow;
+	userInterface_window(&state->uiState, &state->arena, assetManager, renderer,
+	                     font, state->input, debugWindow);
+
 	// TODO(doyle): Bug in font rendering once button reaches 700-800+ pixels
-	Rect toggleAudioButtonRect = {V2(1000, 800), V2(100, 50)};
+	Rect toggleAudioButtonRect = {0};
+	toggleAudioButtonRect.size = V2(100, 50);
+	toggleAudioButtonRect.pos  = getPosRelativeToRect(
+	    debugWindow->rect, V2(10, -65.0f), rectbaseline_topLeft);
+
 	b32 toggleAudioClicked = userInterface_button(
 	    &state->uiState, &state->arena, assetManager, renderer, font,
 	    state->input, 1, toggleAudioButtonRect, "Toggle Music");
@@ -1336,7 +1431,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		    (state->config.playWorldAudio == TRUE) ? FALSE : TRUE;
 	}
 
-	Rect toggleDebugButtonRect = {V2(1150, 800), V2(100, 50)};
+	Rect toggleDebugButtonRect = {0};
+	toggleDebugButtonRect.size = V2(100, 50);
+	toggleDebugButtonRect.pos  = getPosRelativeToRect(
+	    toggleAudioButtonRect, V2(25, 0), rectbaseline_bottomRight);
 	b32 toggleDebugClicked = userInterface_button(
 	    &state->uiState, &state->arena, assetManager, renderer, font,
 	    state->input, 2, toggleDebugButtonRect, "Toggle Debug Display");
@@ -1347,66 +1445,18 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		    (state->config.showDebugDisplay == TRUE) ? FALSE : TRUE;
 	}
 
-	LOCAL_PERSIST toggleShowingStatMenu = FALSE;
-	if (state->uiState.keyChar == keycode_i)
-	{
-		toggleShowingStatMenu =
-		    (toggleShowingStatMenu == TRUE) ? FALSE : TRUE;
-	}
-
-	if (toggleShowingStatMenu)
-	{
-		WindowState *statMenu = &state->uiState.statMenuState;
-		// TODO(doyle): Define pushing/placing text within a coordinate system,
-		// i.e. relative to an elements position
-		b32 windowClickedAndHeld = userInterface_window(
-		    &state->uiState, &state->arena, assetManager, renderer, font,
-		    state->input, statMenu->id, statMenu->rect, statMenu->title);
-
-		// NOTE(doyle): windowClickedAndHeld captures mouse click within the UI
-		// bounds, but if the user drags the mouse outside the bounds quicker
-		// than the game updates then we use a second flag which only
-		// "unclicks" when the mouse is let go
-		if (windowClickedAndHeld) statMenu->windowHeld = TRUE;
-
-		if (statMenu->windowHeld)
-		{
-			if (!state->input.keys[keycode_mouseLeft].endedDown)
-			{
-				statMenu->windowHeld = FALSE;
-				statMenu->prevFrameWindowHeld = FALSE;
-			}
-		}
-
-		if (statMenu->windowHeld)
-		{
-			// NOTE(doyle): If this is the first window click we don't process
-			// movement and instead store the frame position to delta from it
-			if (statMenu->prevFrameWindowHeld)
-			{
-				// NOTE(doyle): Window clicked and held
-				v2 deltaP = v2_sub(state->input.mouseP, statMenu->prevFramePos);
-				DEBUG_PUSH_VAR("Delta Pos %4.2f, %4.2f", deltaP, "v2");
-				statMenu->rect.pos = v2_add(deltaP, statMenu->rect.pos);
-			}
-			else
-			{
-				statMenu->prevFrameWindowHeld = TRUE;
-			}
-
-			statMenu->prevFramePos = state->input.mouseP;
-		}
-
-	}
-
 	LOCAL_PERSIST i32 scrollValue = 30;
-	Rect scrollRectA              = {V2(1500, 600), V2(16, 255)};
+	Rect scrollRectA              = {V2(0, 0), V2(16, 255)};
+	scrollRectA.pos = getPosRelativeToRect(debugWindow->rect, V2(-20, -260),
+	                                       rectbaseline_topRight);
 	userInterface_scrollBar(&state->uiState, assetManager, renderer,
 	                        state->input, 3, scrollRectA, &scrollValue, 160);
 
 	LOCAL_PERSIST char fieldString[80] = "Hello world";
+	v2 textFieldP = getPosRelativeToRect(toggleAudioButtonRect, V2(0, -20),
+	                                     rectbaseline_bottomLeft);
 	userInterface_textField(&state->uiState, &state->arena, assetManager,
-	                        renderer, font, state->input, 4, V2(1000, 750),
+	                        renderer, font, state->input, 4, textFieldP,
 	                        fieldString);
 
 	// RESET IMGUI

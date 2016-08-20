@@ -19,6 +19,7 @@ typedef struct Entity Entity;
 typedef struct Config
 {
 	b32 playWorldAudio;
+	b32 showStatMenu;
 	b32 showDebugDisplay;
 } Config;
 

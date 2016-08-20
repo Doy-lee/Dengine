@@ -4,33 +4,63 @@
 #include "Dengine/Renderer.h"
 #include "Dengine/Debug.h"
 
-i32 userInterface_window(UiState *const uiState,
-                         MemoryArena *const arena,
+i32 userInterface_window(UiState *const uiState, MemoryArena *const arena,
                          AssetManager *const assetManager,
-                         Renderer *const renderer,
-                         Font *const font,
-                         const KeyInput input,
-                         const i32 id, const Rect rect, const char *const title)
+                         Renderer *const renderer, Font *const font,
+                         const KeyInput input, WindowState *window)
 {
-	if (math_pointInRect(rect, input.mouseP))
+	if (math_pointInRect(window->rect, input.mouseP))
 	{
-		uiState->hotItem = id;
+		uiState->hotItem = window->id;
 		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft].endedDown)
-			uiState->activeItem = id;
+			uiState->activeItem = window->id;
 	}
 
+	Rect rect = window->rect;
 	RenderTex nullRenderTex = renderer_createNullRenderTex(assetManager);
 	renderer_staticRect(renderer, rect.pos, rect.size, V2(0, 0), 0,
-	                    nullRenderTex, V4(0.25f, 0.25f, 0.5f, 1.0f));
+	                    nullRenderTex, V4(0.25f, 0.25f, 0.5f, 0.5f));
 
-	char *menuTitle = "Stat Menu";
-	v2 menuTitleP   = v2_add(rect.pos, V2(0, rect.size.h - 10));
-	renderer_staticString(renderer, arena, font, menuTitle, menuTitleP,
+	v2 menuTitleP = v2_add(rect.pos, V2(0, rect.size.h - 10));
+	renderer_staticString(renderer, arena, font, window->title, menuTitleP,
 	                      V2(0, 0), 0, V4(0, 0, 0, 1));
 
-	if (input.keys[keycode_mouseLeft].endedDown &&
-	    uiState->hotItem == id &&
-	    uiState->activeItem == id)
+	// NOTE(doyle): activeItem captures mouse click within the UI bounds, but if
+	// the user drags the mouse outside the bounds quicker than the game updates
+	// then we use a second flag which only "unclicks" when the mouse is let go
+	if (uiState->activeItem == window->id) window->windowHeld = TRUE;
+
+	if (window->windowHeld)
+	{
+		if (!input.keys[keycode_mouseLeft].endedDown)
+		{
+			window->windowHeld          = FALSE;
+			window->prevFrameWindowHeld = FALSE;
+		}
+	}
+
+	if (window->windowHeld)
+	{
+		// NOTE(doyle): If this is the first window click we don't process
+		// movement and store the current position to delta from next cycle
+		if (window->prevFrameWindowHeld)
+		{
+			// NOTE(doyle): Window clicked and held
+			v2 deltaP = v2_sub(input.mouseP, window->prevMouseP);
+			DEBUG_PUSH_VAR("Delta Pos %4.2f, %4.2f", deltaP, "v2");
+			window->rect.pos = v2_add(deltaP, window->rect.pos);
+		}
+		else
+		{
+			window->prevFrameWindowHeld = TRUE;
+		}
+
+		window->prevMouseP = input.mouseP;
+	}
+
+	if (!input.keys[keycode_mouseLeft].endedDown &&
+	    uiState->hotItem == window->id &&
+	    uiState->activeItem == window->id)
 	{
 		return 1;
 	}
@@ -49,11 +79,51 @@ i32 userInterface_button(UiState *const uiState,
 	if (math_pointInRect(rect, input.mouseP))
 	{
 		uiState->hotItem = id;
-		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft].endedDown)
-			uiState->activeItem = id;
+
+		// NOTE(doyle): UI windows are drawn first, they steal focus on mouse
+		// click since window logic is paired with the window rendering. If
+		// a UI element resides over our mouse, we allow the element to override
+		// the windows focus
+		// TODO(doyle): Make a window list to iterate over window ids
+		if (uiState->activeItem == uiState->statWindow.id ||
+		    uiState->activeItem == uiState->debugWindow.id ||
+			uiState->activeItem == 0)
+		{
+			if (input.keys[keycode_mouseLeft].endedDown)
+			{
+				uiState->activeItem = id;
+			}
+		}
+
 	}
 
 	RenderTex renderTex = renderer_createNullRenderTex(assetManager);
+
+#if 0
+	// Draw shadow
+	renderer_staticRect(renderer, v2_add(V2(1, 1), rect.pos), rect.size,
+	                    V2(0, 0), 0, renderTex, V4(0, 0, 0, 1));
+#endif
+
+	v2 buttonOffset = V2(0, 0);
+	v4 buttonColor = {0};
+	if (uiState->hotItem == id)
+	{
+		if (uiState->activeItem == id)
+		{
+			buttonOffset = V2(1, 1);
+			buttonColor = V4(1, 1, 1, 1);
+		}
+		else
+		{
+			// TODO(doyle): Optional add effect on button hover
+			buttonColor = V4(1, 1, 1, 1);
+		}
+	}
+	else
+	{
+		buttonColor = V4(0.5f, 0.5f, 0.5f, 1);
+	}
 
 	/* If no widget has keyboard focus, take it */
 	if (uiState->kbdItem == 0)
@@ -63,37 +133,14 @@ i32 userInterface_button(UiState *const uiState,
 	if (uiState->kbdItem == id)
 	{
 		// Draw outline
-		renderer_staticRect(renderer, v2_add(V2(-6, -6), rect.pos),
-		                    v2_add(V2(20, 20), rect.size), V2(0, 0), 0, renderTex,
+		renderer_staticRect(renderer,
+		                    v2_add(V2(-2, -2), v2_add(buttonOffset, rect.pos)),
+		                    v2_add(V2(4, 4), rect.size), V2(0, 0), 0, renderTex,
 		                    V4(1.0f, 0, 0, 1));
 	}
 
-	// Draw shadow
-	renderer_staticRect(renderer, v2_add(V2(8, 8), rect.pos), rect.size,
-	                    V2(0, 0), 0, renderTex, V4(0, 0, 0, 1));
-
-	v2 buttonOffset = V2(0, 0);
-	if (uiState->hotItem == id)
-	{
-		if (uiState->activeItem == id)
-		{
-			buttonOffset = V2(2, 2);
-			renderer_staticRect(renderer, v2_add(buttonOffset, rect.pos),
-			                    rect.size, V2(0, 0), 0, renderTex,
-			                    V4(1, 1, 1, 1));
-		}
-		else
-		{
-			renderer_staticRect(renderer, v2_add(buttonOffset, rect.pos),
-			                    rect.size, V2(0, 0), 0, renderTex,
-			                    V4(1, 1, 1, 1));
-		}
-	}
-	else
-	{
-		renderer_staticRect(renderer, v2_add(buttonOffset, rect.pos), rect.size,
-		                    V2(0, 0), 0, renderTex, V4(0.5f, 0.5f, 0.5f, 1));
-	}
+	renderer_staticRect(renderer, v2_add(buttonOffset, rect.pos), rect.size,
+	                    V2(0, 0), 0, renderTex, buttonColor);
 
 	if (label)
 	{
@@ -166,8 +213,15 @@ i32 userInterface_scrollBar(UiState *const uiState,
 	if (math_pointInRect(scrollBarRect, input.mouseP))
 	{
 		uiState->hotItem = id;
-		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft].endedDown)
-			uiState->activeItem = id;
+		if (uiState->activeItem == uiState->statWindow.id ||
+		    uiState->activeItem == uiState->debugWindow.id ||
+			uiState->activeItem == 0)
+		{
+			if (input.keys[keycode_mouseLeft].endedDown)
+			{
+				uiState->activeItem = id;
+			}
+		}
 	}
 
 	RenderTex renderTex = renderer_createNullRenderTex(assetManager);
@@ -180,8 +234,8 @@ i32 userInterface_scrollBar(UiState *const uiState,
 	if (uiState->kbdItem == id)
 	{
 		// Draw outline
-		renderer_staticRect(renderer, v2_add(V2(-6, -6), scrollBarRect.pos),
-		                    v2_add(V2(20, 20), scrollBarRect.size), V2(0, 0), 0,
+		renderer_staticRect(renderer, v2_add(V2(-2, -2), scrollBarRect.pos),
+		                    v2_add(V2(4, 4), scrollBarRect.size), V2(0, 0), 0,
 		                    renderTex, V4(1.0f, 0, 0, 1));
 	}
 
@@ -278,9 +332,14 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena *const arena,
 	if (math_pointInRect(textRect, input.mouseP))
 	{
 		uiState->hotItem = id;
-		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft].endedDown)
+		if (uiState->activeItem == uiState->statWindow.id ||
+		    uiState->activeItem == uiState->debugWindow.id ||
+			uiState->activeItem == 0)
 		{
-			uiState->activeItem = id;
+			if (input.keys[keycode_mouseLeft].endedDown)
+			{
+				uiState->activeItem = id;
+			}
 		}
 	}
 
@@ -293,8 +352,8 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena *const arena,
 	if (uiState->kbdItem == id)
 	{
 		// Draw outline
-		renderer_staticRect(renderer, v2_add(V2(-4, -4), textRect.pos),
-		                    v2_add(V2(16, 16), textRect.size), V2(0, 0), 0,
+		renderer_staticRect(renderer, v2_add(V2(-2, -2), textRect.pos),
+		                    v2_add(V2(4, 4), textRect.size), V2(0, 0), 0,
 		                    renderTex, V4(1.0f, 0, 0, 1));
 	}
 
