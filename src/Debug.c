@@ -418,6 +418,17 @@ void debug_drawUi(GameState *state, f32 dt)
 	}
 
 	/* Render debug info stack */
+	DEBUG_PUSH_STRING("== Controls ==");
+	DEBUG_PUSH_STRING("    [: Spawn a mob");
+	DEBUG_PUSH_STRING("<TAB>: Switch UI element");
+	DEBUG_PUSH_STRING("<ESC>: Close program");
+
+	DEBUG_PUSH_STRING("== Config == ");
+	DEBUG_PUSH_VAR("Toggle World Audio: %d", state->config.playWorldAudio,
+	               "i32");
+	DEBUG_PUSH_VAR("Toggle Debug Display: %d", state->config.showDebugDisplay,
+	               "i32");
+
 	DEBUG_PUSH_STRING("== Hero Properties == ");
 	DEBUG_PUSH_VAR("Hero Pos: %06.2f, %06.2f", hero->pos, "v2");
 	DEBUG_PUSH_VAR("Hero dPos: %06.2f, %06.2f", hero->dPos, "v2");

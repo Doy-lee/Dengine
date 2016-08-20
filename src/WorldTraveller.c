@@ -129,11 +129,10 @@ INTERNAL void assetInit(GameState *state)
 
 	i32 result =
 	    asset_loadTTFont(assetManager, arena, "C:/Windows/Fonts/Arialbd.ttf");
-	if (result) DEBUG_LOG("Font loading failed");
-
-	GL_CHECK_ERROR();
 
 #ifdef DENGINE_DEBUG
+	if (result) DEBUG_LOG("Font loading failed");
+	GL_CHECK_ERROR();
 	DEBUG_LOG("Assets loaded");
 #endif
 
@@ -344,6 +343,9 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	state->uiState.keyMod     = keycode_null;
 	state->uiState.keyChar    = keycode_null;
 
+	state->config.playWorldAudio   = FALSE;
+	state->config.showDebugDisplay = TRUE;
+
 	assetInit(state);
 	rendererInit(state, windowSize);
 	entityInit(state, windowSize);
@@ -409,8 +411,8 @@ INTERNAL b32 getKeyStatus(KeyState *key, enum ReadKeyType readType,
 		break;
 	}
 	default:
-		DEBUG_LOG("getKeyStatus() error: Invalid ReadKeyType enum");
 #ifdef DENGINE_DEBUG
+		DEBUG_LOG("getKeyStatus() error: Invalid ReadKeyType enum");
 		ASSERT(INVALID_CODE_PATH);
 #endif
 		break;
@@ -432,13 +434,6 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 	   f'(t) = a*t + v,             where v is a constant, old velocity
 	   f (t) = (a/2)*t^2 + v*t + p, where p is a constant, old position
 	 */
-
-#ifdef DENGINE_DEBUG
-	DEBUG_PUSH_STRING("== Controls ==");
-	DEBUG_PUSH_STRING("    [: Spawn a mob");
-	DEBUG_PUSH_STRING("<TAB>: Switch UI element");
-	DEBUG_PUSH_STRING("<ESC>: Close program");
-#endif
 
 	World *const world = &state->world[state->currWorldIndex];
 	Entity *hero = &world->entities[entity_getIndex(world, world->heroId)];
@@ -1246,7 +1241,9 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		// entity, the entity will exist for an additional frame
 		case eventtype_entity_died:
 		{
+#ifdef DEGINE_DEBUG
 			DEBUG_LOG("Entity died: being deleted");
+#endif
 			if (!event.data) continue;
 
 			Entity *entity = (CAST(Entity *) event.data);
@@ -1313,25 +1310,36 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 	/* Draw ui */
 	// TODO(doyle): Bug in font rendering once button reaches 700-800+ pixels
-	Rect buttonRectA = {V2(1000, 800), V2(100, 50)};
-
-	b32 isClicked = userInterface_button(
+	Rect toggleAudioButtonRect = {V2(1000, 800), V2(100, 50)};
+	b32 toggleAudioClicked = userInterface_button(
 	    &state->uiState, &state->arena, assetManager, renderer, font,
-	    state->input, 1, buttonRectA, "Toggle Music");
+	    state->input, 1, toggleAudioButtonRect, "Toggle Music");
 
-	if (isClicked)
+	if (toggleAudioClicked)
 	{
-		state->config.playWorldAudio = ~state->config.playWorldAudio;
+		state->config.playWorldAudio =
+		    (state->config.playWorldAudio == TRUE) ? FALSE : TRUE;
+	}
+
+	Rect toggleDebugButtonRect = {V2(1150, 800), V2(100, 50)};
+	b32 toggleDebugClicked = userInterface_button(
+	    &state->uiState, &state->arena, assetManager, renderer, font,
+	    state->input, 2, toggleDebugButtonRect, "Toggle Debug Display");
+
+	if (toggleDebugClicked)
+	{
+		state->config.showDebugDisplay =
+		    (state->config.showDebugDisplay == TRUE) ? FALSE : TRUE;
 	}
 
 	LOCAL_PERSIST i32 scrollValue = 30;
 	Rect scrollRectA              = {V2(1500, 600), V2(16, 255)};
 	userInterface_scrollBar(&state->uiState, assetManager, renderer,
-	                        state->input, 2, scrollRectA, &scrollValue, 160);
+	                        state->input, 3, scrollRectA, &scrollValue, 160);
 
 	LOCAL_PERSIST char fieldString[80] = "Hello world";
 	userInterface_textField(&state->uiState, &state->arena, assetManager,
-	                        renderer, font, state->input, 3, V2(1000, 750),
+	                        renderer, font, state->input, 4, V2(1000, 750),
 	                        fieldString);
 
 	// RESET IMGUI
@@ -1406,6 +1414,9 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 #endif
 
 #ifdef DENGINE_DEBUG
-	debug_drawUi(state, dt);
+	if (state->config.showDebugDisplay)
+	{
+		debug_drawUi(state, dt);
+	}
 #endif
 }
