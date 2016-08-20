@@ -28,6 +28,7 @@ typedef struct RenderTex
 	v4 texRect;
 } RenderTex;
 
+// TODO(doyle): Use z-index occluding for rendering
 RenderTex renderer_createNullRenderTex(AssetManager *const assetManager);
 
 // TODO(doyle): Clean up lines

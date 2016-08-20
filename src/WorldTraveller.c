@@ -523,6 +523,12 @@ INTERNAL void parseInput(GameState *state, const f32 dt)
 			state->uiState.keyChar = keycode_space;
 		}
 
+		if (getKeyStatus(&keys[keycode_i], readkeytype_delayedRepeat, 0.25f,
+		                 dt))
+		{
+			state->uiState.keyChar = keycode_i;
+		}
+
 		if (getKeyStatus(&keys[keycode_backspace], readkeytype_delayedRepeat,
 		                 0.1f, dt))
 		{
@@ -1014,8 +1020,9 @@ typedef struct BattleState
 	DamageDisplay damageDisplay[128];
 } BattleState;
 
-BattleState battleState = {0};
+GLOBAL_VAR BattleState battleState = {0};
 
+v2 lastFrameP = {0, 0};
 void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 {
 	if (dt >= 1.0f) dt = 1.0f;
@@ -1330,6 +1337,56 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	{
 		state->config.showDebugDisplay =
 		    (state->config.showDebugDisplay == TRUE) ? FALSE : TRUE;
+	}
+
+	LOCAL_PERSIST toggleShowingStatMenu = FALSE;
+	if (state->uiState.keyChar == keycode_i)
+	{
+		toggleShowingStatMenu =
+		    (toggleShowingStatMenu == TRUE) ? FALSE : TRUE;
+	}
+
+	if (toggleShowingStatMenu)
+	{
+		i32 statMenuID = 99;
+
+		// TODO(doyle): Define pushing/placing text within a coordinate system,
+		// i.e. relative to an elements position
+		char *menuTitle = "Stat Menu";
+
+		LOCAL_PERSIST Rect inventoryRect = {{300, 400}, {300, 400}};
+		LOCAL_PERSIST lastFrameWindowWasHeld = FALSE;
+
+		b32 windowClickedAndHeld = userInterface_window(
+		    &state->uiState, &state->arena, assetManager, renderer, font,
+		    state->input, statMenuID, inventoryRect, menuTitle);
+
+		if (windowClickedAndHeld)
+		{
+			if (lastFrameWindowWasHeld)
+			{
+				// NOTE(doyle): Window clicked and held
+				v2 deltaP = v2_sub(state->input.mouseP, lastFrameP);
+				DEBUG_PUSH_VAR("Delta Pos %4.2f, %4.2f", deltaP, "v2");
+
+				f32 mouseMoveThreshold = 5.0f;
+
+				if (ABS(deltaP.x) <= mouseMoveThreshold) deltaP.x = 0.0f;
+				if (ABS(deltaP.y) <= mouseMoveThreshold) deltaP.y = 0.0f;
+
+				inventoryRect.pos = v2_add(deltaP, inventoryRect.pos);
+			}
+			else
+			{
+				lastFrameWindowWasHeld = TRUE;
+			}
+
+			lastFrameP = state->input.mouseP;
+		}
+		else
+		{
+			lastFrameWindowWasHeld = FALSE;
+		}
 	}
 
 	LOCAL_PERSIST i32 scrollValue = 30;

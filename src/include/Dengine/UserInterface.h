@@ -42,6 +42,12 @@ typedef struct UiState
 	enum KeyCode keyChar;
 } UiState;
 
+i32 userInterface_window(UiState *const uiState, MemoryArena *const arena,
+                         AssetManager *const assetManager,
+                         Renderer *const renderer, Font *const font,
+                         const KeyInput input, const i32 id, const Rect rect,
+                         const char *const title);
+
 i32 userInterface_button(UiState *const uiState,
                          MemoryArena *const arena,
                          AssetManager *const assetManager,

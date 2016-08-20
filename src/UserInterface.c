@@ -4,6 +4,40 @@
 #include "Dengine/Renderer.h"
 #include "Dengine/Debug.h"
 
+i32 userInterface_window(UiState *const uiState,
+                         MemoryArena *const arena,
+                         AssetManager *const assetManager,
+                         Renderer *const renderer,
+                         Font *const font,
+                         const KeyInput input,
+                         const i32 id, const Rect rect, const char *const title)
+{
+	if (math_pointInRect(rect, input.mouseP))
+	{
+		uiState->hotItem = id;
+		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft].endedDown)
+			uiState->activeItem = id;
+	}
+
+	RenderTex nullRenderTex = renderer_createNullRenderTex(assetManager);
+	renderer_staticRect(renderer, rect.pos, rect.size, V2(0, 0), 0,
+	                    nullRenderTex, V4(0.25f, 0.25f, 0.5f, 1.0f));
+
+	char *menuTitle = "Stat Menu";
+	v2 menuTitleP   = v2_add(rect.pos, V2(0, rect.size.h - 10));
+	renderer_staticString(renderer, arena, font, menuTitle, menuTitleP,
+	                      V2(0, 0), 0, V4(0, 0, 0, 1));
+
+	if (input.keys[keycode_mouseLeft].endedDown &&
+	    uiState->hotItem == id &&
+	    uiState->activeItem == id)
+	{
+		return 1;
+	}
+
+	return 0;
+}
+
 i32 userInterface_button(UiState *const uiState,
                          MemoryArena *const arena,
                          AssetManager *const assetManager,
@@ -107,6 +141,8 @@ i32 userInterface_button(UiState *const uiState,
 
 	uiState->lastWidget = id;
 
+	// If button is hot and active, but mouse button is not
+	// down, the user must have clicked the button.
 	if (!input.keys[keycode_mouseLeft].endedDown &&
 	    uiState->hotItem == id &&
 	    uiState->activeItem == id)
@@ -238,6 +274,7 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena *const arena,
 	Rect textRect = {0};
 	textRect.pos = pos;
 	textRect.size = V2(30 * font->maxSize.w, font->maxSize.h);
+
 	if (math_pointInRect(textRect, input.mouseP))
 	{
 		uiState->hotItem = id;
