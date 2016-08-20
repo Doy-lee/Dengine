@@ -422,12 +422,14 @@ void debug_drawUi(GameState *state, f32 dt)
 	DEBUG_PUSH_STRING("    [: Spawn a mob");
 	DEBUG_PUSH_STRING("<TAB>: Switch UI element");
 	DEBUG_PUSH_STRING("<ESC>: Close program");
+	DEBUG_PUSH_STRING("");
 
 	DEBUG_PUSH_STRING("== Config == ");
 	DEBUG_PUSH_VAR("Toggle World Audio: %d", state->config.playWorldAudio,
 	               "i32");
 	DEBUG_PUSH_VAR("Toggle Debug Display: %d", state->config.showDebugDisplay,
 	               "i32");
+	DEBUG_PUSH_STRING("");
 
 	DEBUG_PUSH_STRING("== Hero Properties == ");
 	DEBUG_PUSH_VAR("Hero Pos: %06.2f, %06.2f", hero->pos, "v2");
@@ -438,6 +440,7 @@ void debug_drawUi(GameState *state, f32 dt)
 	char *heroQueuedAttackStr =
 	    debug_entityattack_string(hero->stats->queuedAttack);
 	DEBUG_PUSH_VAR("Hero QueuedAttack: %s", *heroQueuedAttackStr, "char");
+	DEBUG_PUSH_STRING("");
 
 	DEBUG_PUSH_STRING("== State Properties == ");
 	DEBUG_PUSH_VAR("FreeEntityIndex: %d", world->freeEntityIndex, "i32");
@@ -449,6 +452,7 @@ void debug_drawUi(GameState *state, f32 dt)
 	DEBUG_PUSH_VAR("TotalMemoryAllocated: %db", debug_bAllocated, "i32");
 	i32 debug_kbAllocated = state->arena.bytesAllocated / 1024;
 	DEBUG_PUSH_VAR("TotalMemoryAllocated: %dkb", debug_kbAllocated, "i32");
+	DEBUG_PUSH_STRING("");
 
 	AudioManager *audioManager = &state->audioManager;
 	DEBUG_PUSH_STRING("== Audio System ==");
@@ -459,6 +463,7 @@ void debug_drawUi(GameState *state, f32 dt)
 		             audioManager->sourceList[i].isFree);
 		DEBUG_PUSH_VAR("Source ID[%02.0f].id[%02.0f].isFree: %1.0f", tmp, "v3");
 	}
+	DEBUG_PUSH_STRING("");
 
 	DEBUG_PUSH_STRING("== EntityIDs in Battle List == ");
 	DEBUG_PUSH_VAR("NumEntitiesInBattle: %d", world->numEntitiesInBattle,

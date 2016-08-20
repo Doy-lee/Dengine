@@ -65,15 +65,13 @@ i32 userInterface_button(UiState *const uiState,
 	{
 		v2 labelDim = asset_stringDimInPixels(font, label);
 		v2 labelPos = rect.pos;
-		if (labelDim.w < rect.size.w)
-		{
-			// Initially position the label to half the width of the button
-			labelPos.x += (rect.size.w * 0.5f);
 
-			// Move the label pos back half the length of the string (i.e.
-			// center it)
-			labelPos.x -= (CAST(f32)labelDim.w * 0.5f);
-		}
+		// Initially position the label to half the width of the button
+		labelPos.x += (rect.size.w * 0.5f);
+
+		// Move the label pos back half the length of the string (i.e.
+		// center it)
+		labelPos.x -= (CAST(f32) labelDim.w * 0.5f);
 
 		if (labelDim.h < rect.size.h)
 		{
