@@ -343,8 +343,17 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	state->uiState.keyMod     = keycode_null;
 	state->uiState.keyChar    = keycode_null;
 
+	common_strncpy(state->uiState.statMenuState.title, "Stat Menu",
+	               common_strlen("Stat Menu"));
+	state->uiState.statMenuState.id                  = 99;
+	state->uiState.statMenuState.rect.pos            = V2(300, 400);
+	state->uiState.statMenuState.rect.size           = V2(300, 400);
+	state->uiState.statMenuState.prevFrameWindowHeld = FALSE;
+	state->uiState.statMenuState.windowHeld          = FALSE;
+
 	state->config.playWorldAudio   = FALSE;
 	state->config.showDebugDisplay = TRUE;
+
 
 	assetInit(state);
 	rendererInit(state, windowSize);
@@ -1022,7 +1031,6 @@ typedef struct BattleState
 
 GLOBAL_VAR BattleState battleState = {0};
 
-v2 lastFrameP = {0, 0};
 void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 {
 	if (dt >= 1.0f) dt = 1.0f;
@@ -1348,45 +1356,47 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 	if (toggleShowingStatMenu)
 	{
-		i32 statMenuID = 99;
-
+		WindowState *statMenu = &state->uiState.statMenuState;
 		// TODO(doyle): Define pushing/placing text within a coordinate system,
 		// i.e. relative to an elements position
-		char *menuTitle = "Stat Menu";
-
-		LOCAL_PERSIST Rect inventoryRect = {{300, 400}, {300, 400}};
-		LOCAL_PERSIST lastFrameWindowWasHeld = FALSE;
-
 		b32 windowClickedAndHeld = userInterface_window(
 		    &state->uiState, &state->arena, assetManager, renderer, font,
-		    state->input, statMenuID, inventoryRect, menuTitle);
+		    state->input, statMenu->id, statMenu->rect, statMenu->title);
 
-		if (windowClickedAndHeld)
+		// NOTE(doyle): windowClickedAndHeld captures mouse click within the UI
+		// bounds, but if the user drags the mouse outside the bounds quicker
+		// than the game updates then we use a second flag which only
+		// "unclicks" when the mouse is let go
+		if (windowClickedAndHeld) statMenu->windowHeld = TRUE;
+
+		if (statMenu->windowHeld)
 		{
-			if (lastFrameWindowWasHeld)
+			if (!state->input.keys[keycode_mouseLeft].endedDown)
+			{
+				statMenu->windowHeld = FALSE;
+				statMenu->prevFrameWindowHeld = FALSE;
+			}
+		}
+
+		if (statMenu->windowHeld)
+		{
+			// NOTE(doyle): If this is the first window click we don't process
+			// movement and instead store the frame position to delta from it
+			if (statMenu->prevFrameWindowHeld)
 			{
 				// NOTE(doyle): Window clicked and held
-				v2 deltaP = v2_sub(state->input.mouseP, lastFrameP);
+				v2 deltaP = v2_sub(state->input.mouseP, statMenu->prevFramePos);
 				DEBUG_PUSH_VAR("Delta Pos %4.2f, %4.2f", deltaP, "v2");
-
-				f32 mouseMoveThreshold = 5.0f;
-
-				if (ABS(deltaP.x) <= mouseMoveThreshold) deltaP.x = 0.0f;
-				if (ABS(deltaP.y) <= mouseMoveThreshold) deltaP.y = 0.0f;
-
-				inventoryRect.pos = v2_add(deltaP, inventoryRect.pos);
+				statMenu->rect.pos = v2_add(deltaP, statMenu->rect.pos);
 			}
 			else
 			{
-				lastFrameWindowWasHeld = TRUE;
+				statMenu->prevFrameWindowHeld = TRUE;
 			}
 
-			lastFrameP = state->input.mouseP;
+			statMenu->prevFramePos = state->input.mouseP;
 		}
-		else
-		{
-			lastFrameWindowWasHeld = FALSE;
-		}
+
 	}
 
 	LOCAL_PERSIST i32 scrollValue = 30;

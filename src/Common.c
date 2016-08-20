@@ -21,6 +21,14 @@ i32 common_strcmp(const char *a, const char *b)
 	return ((*a < *b) ? -1 : 1);
 }
 
+char *common_strncpy(char *dest, const char *src, i32 numChars)
+{
+	for (i32 i = 0; i < numChars; i++)
+		dest[i] = src[i];
+
+	return dest;
+}
+
 char *common_memset(char *const ptr, const i32 value, const i32 numBytes)
 {
 	for (i32 i = 0; i < numBytes; i++)

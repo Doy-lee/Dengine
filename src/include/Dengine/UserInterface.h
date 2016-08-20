@@ -27,6 +27,19 @@ typedef struct UiItem
 	enum UiType type;
 } UiItem;
 
+typedef struct WindowState
+{
+	i32 id;
+	char title[64];
+
+	Rect rect;
+	v2 prevFramePos;
+
+	b32 prevFrameWindowHeld;
+	b32 windowHeld;
+
+} WindowState;
+
 typedef struct UiState
 {
 	UiItem uiList[128];
@@ -40,6 +53,8 @@ typedef struct UiState
 	enum KeyCode keyEntered;
 	enum KeyCode keyMod;
 	enum KeyCode keyChar;
+
+	WindowState statMenuState;
 } UiState;
 
 i32 userInterface_window(UiState *const uiState, MemoryArena *const arena,
