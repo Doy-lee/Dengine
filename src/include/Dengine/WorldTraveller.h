@@ -16,6 +16,21 @@
 /* Forward declaration */
 typedef struct Entity Entity;
 
+enum RectBaseline
+{
+	rectbaseline_top,
+	rectbaseline_topLeft,
+	rectbaseline_topRight,
+	rectbaseline_bottom,
+	rectbaseline_bottomRight,
+	rectbaseline_bottomLeft,
+	rectbaseline_left,
+	rectbaseline_right,
+	rectbaseline_center,
+	rectbaseline_count,
+
+};
+
 typedef struct Config
 {
 	b32 playWorldAudio;

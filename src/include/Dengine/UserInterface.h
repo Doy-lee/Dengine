@@ -15,7 +15,7 @@ enum UiType
 {
 	uitype_button,
 	uitype_scrollbar,
-	uitype_textfield,
+	uitype_textField,
 	uitype_string,
 	uitype_count,
 };
@@ -23,14 +23,24 @@ enum UiType
 typedef struct UiItem
 {
 	i32 id;
-	Rect rect;
+	char label[64];
 	enum UiType type;
+
+	Rect rect;
+
+	// TODO(doyle): ECS this? Not all elements need
+	i32 value;
+	i32 maxValue;
+	char string[80];
 } UiItem;
 
 typedef struct WindowState
 {
-	i32 id;
 	char title[64];
+	i32 id;
+
+	UiItem childUiItems[16];
+	i32 numChildUiItems;
 
 	Rect rect;
 	// TODO(doyle): Store this in the input data not window?
@@ -42,6 +52,8 @@ typedef struct WindowState
 
 typedef struct UiState
 {
+	i32 uniqueId;
+
 	UiItem uiList[128];
 	i32 numItems;
 
@@ -58,10 +70,11 @@ typedef struct UiState
 	WindowState debugWindow;
 } UiState;
 
-i32 userInterface_window(UiState *const uiState, MemoryArena *const arena,
-                         AssetManager *const assetManager,
-                         Renderer *const renderer, Font *const font,
-                         const KeyInput input, WindowState *window);
+inline i32 userInterface_generateId(UiState *const uiState)
+{
+	i32 result = uiState->uniqueId++;
+	return result;
+}
 
 i32 userInterface_button(UiState *const uiState,
                          MemoryArena *const arena,
@@ -76,12 +89,17 @@ i32 userInterface_textField(UiState *const uiState,
                             MemoryArena *const arena,
                             AssetManager *const assetManager,
                             Renderer *const renderer, Font *const font,
-                            KeyInput input, const i32 id, v2 pos,
+                            KeyInput input, const i32 id, const Rect rect,
                             char *const string);
 
-i32 userInterface_scrollBar(UiState *const uiState,
+i32 userInterface_scrollbar(UiState *const uiState,
                             AssetManager *const assetManager,
                             Renderer *const renderer, const KeyInput input,
                             const i32 id, const Rect scrollBarRect,
                             i32 *const value, const i32 maxValue);
+
+i32 userInterface_window(UiState *const uiState, MemoryArena *const arena,
+                         AssetManager *const assetManager,
+                         Renderer *const renderer, Font *const font,
+                         const KeyInput input, WindowState *window);
 #endif

@@ -4,70 +4,6 @@
 #include "Dengine/Renderer.h"
 #include "Dengine/Debug.h"
 
-i32 userInterface_window(UiState *const uiState, MemoryArena *const arena,
-                         AssetManager *const assetManager,
-                         Renderer *const renderer, Font *const font,
-                         const KeyInput input, WindowState *window)
-{
-	if (math_pointInRect(window->rect, input.mouseP))
-	{
-		uiState->hotItem = window->id;
-		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft].endedDown)
-			uiState->activeItem = window->id;
-	}
-
-	Rect rect = window->rect;
-	RenderTex nullRenderTex = renderer_createNullRenderTex(assetManager);
-	renderer_staticRect(renderer, rect.pos, rect.size, V2(0, 0), 0,
-	                    nullRenderTex, V4(0.25f, 0.25f, 0.5f, 0.5f));
-
-	v2 menuTitleP = v2_add(rect.pos, V2(0, rect.size.h - 10));
-	renderer_staticString(renderer, arena, font, window->title, menuTitleP,
-	                      V2(0, 0), 0, V4(0, 0, 0, 1));
-
-	// NOTE(doyle): activeItem captures mouse click within the UI bounds, but if
-	// the user drags the mouse outside the bounds quicker than the game updates
-	// then we use a second flag which only "unclicks" when the mouse is let go
-	if (uiState->activeItem == window->id) window->windowHeld = TRUE;
-
-	if (window->windowHeld)
-	{
-		if (!input.keys[keycode_mouseLeft].endedDown)
-		{
-			window->windowHeld          = FALSE;
-			window->prevFrameWindowHeld = FALSE;
-		}
-	}
-
-	if (window->windowHeld)
-	{
-		// NOTE(doyle): If this is the first window click we don't process
-		// movement and store the current position to delta from next cycle
-		if (window->prevFrameWindowHeld)
-		{
-			// NOTE(doyle): Window clicked and held
-			v2 deltaP = v2_sub(input.mouseP, window->prevMouseP);
-			DEBUG_PUSH_VAR("Delta Pos %4.2f, %4.2f", deltaP, "v2");
-			window->rect.pos = v2_add(deltaP, window->rect.pos);
-		}
-		else
-		{
-			window->prevFrameWindowHeld = TRUE;
-		}
-
-		window->prevMouseP = input.mouseP;
-	}
-
-	if (!input.keys[keycode_mouseLeft].endedDown &&
-	    uiState->hotItem == window->id &&
-	    uiState->activeItem == window->id)
-	{
-		return 1;
-	}
-
-	return 0;
-}
-
 i32 userInterface_button(UiState *const uiState,
                          MemoryArena *const arena,
                          AssetManager *const assetManager,
@@ -194,13 +130,13 @@ i32 userInterface_button(UiState *const uiState,
 	    uiState->hotItem == id &&
 	    uiState->activeItem == id)
 	{
-		return 1;
+		return id;
 	}
 
 	return 0;
 }
 
-i32 userInterface_scrollBar(UiState *const uiState,
+i32 userInterface_scrollbar(UiState *const uiState,
                             AssetManager *const assetManager,
                             Renderer *const renderer, const KeyInput input,
                             const i32 id, const Rect scrollBarRect,
@@ -277,13 +213,13 @@ i32 userInterface_scrollBar(UiState *const uiState,
 			if (*value < maxValue)
 			{
 				(*value)++;
-				return 1;
+				return id;
 			}
 		case keycode_down:
 			if (*value > 0)
 			{
 				(*value)--;
-				return 1;
+				return id;
 			}
 		default:
 			break;
@@ -309,7 +245,7 @@ i32 userInterface_scrollBar(UiState *const uiState,
 		if (newValue != *value)
 		{
 			*value = newValue;
-			return 1;
+			return id;
 		}
 	}
 
@@ -319,17 +255,13 @@ i32 userInterface_scrollBar(UiState *const uiState,
 i32 userInterface_textField(UiState *const uiState, MemoryArena *const arena,
                             AssetManager *const assetManager,
                             Renderer *const renderer, Font *const font,
-                            KeyInput input, const i32 id, v2 pos,
+                            KeyInput input, const i32 id, const Rect rect,
                             char *const string)
 {
 	i32 strLen = common_strlen(string);
 	b32 changed = FALSE;
 
-	Rect textRect = {0};
-	textRect.pos = pos;
-	textRect.size = V2(30 * font->maxSize.w, font->maxSize.h);
-
-	if (math_pointInRect(textRect, input.mouseP))
+	if (math_pointInRect(rect, input.mouseP))
 	{
 		uiState->hotItem = id;
 		if (uiState->activeItem == uiState->statWindow.id ||
@@ -352,28 +284,27 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena *const arena,
 	if (uiState->kbdItem == id)
 	{
 		// Draw outline
-		renderer_staticRect(renderer, v2_add(V2(-2, -2), textRect.pos),
-		                    v2_add(V2(4, 4), textRect.size), V2(0, 0), 0,
+		renderer_staticRect(renderer, v2_add(V2(-2, -2), rect.pos),
+		                    v2_add(V2(4, 4), rect.size), V2(0, 0), 0,
 		                    renderTex, V4(1.0f, 0, 0, 1));
 	}
 
 	// Render text field
-	renderer_staticRect(renderer, textRect.pos, textRect.size, V2(0, 0), 0,
+	renderer_staticRect(renderer, rect.pos, rect.size, V2(0, 0), 0,
 	                    renderTex, V4(0.75f, 0.5f, 0.5f, 1));
 
 	if (uiState->activeItem == id || uiState->hotItem == id)
 	{
-		renderer_staticRect(renderer, textRect.pos, textRect.size, V2(0, 0), 0,
+		renderer_staticRect(renderer, rect.pos, rect.size, V2(0, 0), 0,
 		                    renderTex, V4(0.75f, 0.75f, 0.0f, 1));
 	}
 	else
 	{
-		renderer_staticRect(renderer, textRect.pos, textRect.size, V2(0, 0), 0,
+		renderer_staticRect(renderer, rect.pos, rect.size, V2(0, 0), 0,
 		                    renderTex, V4(0.5f, 0.5f, 0.5f, 1));
 	}
 
-	v2 strPos = textRect.pos;
-
+	v2 strPos = rect.pos;
 	renderer_staticString(renderer, arena, font, string, strPos, V2(0, 0), 0,
 	                      V4(0, 0, 0, 1));
 
@@ -417,6 +348,138 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena *const arena,
 	}
 
 	uiState->lastWidget = id;
-	return changed;
+
+	if (changed) return id;
+	return 0;
+}
+
+i32 userInterface_window(UiState *const uiState, MemoryArena *const arena,
+                         AssetManager *const assetManager,
+                         Renderer *const renderer, Font *const font,
+                         const KeyInput input, WindowState *window)
+{
+	if (math_pointInRect(window->rect, input.mouseP))
+	{
+		uiState->hotItem = window->id;
+		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft].endedDown)
+			uiState->activeItem = window->id;
+	}
+
+	Rect rect = window->rect;
+	RenderTex nullRenderTex = renderer_createNullRenderTex(assetManager);
+	renderer_staticRect(renderer, rect.pos, rect.size, V2(0, 0), 0,
+	                    nullRenderTex, V4(0.25f, 0.25f, 0.5f, 0.5f));
+
+	v2 menuTitleP = v2_add(rect.pos, V2(0, rect.size.h - 10));
+	renderer_staticString(renderer, arena, font, window->title, menuTitleP,
+	                      V2(0, 0), 0, V4(0, 0, 0, 1));
+
+	// NOTE(doyle): activeItem captures mouse click within the UI bounds, but if
+	// the user drags the mouse outside the bounds quicker than the game updates
+	// then we use a second flag which only "unclicks" when the mouse is let go
+	if (uiState->activeItem == window->id) window->windowHeld = TRUE;
+
+#if 0
+	for (i32 i = 0; i < window->numChildItems; i++)
+	{
+		if (uiState->activeItem == window->childUiId[i])
+		{
+			window->windowHeld          = FALSE;
+			window->prevFrameWindowHeld = FALSE;
+			break;
+		}
+	}
+#endif
+
+	if (window->windowHeld)
+	{
+		if (!input.keys[keycode_mouseLeft].endedDown)
+		{
+			window->windowHeld          = FALSE;
+			window->prevFrameWindowHeld = FALSE;
+		}
+	}
+
+	if (window->windowHeld)
+	{
+		// NOTE(doyle): If this is the first window click we don't process
+		// movement and store the current position to delta from next cycle
+		if (window->prevFrameWindowHeld)
+		{
+			// NOTE(doyle): Window clicked and held
+			v2 deltaP = v2_sub(input.mouseP, window->prevMouseP);
+
+			for (i32 i = 0; i < window->numChildUiItems; i++)
+			{
+				UiItem *childUi = &window->childUiItems[i];
+				childUi->rect.pos = v2_add(deltaP, childUi->rect.pos);
+			}
+
+			DEBUG_PUSH_VAR("Delta Pos %4.2f, %4.2f", deltaP, "v2");
+			window->rect.pos = v2_add(deltaP, window->rect.pos);
+		}
+		else
+		{
+			window->prevFrameWindowHeld = TRUE;
+		}
+
+		window->prevMouseP = input.mouseP;
+	}
+
+	/* Draw window elements */
+	i32 firstActiveChildId = -1;
+	for (i32 i = 0; i < window->numChildUiItems; i++)
+	{
+		UiItem *childUi = &window->childUiItems[i];
+
+		// TODO(doyle): Redundant? If we can only have 1 active child at a time
+		// What about overlapping elements?
+		i32 getChildActiveState = -1;
+		switch(childUi->type)
+		{
+		case uitype_button:
+			// TODO(doyle): Bug in font rendering once button reaches 700-800+
+			// pixels
+			getChildActiveState = userInterface_button(
+			    uiState, arena, assetManager, renderer, font, input,
+			    childUi->id, childUi->rect, childUi->label);
+			break;
+
+		case uitype_scrollbar:
+			// TODO(doyle): window steals scrollbar focus
+			getChildActiveState = userInterface_scrollbar(
+			    uiState, assetManager, renderer, input, childUi->id,
+			    childUi->rect, &childUi->value, childUi->maxValue);
+			break;
+
+		case uitype_textField:
+			getChildActiveState = userInterface_textField(
+			    uiState, arena, assetManager, renderer, font, input,
+			    childUi->id, childUi->rect, childUi->string);
+			break;
+
+		default:
+			DEBUG_LOG(
+			    "userInterface_window() warning: Enum uitype unrecognised");
+			break;
+		}
+
+		// NOTE(doyle): Capture only the first active id, but keep loop going to
+		// render the rest of the window ui
+		if (firstActiveChildId == -1 && getChildActiveState > 0)
+			firstActiveChildId = getChildActiveState;
+	}
+
+	if (firstActiveChildId != -1)
+		return firstActiveChildId;
+
+	if (!input.keys[keycode_mouseLeft].endedDown &&
+	    uiState->hotItem == window->id &&
+	    uiState->activeItem == window->id)
+	{
+		return window->id;
+	}
+
+	return 0;
 }
 

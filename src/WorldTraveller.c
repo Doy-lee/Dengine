@@ -323,6 +323,56 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 #endif
 }
 
+INTERNAL v2 getPosRelativeToRect(Rect rect, v2 offset,
+                                 enum RectBaseline baseline)
+{
+#ifdef DENGINE_DEBUG
+	ASSERT(baseline < rectbaseline_count);
+#endif
+	v2 result = {0};
+
+	v2 posToOffsetFrom = rect.pos;
+	switch (baseline)
+	{
+		case rectbaseline_top:
+			posToOffsetFrom.y += (rect.size.h);
+			posToOffsetFrom.x += (rect.size.w * 0.5f);
+		    break;
+		case rectbaseline_topLeft:
+			posToOffsetFrom.y += (rect.size.h);
+			break;
+		case rectbaseline_topRight:
+			posToOffsetFrom.y += (rect.size.h);
+			posToOffsetFrom.x += (rect.size.w);
+			break;
+		case rectbaseline_bottom:
+			posToOffsetFrom.x += (rect.size.w * 0.5f);
+			break;
+		case rectbaseline_bottomRight:
+			posToOffsetFrom.x += (rect.size.w);
+			break;
+		case rectbaseline_left:
+			posToOffsetFrom.y += (rect.size.h * 0.5f);
+			break;
+		case rectbaseline_right:
+			posToOffsetFrom.x += (rect.size.w);
+			posToOffsetFrom.y += (rect.size.h * 0.5f);
+			break;
+
+		case rectbaseline_bottomLeft:
+		    break;
+		default:
+#ifdef DENGINE_DEBUG
+		    DEBUG_LOG(
+		        "getPosRelativeToRect() warning: baseline enum not recognised");
+#endif
+			break;
+	}
+
+	result = v2_add(posToOffsetFrom, offset);
+	return result;
+}
+
 // TODO(doyle): Remove and implement own random generator!
 #include <time.h>
 #include <stdlib.h>
@@ -339,6 +389,8 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	state->state              = state_active;
 	state->currWorldIndex     = 0;
 	state->tileSize           = 64;
+
+	state->uiState.uniqueId   = 1;
 	state->uiState.keyEntered = keycode_null;
 	state->uiState.keyMod     = keycode_null;
 	state->uiState.keyChar    = keycode_null;
@@ -351,17 +403,62 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	state->uiState.statWindow.prevFrameWindowHeld = FALSE;
 	state->uiState.statWindow.windowHeld          = FALSE;
 
-	common_strncpy(state->uiState.debugWindow.title, "Debug Menu",
+	WindowState *debugWindow = &state->uiState.debugWindow;
+	common_strncpy(debugWindow->title, "Debug Menu",
 	               common_strlen("Debug Menu"));
-	state->uiState.debugWindow.id                  = 98;
-	state->uiState.debugWindow.rect.pos            = V2(800, 400);
-	state->uiState.debugWindow.rect.size           = V2(750, 400);
-	state->uiState.debugWindow.prevFrameWindowHeld = FALSE;
-	state->uiState.debugWindow.windowHeld          = FALSE;
+	debugWindow->id                  = 98;
+	debugWindow->numChildUiItems     = 0;
+	debugWindow->rect.pos            = V2(800, 400);
+	debugWindow->rect.size           = V2(750, 400);
+	debugWindow->prevFrameWindowHeld = FALSE;
+	debugWindow->windowHeld          = FALSE;
+
+	UiItem *audioBtn =
+	    (debugWindow->childUiItems) + debugWindow->numChildUiItems++;
+	common_strncpy(audioBtn->label, "Toggle Music",
+	               common_strlen("Toggle Music"));
+	audioBtn->id        = userInterface_generateId(&state->uiState);
+	audioBtn->rect.size = V2(100, 50);
+	audioBtn->rect.pos = getPosRelativeToRect(debugWindow->rect, V2(10, -65.0f),
+	                                          rectbaseline_topLeft);
+	audioBtn->type = uitype_button;
+
+	UiItem *debugBtn =
+	    (debugWindow->childUiItems) + debugWindow->numChildUiItems++;
+	common_strncpy(debugBtn->label, "Toggle Debug",
+	               common_strlen("Toggle Debug"));
+	debugBtn->id        = userInterface_generateId(&state->uiState);
+	debugBtn->rect.size = V2(100, 50);
+	debugBtn->rect.pos  = getPosRelativeToRect(audioBtn->rect, V2(25, 0),
+	                                          rectbaseline_bottomRight);
+	debugBtn->type = uitype_button;
+
+	UiItem *scrollbar =
+	    (debugWindow->childUiItems) + debugWindow->numChildUiItems++;
+	scrollbar->id     = userInterface_generateId(&state->uiState);
+
+	scrollbar->rect.size = V2(16, debugWindow->rect.size.h);
+	scrollbar->rect.pos =
+	    getPosRelativeToRect(debugWindow->rect, V2(-scrollbar->rect.size.w, 0),
+	                         rectbaseline_bottomRight);
+	scrollbar->value    = 0;
+	scrollbar->maxValue = 160;
+	scrollbar->type = uitype_scrollbar;
+
+	UiItem *textField =
+	    (debugWindow->childUiItems) + debugWindow->numChildUiItems++;
+	textField->id = userInterface_generateId(&state->uiState);
+	textField->rect.size = V2(200, 20);
+	textField->rect.pos  = getPosRelativeToRect(
+	    audioBtn->rect, V2(0, -textField->rect.size.h - 10),
+	    rectbaseline_bottomLeft);
+
+	common_strncpy(textField->string, "Hello world",
+	               common_strlen("Hello world"));
+	textField->type = uitype_textField;
 
 	state->config.playWorldAudio   = FALSE;
 	state->config.showDebugDisplay = TRUE;
-
 
 	assetInit(state);
 	rendererInit(state, windowSize);
@@ -1039,70 +1136,6 @@ typedef struct BattleState
 
 GLOBAL_VAR BattleState battleState = {0};
 
-enum RectBaseline
-{
-	rectbaseline_top,
-	rectbaseline_topLeft,
-	rectbaseline_topRight,
-	rectbaseline_bottom,
-	rectbaseline_bottomRight,
-	rectbaseline_bottomLeft,
-	rectbaseline_left,
-	rectbaseline_right,
-	rectbaseline_center,
-	rectbaseline_count,
-
-};
-
-INTERNAL v2 getPosRelativeToRect(Rect rect, v2 offset,
-                                 enum RectBaseline baseline)
-{
-#ifdef DENGINE_DEBUG
-	ASSERT(baseline < rectbaseline_count);
-#endif
-	v2 result = {0};
-
-	v2 posToOffsetFrom = rect.pos;
-	switch (baseline)
-	{
-		case rectbaseline_top:
-			posToOffsetFrom.y += (rect.size.h);
-			posToOffsetFrom.x += (rect.size.w * 0.5f);
-		    break;
-		case rectbaseline_topLeft:
-			posToOffsetFrom.y += (rect.size.h);
-			break;
-		case rectbaseline_topRight:
-			posToOffsetFrom.y += (rect.size.h);
-			posToOffsetFrom.x += (rect.size.w);
-			break;
-		case rectbaseline_bottom:
-			posToOffsetFrom.x += (rect.size.w * 0.5f);
-			break;
-		case rectbaseline_bottomRight:
-			posToOffsetFrom.x += (rect.size.w);
-			break;
-		case rectbaseline_left:
-			posToOffsetFrom.y += (rect.size.h * 0.5f);
-			break;
-		case rectbaseline_right:
-			posToOffsetFrom.x += (rect.size.w);
-			posToOffsetFrom.y += (rect.size.h * 0.5f);
-			break;
-
-		case rectbaseline_bottomLeft:
-		    break;
-		default:
-#ifdef DENGINE_DEBUG
-		    DEBUG_LOG(
-		        "getPosRelativeToRect() warning: baseline enum not recognised");
-#endif
-			break;
-	}
-
-	result = v2_add(posToOffsetFrom, offset);
-	return result;
-}
 
 void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 {
@@ -1412,52 +1445,21 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 	/* Draw debug window */
 	WindowState *debugWindow = &state->uiState.debugWindow;
-	userInterface_window(&state->uiState, &state->arena, assetManager, renderer,
-	                     font, state->input, debugWindow);
+	i32 activeId =
+	    userInterface_window(&state->uiState, &state->arena, assetManager,
+	                         renderer, font, state->input, debugWindow);
 
-	// TODO(doyle): Bug in font rendering once button reaches 700-800+ pixels
-	Rect toggleAudioButtonRect = {0};
-	toggleAudioButtonRect.size = V2(100, 50);
-	toggleAudioButtonRect.pos  = getPosRelativeToRect(
-	    debugWindow->rect, V2(10, -65.0f), rectbaseline_topLeft);
-
-	b32 toggleAudioClicked = userInterface_button(
-	    &state->uiState, &state->arena, assetManager, renderer, font,
-	    state->input, 1, toggleAudioButtonRect, "Toggle Music");
-
-	if (toggleAudioClicked)
+	// TODO(doyle): Name lookup to user interface id
+	if (activeId == 1)
 	{
 		state->config.playWorldAudio =
 		    (state->config.playWorldAudio == TRUE) ? FALSE : TRUE;
 	}
-
-	Rect toggleDebugButtonRect = {0};
-	toggleDebugButtonRect.size = V2(100, 50);
-	toggleDebugButtonRect.pos  = getPosRelativeToRect(
-	    toggleAudioButtonRect, V2(25, 0), rectbaseline_bottomRight);
-	b32 toggleDebugClicked = userInterface_button(
-	    &state->uiState, &state->arena, assetManager, renderer, font,
-	    state->input, 2, toggleDebugButtonRect, "Toggle Debug Display");
-
-	if (toggleDebugClicked)
+	else if (activeId == 2)
 	{
 		state->config.showDebugDisplay =
 		    (state->config.showDebugDisplay == TRUE) ? FALSE : TRUE;
 	}
-
-	LOCAL_PERSIST i32 scrollValue = 30;
-	Rect scrollRectA              = {V2(0, 0), V2(16, 255)};
-	scrollRectA.pos = getPosRelativeToRect(debugWindow->rect, V2(-20, -260),
-	                                       rectbaseline_topRight);
-	userInterface_scrollBar(&state->uiState, assetManager, renderer,
-	                        state->input, 3, scrollRectA, &scrollValue, 160);
-
-	LOCAL_PERSIST char fieldString[80] = "Hello world";
-	v2 textFieldP = getPosRelativeToRect(toggleAudioButtonRect, V2(0, -20),
-	                                     rectbaseline_bottomLeft);
-	userInterface_textField(&state->uiState, &state->arena, assetManager,
-	                        renderer, font, state->input, 4, textFieldP,
-	                        fieldString);
 
 	// RESET IMGUI
 	if (!state->input.keys[keycode_mouseLeft].endedDown)
