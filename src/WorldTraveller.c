@@ -403,13 +403,15 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 	state->uiState.statWindow.prevFrameWindowHeld = FALSE;
 	state->uiState.statWindow.windowHeld          = FALSE;
 
+
 	WindowState *debugWindow = &state->uiState.debugWindow;
 	common_strncpy(debugWindow->title, "Debug Menu",
 	               common_strlen("Debug Menu"));
 	debugWindow->id                  = 98;
 	debugWindow->numChildUiItems     = 0;
-	debugWindow->rect.pos            = V2(800, 400);
-	debugWindow->rect.size           = V2(750, 400);
+	debugWindow->rect.size           = V2(400, 200);
+	debugWindow->rect.pos = V2(windowSize.w - debugWindow->rect.size.w - 10,
+	                           windowSize.h - debugWindow->rect.size.h - 10);
 	debugWindow->prevFrameWindowHeld = FALSE;
 	debugWindow->windowHeld          = FALSE;
 
