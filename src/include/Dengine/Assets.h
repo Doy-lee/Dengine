@@ -14,6 +14,7 @@ enum TexList
 {
 	texlist_empty,
 	texlist_hero,
+	texlist_claude,
 	texlist_terrain,
 	texlist_font,
 	texlist_count,
@@ -90,6 +91,7 @@ typedef struct Animation
 {
 	TexAtlas *atlas;
 	i32 *frameIndex;
+
 	i32 numFrames;
 	f32 frameDuration;
 } Animation;

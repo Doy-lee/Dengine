@@ -84,6 +84,38 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 #endif
 }
 
+typedef struct XmlNode
+{
+
+	char *name;
+
+	char **fieldName;
+	char **fieldValue;
+	i32 numFields;
+	
+	struct XmlNode **children;
+} XmlNode;
+
+enum TokenType
+{
+	tokentype_unknown,
+	tokentype_openArrow,
+	tokentype_closeArrow,
+	tokentype_string,
+	tokentype_equals,
+	tokentype_quotes,
+	tokentype_backslash,
+	tokentype_count,
+};
+
+typedef struct Token
+{
+	// TODO(doyle): Dynamic size string in tokens maybe.
+	enum TokenType type;
+	char string[128];
+	i32 len;
+} Token;
+
 INTERNAL void assetInit(GameState *state)
 {
 	AssetManager *assetManager = &state->assetManager;
@@ -93,6 +125,119 @@ INTERNAL void assetInit(GameState *state)
 	u32 bitmap       = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
 	Texture emptyTex = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
 	assetManager->textures[texlist_empty] = emptyTex;
+
+	/*
+	 **********************
+	 * Tokenise XML Buffer
+	 **********************
+	 */
+	PlatformFileRead xmlFileRead = {0};
+
+	i32 result = platform_readFileToBuffer(
+	    arena, "data/textures/WorldTraveller/ClaudeSpriteSheet.xml",
+	    &xmlFileRead);
+
+	Token *tokens = PLATFORM_MEM_ALLOC(arena, 8192, Token);
+	i32 tokenIndex     = 0;
+	if (result)
+	{
+		DEBUG_LOG("Failed to read sprite sheet xml");
+	}
+	else
+	{
+		for (i32 i = 0; i < xmlFileRead.size; i++)
+		{
+			char c = (CAST(char *)xmlFileRead.buffer)[i];
+			switch (c)
+			{
+			case '<':
+			case '>':
+			case '=':
+			case '/':
+			{
+
+				enum TokenType type = tokentype_unknown;
+				if (c == '<')
+				{
+					type = tokentype_openArrow;
+				}
+				else if (c == '>')
+				{
+					type = tokentype_closeArrow;
+				}
+				else if (c == '=')
+				{
+					type = tokentype_equals;
+				}
+				else
+				{
+					type = tokentype_backslash;
+				}
+
+				tokens[tokenIndex].type = type;
+				tokens[tokenIndex].len = 1;
+				tokenIndex++;
+				break;
+			}
+
+			case '"':
+			{
+				tokens[tokenIndex].type = tokentype_string;
+				for (i32 j = i + 1; j < xmlFileRead.size; j++)
+				{
+					char c = (CAST(char *) xmlFileRead.buffer)[j];
+
+					if (c == '"')
+					{
+						break;
+					}
+					else
+					{
+						tokens[tokenIndex].string[tokens[tokenIndex].len++] = c;
+#ifdef DENGINE_DEBUG
+						ASSERT(tokens[tokenIndex].len <
+						       ARRAY_COUNT(tokens[tokenIndex].string));
+#endif
+					}
+				}
+
+				// NOTE(doyle): +1 to skip the closing quotes
+				i += (tokens[tokenIndex].len + 1);
+				tokenIndex++;
+				break;
+			}
+
+			default:
+			{
+				if ((c >= 'a' && c <= 'z') || c >= 'A' && c <= 'Z')
+				{
+					tokens[tokenIndex].type = tokentype_string;
+					for (i32 j = i; j < xmlFileRead.size; j++)
+					{
+						char c = (CAST(char *) xmlFileRead.buffer)[j];
+
+						if (c == ' ' || c == '=')
+						{
+							break;
+						}
+						else
+						{
+							tokens[tokenIndex]
+							    .string[tokens[tokenIndex].len++] = c;
+#ifdef DENGINE_DEBUG
+							ASSERT(tokens[tokenIndex].len <
+							       ARRAY_COUNT(tokens[tokenIndex].string));
+#endif
+						}
+					}
+					i += tokens[tokenIndex].len;
+					tokenIndex++;
+				}
+				break;
+			}
+			}
+		}
+	}
 
 	/* Load textures */
 	asset_loadTextureImage(assetManager,
@@ -127,7 +272,7 @@ INTERNAL void assetInit(GameState *state)
 	                      "data/shaders/sprite.frag.glsl",
 	                      shaderlist_sprite);
 
-	i32 result =
+	result =
 	    asset_loadTTFont(assetManager, arena, "C:/Windows/Fonts/Arialbd.ttf");
 
 #ifdef DENGINE_DEBUG
@@ -1582,6 +1727,12 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		state->input.keys[i].oldHalfTransitionCount =
 		    state->input.keys[i].newHalfTransitionCount;
 	}
+
+	/*
+	 ********************
+	 * DEBUG CODE
+	 ********************
+	 */
 #ifdef DENGINE_DEBUG
 	for (i32 i = 0; i < world->freeEntityIndex-1; i++)
 	{
