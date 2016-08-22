@@ -374,22 +374,56 @@ i32 userInterface_window(UiState *const uiState, MemoryArena *const arena,
 	renderer_staticString(renderer, arena, font, window->title, menuTitleP,
 	                      V2(0, 0), 0, V4(0, 0, 0, 1));
 
+	/* Draw window elements */
+	i32 firstActiveChildId = -1;
+	for (i32 i = 0; i < window->numChildUiItems; i++)
+	{
+		UiItem *childUi = &window->childUiItems[i];
+
+		// TODO(doyle): Redundant? If we can only have 1 active child at a time
+		// What about overlapping elements?
+		i32 getChildActiveState = -1;
+		switch(childUi->type)
+		{
+		case uitype_button:
+			// TODO(doyle): Bug in font rendering once button reaches 700-800+
+			// pixels
+			getChildActiveState = userInterface_button(
+			    uiState, arena, assetManager, renderer, font, input,
+			    childUi->id, childUi->rect, childUi->label);
+			break;
+
+		case uitype_scrollbar:
+			getChildActiveState = userInterface_scrollbar(
+			    uiState, assetManager, renderer, input, childUi->id,
+			    childUi->rect, &childUi->value, childUi->maxValue);
+			break;
+
+		case uitype_textField:
+			getChildActiveState = userInterface_textField(
+			    uiState, arena, assetManager, renderer, font, input,
+			    childUi->id, childUi->rect, childUi->string);
+			break;
+
+		default:
+			DEBUG_LOG(
+			    "userInterface_window() warning: Enum uitype unrecognised");
+			break;
+		}
+
+		// NOTE(doyle): Capture only the first active id, but keep loop going to
+		// render the rest of the window ui
+		if (firstActiveChildId == -1 && getChildActiveState > 0)
+			firstActiveChildId = getChildActiveState;
+	}
+
+	if (firstActiveChildId != -1)
+		return firstActiveChildId;
+
 	// NOTE(doyle): activeItem captures mouse click within the UI bounds, but if
 	// the user drags the mouse outside the bounds quicker than the game updates
 	// then we use a second flag which only "unclicks" when the mouse is let go
 	if (uiState->activeItem == window->id) window->windowHeld = TRUE;
-
-#if 0
-	for (i32 i = 0; i < window->numChildItems; i++)
-	{
-		if (uiState->activeItem == window->childUiId[i])
-		{
-			window->windowHeld          = FALSE;
-			window->prevFrameWindowHeld = FALSE;
-			break;
-		}
-	}
-#endif
 
 	if (window->windowHeld)
 	{
@@ -426,52 +460,6 @@ i32 userInterface_window(UiState *const uiState, MemoryArena *const arena,
 		window->prevMouseP = input.mouseP;
 	}
 
-	/* Draw window elements */
-	i32 firstActiveChildId = -1;
-	for (i32 i = 0; i < window->numChildUiItems; i++)
-	{
-		UiItem *childUi = &window->childUiItems[i];
-
-		// TODO(doyle): Redundant? If we can only have 1 active child at a time
-		// What about overlapping elements?
-		i32 getChildActiveState = -1;
-		switch(childUi->type)
-		{
-		case uitype_button:
-			// TODO(doyle): Bug in font rendering once button reaches 700-800+
-			// pixels
-			getChildActiveState = userInterface_button(
-			    uiState, arena, assetManager, renderer, font, input,
-			    childUi->id, childUi->rect, childUi->label);
-			break;
-
-		case uitype_scrollbar:
-			// TODO(doyle): window steals scrollbar focus
-			getChildActiveState = userInterface_scrollbar(
-			    uiState, assetManager, renderer, input, childUi->id,
-			    childUi->rect, &childUi->value, childUi->maxValue);
-			break;
-
-		case uitype_textField:
-			getChildActiveState = userInterface_textField(
-			    uiState, arena, assetManager, renderer, font, input,
-			    childUi->id, childUi->rect, childUi->string);
-			break;
-
-		default:
-			DEBUG_LOG(
-			    "userInterface_window() warning: Enum uitype unrecognised");
-			break;
-		}
-
-		// NOTE(doyle): Capture only the first active id, but keep loop going to
-		// render the rest of the window ui
-		if (firstActiveChildId == -1 && getChildActiveState > 0)
-			firstActiveChildId = getChildActiveState;
-	}
-
-	if (firstActiveChildId != -1)
-		return firstActiveChildId;
 
 	if (!input.keys[keycode_mouseLeft].endedDown &&
 	    uiState->hotItem == window->id &&
