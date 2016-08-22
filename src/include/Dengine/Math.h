@@ -43,6 +43,7 @@ typedef union v4
 	struct { f32 x, y, z, w; };
 	struct { f32 r, g, b, a; };
 	f32 e[4];
+	v2 vec2[2];
 } v4;
 
 typedef struct Rect

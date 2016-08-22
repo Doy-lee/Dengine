@@ -291,6 +291,7 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	hero->audioRenderer = PLATFORM_MEM_ALLOC(arena, 1, AudioRenderer);
 	hero->audioRenderer->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
 	world->heroId       = hero->id;
+	world->cameraFollowingId = hero->id;
 
 	/* Populate hero animation references */
 	entity_addAnim(assetManager, hero, animlist_hero_idle);
@@ -535,229 +536,6 @@ INTERNAL b32 getKeyStatus(KeyState *key, enum ReadKeyType readType,
 	}
 
 	return FALSE;
-}
-
-INTERNAL void parseInput(GameState *state, const f32 dt)
-{
-	/*
-	   Equations of Motion
-	   f(t)  = position     m
-	   f'(t) = velocity     m/s
-	   f"(t) = acceleration m/s^2
-
-	   The user supplies an acceleration, a, and by integrating
-	   f"(t) = a,                   where a is a constant, acceleration
-	   f'(t) = a*t + v,             where v is a constant, old velocity
-	   f (t) = (a/2)*t^2 + v*t + p, where p is a constant, old position
-	 */
-
-	World *const world = &state->world[state->currWorldIndex];
-	Entity *hero = &world->entities[entity_getIndex(world, world->heroId)];
-	v2 ddPos     = V2(0, 0);
-
-	KeyState *keys = state->input.keys;
-	for (enum KeyCode i = 0; i < keycode_count; i++)
-	{
-		KeyState *currKey = &keys[i];
-		if (currKey->newHalfTransitionCount > currKey->oldHalfTransitionCount)
-		{
-			i32 numTransitions = currKey->newHalfTransitionCount -
-			                     currKey->oldHalfTransitionCount;
-
-			if (!IS_EVEN(numTransitions))
-			{
-				currKey->endedDown = ~currKey->endedDown;
-			}
-
-		}
-
-		// Parse ui input
-		// TODO(doyle): Multi press within frame overrides UI input parsing
-		if ((i >= keycode_A && i <= keycode_Z) ||
-		    (i >= keycode_a && i <= keycode_z))
-		{
-
-			if (getKeyStatus(currKey, readkeytype_repeat, 0.15f, dt))
-			{
-				state->uiState.keyChar = i;
-			}
-		}
-	}
-
-	if (hero->stats->busyDuration <= 0)
-	{
-		if (getKeyStatus(&keys[keycode_right], readkeytype_repeat,
-		                 KEY_DELAY_NONE, dt))
-		{
-			ddPos.x         = 1.0f;
-			hero->direction = direction_east;
-		}
-
-		if (getKeyStatus(&keys[keycode_left], readkeytype_repeat,
-		                 KEY_DELAY_NONE, dt))
-		{
-			ddPos.x         = -1.0f;
-			hero->direction = direction_west;
-		}
-
-		if (getKeyStatus(&keys[keycode_up], readkeytype_repeat, KEY_DELAY_NONE,
-		                 dt))
-		{
-			ddPos.y = 1.0f;
-		}
-
-		if (getKeyStatus(&keys[keycode_down], readkeytype_repeat,
-		                 KEY_DELAY_NONE, dt))
-		{
-			ddPos.y = -1.0f;
-		}
-
-		if (ddPos.x != 0.0f && ddPos.y != 0.0f)
-		{
-			// NOTE(doyle): Cheese it and pre-compute the vector for diagonal
-			// using
-			// pythagoras theorem on a unit triangle
-			// 1^2 + 1^2 = c^2
-			ddPos = v2_scale(ddPos, 0.70710678118f);
-		}
-
-		if (getKeyStatus(&keys[keycode_enter], readkeytype_oneShot,
-		                 KEY_DELAY_NONE, dt))
-		{
-			state->uiState.keyEntered = keycode_enter;
-		}
-
-		if (getKeyStatus(&keys[keycode_tab], readkeytype_delayedRepeat, 0.25f,
-		                 dt))
-		{
-			state->uiState.keyEntered = keycode_tab;
-		}
-
-		if (getKeyStatus(&keys[keycode_space], readkeytype_delayedRepeat, 0.25f,
-		                 dt))
-		{
-			state->uiState.keyChar = keycode_space;
-		}
-
-		if (getKeyStatus(&keys[keycode_i], readkeytype_delayedRepeat, 0.25f,
-		                 dt))
-		{
-			state->uiState.keyChar = keycode_i;
-		}
-
-		if (getKeyStatus(&keys[keycode_backspace], readkeytype_delayedRepeat,
-		                 0.1f, dt))
-		{
-			state->uiState.keyEntered = keycode_backspace;
-		}
-
-		if (getKeyStatus(&keys[keycode_left_square_bracket],
-		                 readkeytype_delayedRepeat, 0.25f, dt))
-		{
-
-			Renderer *renderer = &state->renderer;
-			f32 yPos = CAST(f32)(rand() % CAST(i32)renderer->size.h);
-			f32 xModifier =  5.0f - CAST(f32)(rand() % 3);
-
-			v2 pos = V2(renderer->size.w - (renderer->size.w / xModifier), yPos);
-			entity_addGenericMob(&state->arena, &state->assetManager, world,
-			                     pos);
-		}
-	}
-
-	// NOTE(doyle): Clipping threshold for snapping velocity to 0
-	f32 epsilon    = 0.5f;
-	v2 epsilonDpos = v2_sub(V2(epsilon, epsilon),
-	                        V2(ABS(hero->dPos.x), ABS(hero->dPos.y)));
-
-	if (epsilonDpos.x >= 0.0f && epsilonDpos.y >= 0.0f)
-	{
-		hero->dPos = V2(0.0f, 0.0f);
-		if (hero->currAnimId == animlist_hero_walk)
-		{
-			entity_setActiveAnim(hero, animlist_hero_idle);
-		}
-	}
-	else if (hero->currAnimId == animlist_hero_idle)
-	{
-		entity_setActiveAnim(hero, animlist_hero_walk);
-	}
-
-	f32 heroSpeed = 6.2f * METERS_TO_PIXEL;
-	if (getKeyStatus(&state->input.keys[keycode_leftShift], readkeytype_repeat,
-	                 KEY_DELAY_NONE, dt))
-	{
-		// TODO: Context sensitive command separation
-		state->uiState.keyMod = keycode_leftShift;
-		heroSpeed = CAST(f32)(22.0f * 10.0f * METERS_TO_PIXEL);
-	}
-	else
-	{
-		state->uiState.keyMod = keycode_null;
-	}
-
-	ddPos = v2_scale(ddPos, heroSpeed);
-	// TODO(doyle): Counteracting force on player's acceleration is arbitrary
-    ddPos = v2_sub(ddPos, v2_scale(hero->dPos, 5.5f));
-
-	/*
-	   NOTE(doyle): Calculate new position from acceleration with old velocity
-	   new Position     = (a/2) * (t^2) + (v*t) + p,
-	   acceleration     = (a/2) * (t^2)
-	   old velocity     =                 (v*t)
-	 */
-	v2 ddPosNew = v2_scale(v2_scale(ddPos, 0.5f), SQUARED(dt));
-	v2 dPos     = v2_scale(hero->dPos, dt);
-	v2 newHeroP = v2_add(v2_add(ddPosNew, dPos), hero->pos);
-
-	// TODO(doyle): Only check collision for entities within small bounding box
-	// of the hero
-	b32 heroCollided = FALSE;
-	if (hero->collides == TRUE)
-	{
-		for (i32 i = 0; i < world->maxEntities; i++)
-		{
-			Entity entity = world->entities[i];
-			if (entity.state == entitystate_dead) continue;
-			if (entity.id == world->heroId) continue;
-
-			if (entity.collides)
-			{
-				v4 heroRect =
-				    V4(newHeroP.x, newHeroP.y, (newHeroP.x + hero->hitboxSize.x),
-				       (newHeroP.y + hero->hitboxSize.y));
-				v4 entityRect = getEntityScreenRect(entity);
-
-				if (((heroRect.z >= entityRect.x && heroRect.z <= entityRect.z) ||
-				     (heroRect.x >= entityRect.x && heroRect.x <= entityRect.z)) &&
-				    ((heroRect.w <= entityRect.y && heroRect.w >= entityRect.w) ||
-				     (heroRect.y <= entityRect.y && heroRect.y >= entityRect.w)))
-				{
-					heroCollided = TRUE;
-					break;
-				}
-			}
-		}
-	}
-
-	if (heroCollided)
-	{
-		hero->dPos = V2(0.0f, 0.0f);
-	}
-	else
-	{
-		// f'(t) = curr velocity = a*t + v, where v is old velocity
-		hero->dPos = v2_add(hero->dPos, v2_scale(ddPos, dt));
-		hero->pos  = newHeroP;
-
-		// NOTE(doyle): Set the camera such that the hero is centered
-		v2 offsetFromHeroToCameraOrigin =
-		    V2((hero->pos.x - (0.5f * state->renderer.size.w)), (0.0f));
-
-		// NOTE(doyle): Account for the hero's origin being the bottom left
-		offsetFromHeroToCameraOrigin.x += (hero->hitboxSize.x * 0.5f);
-		world->cameraPos = offsetFromHeroToCameraOrigin;
-	}
 }
 
 INTERNAL Rect createWorldBoundedCamera(World *world, v2 size)
@@ -1097,7 +875,7 @@ INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
 	}
 }
 
-INTERNAL void sortWorldEntityList(World *world, i32 numDeadEntities)
+INTERNAL void sortWorldEntityList(World *world)
 {
 	b32 listHasChanged       = TRUE;
 	i32 numUnsortedEntities  = world->freeEntityIndex;
@@ -1120,8 +898,6 @@ INTERNAL void sortWorldEntityList(World *world, i32 numDeadEntities)
 		}
 		numUnsortedEntities--;
 	}
-
-	world->freeEntityIndex -= numDeadEntities;
 }
 
 typedef struct DamageDisplay
@@ -1138,12 +914,10 @@ typedef struct BattleState
 
 GLOBAL_VAR BattleState battleState = {0};
 
-
 void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 {
+	// TODO(doyle): use proper dt limiting techniques
 	if (dt >= 1.0f) dt = 1.0f;
-	/* Update */
-	parseInput(state, dt);
 	GL_CHECK_ERROR();
 
 	AssetManager *assetManager = &state->assetManager;
@@ -1153,6 +927,89 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	MemoryArena *arena         = &state->arena;
 
 	/*
+	 **********************
+	 * Parse Input Keys
+	 **********************
+	 */
+	{
+		/*
+		 **********************
+		 * Parse Alphabet Keys
+		 **********************
+		 */
+		KeyState *keys = state->input.keys;
+		for (enum KeyCode code = 0; code < keycode_count; code++)
+		{
+			b32 parseKey = FALSE;
+
+			KeyState *key = &keys[code];
+			if (key->newHalfTransitionCount > key->oldHalfTransitionCount)
+			{
+				i32 numTransitions =
+				    key->newHalfTransitionCount - key->oldHalfTransitionCount;
+
+				if (!IS_EVEN(numTransitions))
+					key->endedDown = (key->endedDown) ? FALSE : TRUE;
+			}
+
+			if (code >= keycode_a && code <= keycode_z) parseKey = TRUE;
+			if (code >= keycode_A && code <= keycode_Z) parseKey = TRUE;
+			if (code >= keycode_0 && code <= keycode_9) parseKey = TRUE;
+
+			if (!parseKey) continue;
+
+			if (getKeyStatus(key, readkeytype_repeat, 0.15f, dt))
+			{
+				// TODO(doyle): Multi press within frame overrides ui parsing
+				state->uiState.keyChar = code;
+			}
+		}
+
+		/*
+		 **************************
+		 * Parse Game Control Keys
+		 **************************
+		 */
+		if (getKeyStatus(&keys[keycode_enter], readkeytype_oneShot,
+		                 KEY_DELAY_NONE, dt))
+		{
+			state->uiState.keyEntered = keycode_enter;
+		}
+
+		if (getKeyStatus(&keys[keycode_tab], readkeytype_delayedRepeat, 0.25f,
+		                 dt))
+		{
+			state->uiState.keyEntered = keycode_tab;
+		}
+
+		if (getKeyStatus(&keys[keycode_space], readkeytype_delayedRepeat, 0.25f,
+		                 dt))
+		{
+			state->uiState.keyChar = keycode_space;
+		}
+
+		if (getKeyStatus(&keys[keycode_backspace], readkeytype_delayedRepeat,
+		                 0.1f, dt))
+		{
+			state->uiState.keyEntered = keycode_backspace;
+		}
+
+		if (getKeyStatus(&keys[keycode_left_square_bracket],
+		                 readkeytype_delayedRepeat, 0.25f, dt))
+		{
+
+			Renderer *renderer = &state->renderer;
+			f32 yPos           = CAST(f32)(rand() % CAST(i32) renderer->size.h);
+			f32 xModifier      = 5.0f - CAST(f32)(rand() % 3);
+
+			v2 pos =
+			    V2(renderer->size.w - (renderer->size.w / xModifier), yPos);
+			entity_addGenericMob(&state->arena, &state->assetManager, world,
+			                     pos);
+		}
+	}
+
+	/*
 	 ******************************
 	 * Update entities and render
 	 ******************************
@@ -1160,10 +1017,24 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	EventQueue eventQueue = {0};
 	Rect camera           = createWorldBoundedCamera(world, renderer->size);
 	AudioManager *audioManager = &state->audioManager;
+
 	ASSERT(world->freeEntityIndex < world->maxEntities);
 	for (i32 i = 0; i < world->freeEntityIndex; i++)
 	{
 		Entity *const entity = &world->entities[i];
+
+		/* Reposition camera if entity is targeted id */
+		if (world->cameraFollowingId == entity->id)
+		{
+			// NOTE(doyle): Set the camera such that the hero is centered
+			v2 offsetFromEntityToCameraOrigin =
+			    V2((entity->pos.x - (0.5f * state->renderer.size.w)), (0.0f));
+
+			// NOTE(doyle): Account for the hero's origin being the bottom left
+			offsetFromEntityToCameraOrigin.x += (entity->hitboxSize.x * 0.5f);
+			world->cameraPos = offsetFromEntityToCameraOrigin;
+		}
+
 		if (entity->state == entitystate_dead) continue;
 
 		if (entity->type == entitytype_soundscape)
@@ -1229,7 +1100,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 		/*
 		 *****************************************************
-		 * Set mob to battle mode if within distance from hero
+		 * Calculate Mob In Battle Range
 		 *****************************************************
 		 */
 		if (entity->type == entitytype_mob)
@@ -1263,8 +1134,177 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		}
 
 		/*
+		 **************************
+		 * Calculate Hero Movement
+		 **************************
+		 */
+		if (entity->type == entitytype_hero)
+		{
+			/*
+			   Equations of Motion
+			   f(t)  = position     m
+			   f'(t) = velocity     m/s
+			   f"(t) = acceleration m/s^2
+
+			   The user supplies an acceleration, a, and by integrating
+			   f"(t) = a,                   where a is a constant, acceleration
+			   f'(t) = a*t + v,             where v is a constant, old velocity
+			   f (t) = (a/2)*t^2 + v*t + p, where p is a constant, old position
+			 */
+
+			Entity *hero   = entity;
+			KeyState *keys = state->input.keys;
+
+			v2 ddPos = V2(0, 0);
+			if (hero->stats->busyDuration <= 0)
+			{
+				if (getKeyStatus(&keys[keycode_right], readkeytype_repeat,
+				                 KEY_DELAY_NONE, dt))
+				{
+					ddPos.x         = 1.0f;
+					hero->direction = direction_east;
+				}
+
+				if (getKeyStatus(&keys[keycode_left], readkeytype_repeat,
+				                 KEY_DELAY_NONE, dt))
+				{
+					ddPos.x         = -1.0f;
+					hero->direction = direction_west;
+				}
+
+				if (getKeyStatus(&keys[keycode_up], readkeytype_repeat,
+				                 KEY_DELAY_NONE, dt))
+				{
+					ddPos.y = 1.0f;
+				}
+
+				if (getKeyStatus(&keys[keycode_down], readkeytype_repeat,
+				                 KEY_DELAY_NONE, dt))
+				{
+					ddPos.y = -1.0f;
+				}
+
+				if (ddPos.x != 0.0f && ddPos.y != 0.0f)
+				{
+					// NOTE(doyle): Cheese it and pre-compute the vector for
+					// diagonal
+					// using
+					// pythagoras theorem on a unit triangle
+					// 1^2 + 1^2 = c^2
+					ddPos = v2_scale(ddPos, 0.70710678118f);
+				}
+			}
+
+			/*
+			 **************************
+			 * Calculate Hero Speed
+			 **************************
+			 */
+			// NOTE(doyle): Clipping threshold for snapping velocity to 0
+			f32 epsilon    = 0.5f;
+			v2 epsilonDpos = v2_sub(V2(epsilon, epsilon),
+			                        V2(ABS(hero->dPos.x), ABS(hero->dPos.y)));
+
+			if (epsilonDpos.x >= 0.0f && epsilonDpos.y >= 0.0f)
+			{
+				hero->dPos = V2(0.0f, 0.0f);
+				if (hero->currAnimId == animlist_hero_walk)
+				{
+					entity_setActiveAnim(hero, animlist_hero_idle);
+				}
+			}
+			else if (hero->currAnimId == animlist_hero_idle)
+			{
+				entity_setActiveAnim(hero, animlist_hero_walk);
+			}
+
+			f32 heroSpeed = 6.2f * METERS_TO_PIXEL;
+			if (getKeyStatus(&state->input.keys[keycode_leftShift],
+			                 readkeytype_repeat, KEY_DELAY_NONE, dt))
+			{
+				// TODO: Context sensitive command separation
+				state->uiState.keyMod = keycode_leftShift;
+				heroSpeed = CAST(f32)(22.0f * 10.0f * METERS_TO_PIXEL);
+			}
+			else
+			{
+				state->uiState.keyMod = keycode_null;
+			}
+
+			ddPos = v2_scale(ddPos, heroSpeed);
+			// TODO(doyle): Counteracting force on player's acceleration is
+			// arbitrary
+			ddPos = v2_sub(ddPos, v2_scale(hero->dPos, 5.5f));
+
+			/*
+			   NOTE(doyle): Calculate new position from acceleration with old
+			   velocity
+			   new Position     = (a/2) * (t^2) + (v*t) + p,
+			   acceleration     = (a/2) * (t^2)
+			   old velocity     =                 (v*t)
+			 */
+			v2 ddPosNew = v2_scale(v2_scale(ddPos, 0.5f), SQUARED(dt));
+			v2 dPos     = v2_scale(hero->dPos, dt);
+			v2 newHeroP = v2_add(v2_add(ddPosNew, dPos), hero->pos);
+
+			/*
+			 **************************
+			 * Collision Detection
+			 **************************
+			 */
+			// TODO(doyle): Only check collision for entities within small
+			// bounding box of the hero
+			b32 heroCollided = FALSE;
+			if (hero->collides == TRUE)
+			{
+				for (i32 i = 0; i < world->maxEntities; i++)
+				{
+					Entity collider = world->entities[i];
+					if (collider.state == entitystate_dead) continue;
+					if (collider.id == world->heroId) continue;
+
+					if (collider.collides)
+					{
+						Rect heroRect = {newHeroP, hero->hitboxSize};
+
+						v2 heroTopLeftP = getPosRelativeToRect(
+						    heroRect, V2(0, 0), rectbaseline_topLeft);
+						v2 heroTopRightP = getPosRelativeToRect(
+						    heroRect, V2(0, 0), rectbaseline_topRight);
+						v2 heroBottomLeftP = getPosRelativeToRect(
+						    heroRect, V2(0, 0), rectbaseline_bottomLeft);
+						v2 heroBottomRightP = getPosRelativeToRect(
+						    heroRect, V2(0, 0), rectbaseline_bottomRight);
+
+						Rect colliderRect = {collider.pos, collider.hitboxSize};
+
+						if (math_pointInRect(colliderRect, heroTopLeftP) ||
+						    math_pointInRect(colliderRect, heroTopRightP) ||
+						    math_pointInRect(colliderRect, heroBottomLeftP) ||
+						    math_pointInRect(colliderRect, heroBottomRightP))
+						{
+							heroCollided = TRUE;
+							break;
+						}
+					}
+				}
+			}
+
+			if (heroCollided)
+			{
+				hero->dPos = V2(0.0f, 0.0f);
+			}
+			else
+			{
+				// f'(t) = curr velocity = a*t + v, where v is old velocity
+				hero->dPos = v2_add(hero->dPos, v2_scale(ddPos, dt));
+				hero->pos  = newHeroP;
+			}
+		}
+
+		/*
 		 **************************************************
-		 * Conduct battle for humanoid entities if in range
+		 * Conduct Battle For Mobs In Range
 		 **************************************************
 		 */
 		if (entity->type == entitytype_mob || entity->type == entitytype_hero)
@@ -1298,17 +1338,17 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			}
 		}
 
+		/*
+		 ****************
+		 * Update Entity
+		 ****************
+		 */
 		if (entity->audioRenderer)
 		{
 			audio_updateAndPlay(&state->arena, &state->audioManager,
 			                    entity->audioRenderer);
 		}
 
-		/*
-		 **************************************************
-		 * Update animations and render entity
-		 **************************************************
-		 */
 		if (entity->tex)
 		{
 			entity_updateAnim(entity, dt);
@@ -1318,6 +1358,11 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		}
 	}
 
+	/*
+	 *****************************************
+	 * Process Events From Entity Update Loop
+	 *****************************************
+	 */
 	i32 numDeadEntities = 0;
 	for (i32 i = 0; i < eventQueue.numEvents; i++)
 	{
@@ -1383,25 +1428,12 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		}
 	}
 
-	/* Render all damage strings */
-	for (i32 i = 0; i < ARRAY_COUNT(battleState.damageDisplay); i++)
-	{
-		if (battleState.damageDisplay[i].lifetime > 0.0f)
-		{
-			battleState.damageDisplay[i].lifetime -= dt;
 
-			char *damageString = battleState.damageDisplay[i].damageStr;
-			v2 damagePos       = battleState.damageDisplay[i].pos;
-			f32 lifetime       = battleState.damageDisplay[i].lifetime;
-
-			// TODO(doyle): Incorporate UI into entity list or it's own list
-			// with a rendering lifetime value
-			renderer_string(renderer, &state->arena, camera, font,
-			                damageString, damagePos, V2(0, 0), 0,
-			                V4(1, 1, 1, lifetime));
-		}
-	}
-
+	/*
+	 ****************************
+	 * Update World From Results
+	 ****************************
+	 */
 	// TODO(doyle): Dead hero not accounted for here
 	Entity *hero = getHeroEntity(world);
 	if (world->numEntitiesInBattle > 0)
@@ -1426,6 +1458,33 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		hero->stats->entityIdToAttack = -1;
 		hero->stats->actionTimer      = hero->stats->actionRate;
 		hero->stats->busyDuration     = 0;
+	}
+
+	sortWorldEntityList(world);
+	world->freeEntityIndex -= numDeadEntities;
+
+	/*
+	 ********************
+	 * UI Rendering Code
+	 ********************
+	 */
+	/* Render all damage strings */
+	for (i32 i = 0; i < ARRAY_COUNT(battleState.damageDisplay); i++)
+	{
+		if (battleState.damageDisplay[i].lifetime > 0.0f)
+		{
+			battleState.damageDisplay[i].lifetime -= dt;
+
+			char *damageString = battleState.damageDisplay[i].damageStr;
+			v2 damagePos       = battleState.damageDisplay[i].pos;
+			f32 lifetime       = battleState.damageDisplay[i].lifetime;
+
+			// TODO(doyle): Incorporate UI into entity list or it's own list
+			// with a rendering lifetime value
+			renderer_string(renderer, &state->arena, camera, font,
+			                damageString, damagePos, V2(0, 0), 0,
+			                V4(1, 1, 1, lifetime));
+		}
 	}
 
 	// INIT IMGUI
@@ -1523,9 +1582,6 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		state->input.keys[i].oldHalfTransitionCount =
 		    state->input.keys[i].newHalfTransitionCount;
 	}
-
-	sortWorldEntityList(world, numDeadEntities);
-
 #ifdef DENGINE_DEBUG
 	for (i32 i = 0; i < world->freeEntityIndex-1; i++)
 	{
