@@ -84,37 +84,76 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 #endif
 }
 
+typedef struct XmlAttribute
+{
+	b32 init;
+	char *name;
+	char *value;
+
+	struct XmlAttribute *next;
+} XmlAttribute;
+
 typedef struct XmlNode
 {
-
 	char *name;
+	XmlAttribute attribute;
 
-	char **fieldName;
-	char **fieldValue;
-	i32 numFields;
-	
-	struct XmlNode **children;
+	// NOTE(doyle): Track if node has more children
+	b32 isClosed;
+
+	// NOTE(doyle): Direct child/parent
+	struct XmlNode *parent;
+	struct XmlNode *child;
+
+	// NOTE(doyle): Else all other nodes
+	struct XmlNode *next;
 } XmlNode;
 
-enum TokenType
+enum XmlTokenType
 {
-	tokentype_unknown,
-	tokentype_openArrow,
-	tokentype_closeArrow,
-	tokentype_string,
-	tokentype_equals,
-	tokentype_quotes,
-	tokentype_backslash,
-	tokentype_count,
+	xmltokentype_unknown,
+	xmltokentype_openArrow,
+	xmltokentype_closeArrow,
+	xmltokentype_name,
+	xmltokentype_value,
+	xmltokentype_equals,
+	xmltokentype_quotes,
+	xmltokentype_backslash,
+	xmltokentype_count,
 };
 
-typedef struct Token
+typedef struct XmlToken
 {
 	// TODO(doyle): Dynamic size string in tokens maybe.
-	enum TokenType type;
+	enum XmlTokenType type;
 	char string[128];
 	i32 len;
-} Token;
+} XmlToken;
+
+INTERNAL void debug_recursivePrintXmlTree(XmlNode *root)
+{
+	if (!root)
+	{
+		return;
+	}
+	else
+	{
+		printf("%s ", root->name);
+
+		XmlAttribute *attribute = &root->attribute;
+		printf("| %s = %s", attribute->name, attribute->value);
+
+		while (attribute->next)
+		{
+			attribute = attribute->next;
+			printf("| %s = %04s", attribute->name, attribute->value);
+		}
+		printf("\n");
+
+		debug_recursivePrintXmlTree(root->child);
+		debug_recursivePrintXmlTree(root->next);
+	}
+}
 
 INTERNAL void assetInit(GameState *state)
 {
@@ -137,7 +176,7 @@ INTERNAL void assetInit(GameState *state)
 	    arena, "data/textures/WorldTraveller/ClaudeSpriteSheet.xml",
 	    &xmlFileRead);
 
-	Token *tokens = PLATFORM_MEM_ALLOC(arena, 8192, Token);
+	XmlToken *xmlTokens = PLATFORM_MEM_ALLOC(arena, 8192, XmlToken);
 	i32 tokenIndex     = 0;
 	if (result)
 	{
@@ -156,33 +195,33 @@ INTERNAL void assetInit(GameState *state)
 			case '/':
 			{
 
-				enum TokenType type = tokentype_unknown;
+				enum XmlTokenType type = xmltokentype_unknown;
 				if (c == '<')
 				{
-					type = tokentype_openArrow;
+					type = xmltokentype_openArrow;
 				}
 				else if (c == '>')
 				{
-					type = tokentype_closeArrow;
+					type = xmltokentype_closeArrow;
 				}
 				else if (c == '=')
 				{
-					type = tokentype_equals;
+					type = xmltokentype_equals;
 				}
 				else
 				{
-					type = tokentype_backslash;
+					type = xmltokentype_backslash;
 				}
 
-				tokens[tokenIndex].type = type;
-				tokens[tokenIndex].len = 1;
+				xmlTokens[tokenIndex].type = type;
+				xmlTokens[tokenIndex].len = 1;
 				tokenIndex++;
 				break;
 			}
 
 			case '"':
 			{
-				tokens[tokenIndex].type = tokentype_string;
+				xmlTokens[tokenIndex].type = xmltokentype_value;
 				for (i32 j = i + 1; j < xmlFileRead.size; j++)
 				{
 					char c = (CAST(char *) xmlFileRead.buffer)[j];
@@ -193,16 +232,17 @@ INTERNAL void assetInit(GameState *state)
 					}
 					else
 					{
-						tokens[tokenIndex].string[tokens[tokenIndex].len++] = c;
+						xmlTokens[tokenIndex]
+						    .string[xmlTokens[tokenIndex].len++] = c;
 #ifdef DENGINE_DEBUG
-						ASSERT(tokens[tokenIndex].len <
-						       ARRAY_COUNT(tokens[tokenIndex].string));
+						ASSERT(xmlTokens[tokenIndex].len <
+						       ARRAY_COUNT(xmlTokens[tokenIndex].string));
 #endif
 					}
 				}
 
 				// NOTE(doyle): +1 to skip the closing quotes
-				i += (tokens[tokenIndex].len + 1);
+				i += (xmlTokens[tokenIndex].len + 1);
 				tokenIndex++;
 				break;
 			}
@@ -211,7 +251,7 @@ INTERNAL void assetInit(GameState *state)
 			{
 				if ((c >= 'a' && c <= 'z') || c >= 'A' && c <= 'Z')
 				{
-					tokens[tokenIndex].type = tokentype_string;
+					xmlTokens[tokenIndex].type = xmltokentype_name;
 					for (i32 j = i; j < xmlFileRead.size; j++)
 					{
 						char c = (CAST(char *) xmlFileRead.buffer)[j];
@@ -222,15 +262,15 @@ INTERNAL void assetInit(GameState *state)
 						}
 						else
 						{
-							tokens[tokenIndex]
-							    .string[tokens[tokenIndex].len++] = c;
+							xmlTokens[tokenIndex]
+							    .string[xmlTokens[tokenIndex].len++] = c;
 #ifdef DENGINE_DEBUG
-							ASSERT(tokens[tokenIndex].len <
-							       ARRAY_COUNT(tokens[tokenIndex].string));
+							ASSERT(xmlTokens[tokenIndex].len <
+							       ARRAY_COUNT(xmlTokens[tokenIndex].string));
 #endif
 						}
 					}
-					i += tokens[tokenIndex].len;
+					i += xmlTokens[tokenIndex].len;
 					tokenIndex++;
 				}
 				break;
@@ -238,6 +278,99 @@ INTERNAL void assetInit(GameState *state)
 			}
 		}
 	}
+
+	XmlNode root = {0};
+	XmlNode *node = &root;
+	node->parent  = node;
+	for (i32 i = 0; i < tokenIndex; i++)
+	{
+		XmlToken *token = &xmlTokens[i];
+		switch (token->type)
+		{
+
+		case xmltokentype_openArrow:
+		{
+			/* Open arrows are followed by the node name */
+			token     = &xmlTokens[++i];
+			node->name = token->string;
+			break;
+		}
+
+		case xmltokentype_name:
+		{
+			// TODO(doyle): Store latest attribute pointer so we aren't always
+			// chasing the linked list each iteration. Do the same for children
+			// node
+
+			/* Xml Attributes are a linked list, get first free entry */
+			XmlAttribute *attribute = &node->attribute;
+			if (attribute->init)
+			{
+				while (attribute->next)
+					attribute = attribute->next;
+
+				attribute->next = PLATFORM_MEM_ALLOC(arena, 1, XmlAttribute);
+				attribute = attribute->next;
+			}
+
+			/* Just plain text is a node attribute name */
+			attribute->name = token->string;
+
+			/* Followed by the value */
+			token            = &xmlTokens[++i];
+			attribute->value = token->string;
+			attribute->init = TRUE;
+			break;
+		}
+
+		case xmltokentype_closeArrow:
+		{
+			XmlToken prevToken = xmlTokens[i - 1];
+
+			/* Closed node means we can return to parent */
+			if (prevToken.type == xmltokentype_backslash)
+			{
+				node->isClosed = TRUE;
+				node = node->parent;
+
+			}
+			
+			if (!node->isClosed)
+			{
+				/* Unclosed node means next fields will be children of node */
+
+				/* If the first child is free allocate, otherwise we have to
+				 * iterate through the child's next node(s) */
+				if (!node->child)
+				{
+					node->child         = PLATFORM_MEM_ALLOC(arena, 1, XmlNode);
+					node->child->parent = node;
+					node                = node->child;
+				}
+				else
+				{
+					XmlNode *nodeToCheck = node->child;
+					while (nodeToCheck->next)
+						nodeToCheck = nodeToCheck->next;
+
+					nodeToCheck->next = PLATFORM_MEM_ALLOC(arena, 1, XmlNode);
+					nodeToCheck->next->parent = node;
+					node                      = nodeToCheck->next;
+				}
+			}
+			break;
+		}
+
+		default:
+		{
+			break;
+		}
+
+		}
+
+	}
+
+	debug_recursivePrintXmlTree(&root);
 
 	/* Load textures */
 	asset_loadTextureImage(assetManager,
