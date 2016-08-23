@@ -73,3 +73,9 @@ void common_itoa(i32 value, char *buf, i32 bufSize)
 	// NOTE(doyle): The actual string length may differ from the bufSize
 	reverseString(buf, common_strlen(buf));
 }
+
+i32 common_atoi(char *string, i32 len)
+{
+	// TODO(doyle): Implement ATOI
+	return 0;
+}

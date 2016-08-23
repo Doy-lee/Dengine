@@ -130,7 +130,8 @@ typedef struct XmlToken
 	i32 len;
 } XmlToken;
 
-INTERNAL void debug_recursivePrintXmlTree(XmlNode *root)
+#define DEBUG_RECURSIVE_PRINT_XML_TREE(sig) debug_recursivePrintXmlTree(sig, 1)
+INTERNAL void debug_recursivePrintXmlTree(XmlNode *root, i32 levelsDeep)
 {
 	if (!root)
 	{
@@ -138,6 +139,11 @@ INTERNAL void debug_recursivePrintXmlTree(XmlNode *root)
 	}
 	else
 	{
+		for (i32 i = 0; i < levelsDeep; i++)
+		{
+			printf("-");
+		}
+
 		printf("%s ", root->name);
 
 		XmlAttribute *attribute = &root->attribute;
@@ -150,8 +156,8 @@ INTERNAL void debug_recursivePrintXmlTree(XmlNode *root)
 		}
 		printf("\n");
 
-		debug_recursivePrintXmlTree(root->child);
-		debug_recursivePrintXmlTree(root->next);
+		debug_recursivePrintXmlTree(root->child, levelsDeep+1);
+		debug_recursivePrintXmlTree(root->next, levelsDeep);
 	}
 }
 
@@ -256,7 +262,8 @@ INTERNAL void assetInit(GameState *state)
 					{
 						char c = (CAST(char *) xmlFileRead.buffer)[j];
 
-						if (c == ' ' || c == '=')
+						if (c == ' ' || c == '=' || c == '>' || c == '<' ||
+						    c == '\\')
 						{
 							break;
 						}
@@ -290,9 +297,36 @@ INTERNAL void assetInit(GameState *state)
 
 		case xmltokentype_openArrow:
 		{
-			/* Open arrows are followed by the node name */
-			token     = &xmlTokens[++i];
-			node->name = token->string;
+			/* Open arrows indicate closing parent node or new node name */
+			XmlToken *nextToken = &xmlTokens[++i];
+			if (nextToken->type == xmltokentype_backslash)
+			{
+				nextToken = &xmlTokens[++i];
+				if (common_strcmp(nextToken->string, node->parent->name) == 0)
+				{
+					node->parent->isClosed = TRUE;
+					node           = node->parent;
+				}
+				else
+				{
+#ifdef DENGINE_DEBUG
+					DEBUG_LOG(
+					    "Closing xml node name does not match parent name");
+#endif
+				}
+			}
+			else if (nextToken->type == xmltokentype_name)
+			{
+				node->name = nextToken->string;
+			}
+			else
+			{
+#ifdef DENGINE_DEBUG
+				DEBUG_LOG("Unexpected token type after open arrow");
+#endif
+			}
+
+			token = nextToken;
 			break;
 		}
 
@@ -332,7 +366,6 @@ INTERNAL void assetInit(GameState *state)
 			{
 				node->isClosed = TRUE;
 				node = node->parent;
-
 			}
 			
 			if (!node->isClosed)
@@ -367,10 +400,87 @@ INTERNAL void assetInit(GameState *state)
 		}
 
 		}
-
 	}
 
-	debug_recursivePrintXmlTree(&root);
+	DEBUG_RECURSIVE_PRINT_XML_TREE(&root);
+
+	node = &root;
+	while (node)
+	{
+		if(common_strcmp(node->name, "TextureAtlas") == 0)
+		{
+			XmlNode *atlasXmlNode   = node;
+			XmlNode *atlasChildNode = atlasXmlNode->child;
+			while (atlasChildNode)
+			{
+				if (common_strcmp(atlasChildNode->name, "SubTexture") == 0)
+				{
+					XmlAttribute *subTextureAttrib = &atlasChildNode->attribute;
+					while (subTextureAttrib)
+					{
+						// TODO(doyle): Fill in details properly
+						Rect rect = {0};
+						if (common_strcmp(subTextureAttrib->name, "name") == 0)
+						{
+						}
+						else if (common_strcmp(subTextureAttrib->name, "x") ==
+						         0)
+						{
+							char *name  = subTextureAttrib->name;
+							i32 nameLen = common_strlen(name);
+							rect.pos.x  = CAST(f32) common_atoi(name, nameLen);
+						}
+						else if (common_strcmp(subTextureAttrib->name, "y") ==
+						         0)
+						{
+							char *name  = subTextureAttrib->name;
+							i32 nameLen = common_strlen(name);
+							rect.pos.y  = CAST(f32) common_atoi(name, nameLen);
+						}
+						else if (common_strcmp(subTextureAttrib->name,
+						                       "width") == 0)
+						{
+							char *name  = subTextureAttrib->name;
+							i32 nameLen = common_strlen(name);
+							rect.size.w = CAST(f32) common_atoi(name, nameLen);
+						}
+						else if (common_strcmp(subTextureAttrib->name,
+						                       "height") == 0)
+						{
+							char *name  = subTextureAttrib->name;
+							i32 nameLen = common_strlen(name);
+							rect.size.h = CAST(f32) common_atoi(name, nameLen);
+						}
+						else
+						{
+#ifdef DENGINE_DEBUG
+							DEBUG_LOG(
+							    "Unsupported xml attribute in SubTexture");
+#endif
+						}
+
+						subTextureAttrib = subTextureAttrib->next;
+					}
+				}
+				else
+				{
+#ifdef DENGINE_DEBUG
+					DEBUG_LOG("Unsupported xml node name not parsed");
+#endif
+				}
+
+				atlasChildNode = atlasChildNode->next;
+			}
+		}
+		else
+		{
+#ifdef DENGINE_DEBUG
+			DEBUG_LOG("Unsupported xml node name not parsed");
+#endif
+		}
+
+		node = node->next;
+	}
 
 	/* Load textures */
 	asset_loadTextureImage(assetManager,
