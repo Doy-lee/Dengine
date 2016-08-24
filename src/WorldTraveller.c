@@ -420,9 +420,6 @@ INTERNAL void assetInit(GameState *state)
 		}
 	}
 
-// TODO(doyle): Use a proper random seed
-#define RANDOM_SEED 0xDEADBEEF
-
 #if 1
 	DEBUG_RECURSIVE_PRINT_XML_TREE(&root);
 #endif
@@ -433,31 +430,11 @@ INTERNAL void assetInit(GameState *state)
 		if(common_strcmp(node->name, "TextureAtlas") == 0)
 		{
 			XmlNode *atlasXmlNode     = node;
-			TexAtlasEntry *atlasEntry = NULL;
+			TexAtlas *atlasEntry = NULL;
 			if (common_strcmp(node->attribute.name, "imagePath") == 0)
 			{
 				char *imageName = atlasXmlNode->attribute.value;
-				u32 atlasHashIndex = common_murmurHash2(
-				    imageName, common_strlen(imageName), RANDOM_SEED);
-				atlasHashIndex =
-				    atlasHashIndex % ARRAY_COUNT(assetManager->texAtlas_);
-
-				atlasEntry = &assetManager->texAtlas_[atlasHashIndex];
-				if (atlasEntry->name)
-				{
-#ifdef DENGINE_DEBUG
-
-					// NOTE(doyle): Two atlas textures have the same access name
-					ASSERT(common_strcmp(atlasEntry->name, imageName) != 0);
-#endif
-
-					while (atlasEntry->next)
-						atlasEntry = atlasEntry->next;
-
-					atlasEntry->next =
-					    PLATFORM_MEM_ALLOC(arena, 1, TexAtlasEntry);
-					atlasEntry       = atlasEntry->next;
-				}
+				atlasEntry = asset_makeTexAtlas(assetManager, arena, imageName);
 
 				char *dataDir = "data/textures/WorldTraveller/";
 				char imagePath[512] = {0};
@@ -466,9 +443,9 @@ INTERNAL void assetInit(GameState *state)
 
 				asset_loadTextureImage(assetManager, imagePath, texlist_claude);
 
-				atlasEntry->name =
-				    PLATFORM_MEM_ALLOC(arena, common_strlen(imageName), char);
-				common_strncpy(atlasEntry->name, imageName,
+				atlasEntry->key =
+				    PLATFORM_MEM_ALLOC(arena, common_strlen(imageName)+1, char);
+				common_strncpy(atlasEntry->key, imageName,
 				               common_strlen(imageName));
 
 				atlasEntry->tex =
@@ -495,39 +472,43 @@ INTERNAL void assetInit(GameState *state)
 							    0)
 							{
 								char *value   = subTextureAttrib->value;
-								newSubTexEntry.name = value;
+								newSubTexEntry.key = value;
 							}
 							else if (common_strcmp(subTextureAttrib->name,
 							                       "x") == 0)
 							{
 								char *value  = subTextureAttrib->value;
 								i32 valueLen = common_strlen(value);
-								newSubTexEntry.rect.pos.x =
-								    CAST(f32) common_atoi(value, valueLen);
+								i32 intValue = common_atoi(value, valueLen);
+
+								newSubTexEntry.rect.pos.x = CAST(f32) intValue;
 							}
 							else if (common_strcmp(subTextureAttrib->name,
 							                       "y") == 0)
 							{
 								char *value  = subTextureAttrib->value;
 								i32 valueLen = common_strlen(value);
-								newSubTexEntry.rect.pos.y =
-								    CAST(f32) common_atoi(value, valueLen);
+
+								i32 intValue = common_atoi(value, valueLen);
+								newSubTexEntry.rect.pos.y = CAST(f32) intValue;
 							}
 							else if (common_strcmp(subTextureAttrib->name,
 							                       "width") == 0)
 							{
 								char *value  = subTextureAttrib->value;
 								i32 valueLen = common_strlen(value);
-								newSubTexEntry.rect.size.w =
-								    CAST(f32) common_atoi(value, valueLen);
+								i32 intValue = common_atoi(value, valueLen);
+
+								newSubTexEntry.rect.size.w = CAST(f32) intValue;
 							}
 							else if (common_strcmp(subTextureAttrib->name,
 							                       "height") == 0)
 							{
 								char *value  = subTextureAttrib->value;
 								i32 valueLen = common_strlen(value);
-								newSubTexEntry.rect.size.h =
-								    CAST(f32) common_atoi(value, valueLen);
+								i32 intValue = common_atoi(value, valueLen);
+
+								newSubTexEntry.rect.size.h = CAST(f32) intValue;
 							}
 							else
 							{
@@ -536,32 +517,37 @@ INTERNAL void assetInit(GameState *state)
 								    "Unsupported xml attribute in SubTexture");
 #endif
 							}
-
 							subTextureAttrib = subTextureAttrib->next;
 						}
 
+						// TODO(doyle): XML specifies 0,0 top left, we
+						// prefer 0,0 bottom right, so offset by size since 0,0
+						// is top left and size creates a bounding box below it
+						newSubTexEntry.rect.pos.y =
+						    1024 - newSubTexEntry.rect.pos.y;
+						newSubTexEntry.rect.pos.y -= newSubTexEntry.rect.size.h;
+
 #ifdef DENGINE_DEBUG
-						ASSERT(newSubTexEntry.name)
+						ASSERT(newSubTexEntry.key)
 #endif
 
-
 						u32 subTexHashIndex = common_murmurHash2(
-						    newSubTexEntry.name, common_strlen(newSubTexEntry.name),
-						    RANDOM_SEED);
+						    newSubTexEntry.key,
+						    common_strlen(newSubTexEntry.key), 0xDEADBEEF);
 						subTexHashIndex =
 						    subTexHashIndex % ARRAY_COUNT(atlasEntry->subTex);
 
 						// NOTE(doyle): Hash collision
 						AtlasSubTexture *subTexEntry =
 						    &atlasEntry->subTex[subTexHashIndex];
-						if (subTexEntry->name)
+						if (subTexEntry->key)
 						{
 #ifdef DENGINE_DEBUG
 
 							// NOTE(doyle): Two textures have the same access
 							// name
-							ASSERT(common_strcmp(subTexEntry->name,
-							                     newSubTexEntry.name) != 0);
+							ASSERT(common_strcmp(subTexEntry->key,
+							                     newSubTexEntry.key) != 0);
 #endif
 							while (subTexEntry->next)
 								subTexEntry = subTexEntry->next;
@@ -572,8 +558,12 @@ INTERNAL void assetInit(GameState *state)
 						}
 
 						*subTexEntry = newSubTexEntry;
-						common_strncpy(subTexEntry->name, newSubTexEntry.name,
-						               common_strlen(newSubTexEntry.name));
+						i32 keyLen   = common_strlen(newSubTexEntry.key);
+
+						subTexEntry->key =
+						    PLATFORM_MEM_ALLOC(arena, keyLen+1, char);
+						common_strncpy(subTexEntry->key, newSubTexEntry.key,
+						               keyLen);
 					}
 					else
 					{
@@ -601,34 +591,6 @@ INTERNAL void assetInit(GameState *state)
 		node = node->next;
 	}
 
-	/* Load textures */
-	asset_loadTextureImage(assetManager,
-	                       "data/textures/WorldTraveller/TerraSprite1024.png",
-	                       texlist_hero);
-	TexAtlas *heroAtlas = asset_getTextureAtlas(assetManager, texlist_hero);
-	heroAtlas->texRect[herorects_idle]       = V4(746, 920, 804, 1018);
-	heroAtlas->texRect[herorects_walkA]      = V4(641, 920, 699, 1018);
-	heroAtlas->texRect[herorects_walkB]      = V4(849, 920, 904, 1018);
-	heroAtlas->texRect[herorects_head]       = V4(108, 975, 159, 1024);
-	heroAtlas->texRect[herorects_waveA]      = V4(944, 816, 1010, 918);
-	heroAtlas->texRect[herorects_waveB]      = V4(944, 710, 1010, 812);
-	heroAtlas->texRect[herorects_battlePose] = V4(8, 814, 71, 910);
-	heroAtlas->texRect[herorects_castA]      = V4(428, 814, 493, 910);
-	heroAtlas->texRect[herorects_castB]      = V4(525, 816, 590, 919);
-	heroAtlas->texRect[herorects_castC]      = V4(640, 816, 698, 916);
-
-	asset_loadTextureImage(assetManager,
-	                       "data/textures/WorldTraveller/Terrain.png",
-	                       texlist_terrain);
-	TexAtlas *terrainAtlas =
-	    asset_getTextureAtlas(assetManager, texlist_terrain);
-	f32 atlasTileSize = 128.0f;
-	const i32 texSize = 1024;
-	v2 texOrigin = V2(0, 768);
-	terrainAtlas->texRect[terrainrects_ground] =
-	    V4(texOrigin.x, texOrigin.y, texOrigin.x + atlasTileSize,
-	       texOrigin.y + atlasTileSize);
-
 	/* Load shaders */
 	asset_loadShaderFiles(assetManager, arena, "data/shaders/sprite.vert.glsl",
 	                      "data/shaders/sprite.frag.glsl",
@@ -643,6 +605,7 @@ INTERNAL void assetInit(GameState *state)
 	DEBUG_LOG("Assets loaded");
 #endif
 
+#if 0
 	/* Load animations */
 	f32 duration = 1.0f;
 	i32 numRects = 1;
@@ -660,7 +623,20 @@ INTERNAL void assetInit(GameState *state)
 	i32 idleAnimAtlasIndexes[1] = {herorects_idle};
 	asset_addAnimation(assetManager, arena, texlist_hero, animlist_hero_idle,
 	                   idleAnimAtlasIndexes, numRects, duration);
+#else
+	f32 duration = 1.0f;
+	i32 numRects = 1;
+	TexAtlas *claudeAtlas =
+	    asset_getTexAtlas(assetManager, "ClaudeSpriteSheet.png");
 
+	duration      = 1.0f;
+	numRects      = 1;
+	char *subTextureNames = {"ClaudeSprite_001"};
+	asset_addAnimation(assetManager, arena, "Claude_idle", claudeAtlas,
+	                   &subTextureNames, 1, 1.0f);
+#endif
+
+#if 0
 	// Walk animation
 	duration          = 0.10f;
 	numRects          = 3;
@@ -690,6 +666,8 @@ INTERNAL void assetInit(GameState *state)
 	                                 herorects_castC};
 	asset_addAnimation(assetManager, arena, texlist_hero, animlist_hero_tackle,
 	                   tackleAnimAtlasIndexes, numRects, duration);
+#endif
+
 #ifdef DENGINE_DEBUG
 	DEBUG_LOG("Animations created");
 #endif
@@ -739,6 +717,7 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 		                                    CAST(f32) state->tileSize));
 		world->uniqueIdAccumulator = 0;
 
+#if 0
 		TexAtlas *const atlas =
 		    asset_getTextureAtlas(assetManager, world->texType);
 
@@ -765,6 +744,7 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 				tile->currAnimId = animlist_terrain;
 			}
 		}
+#endif
 	}
 
 	World *const world = &state->world[state->currWorldIndex];
@@ -790,7 +770,7 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	pos             = V2(size.x, CAST(f32) state->tileSize);
 	type            = entitytype_hero;
 	dir             = direction_east;
-	tex             = asset_getTexture(assetManager, texlist_hero);
+	tex             = asset_getTexture(assetManager, texlist_claude);
 	collides        = TRUE;
 	Entity *hero =
 	    entity_add(arena, world, pos, size, type, dir, tex, collides);
@@ -801,13 +781,10 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	world->cameraFollowingId = hero->id;
 
 	/* Populate hero animation references */
-	entity_addAnim(assetManager, hero, animlist_hero_idle);
-	entity_addAnim(assetManager, hero, animlist_hero_walk);
-	entity_addAnim(assetManager, hero, animlist_hero_wave);
-	entity_addAnim(assetManager, hero, animlist_hero_battlePose);
-	entity_addAnim(assetManager, hero, animlist_hero_tackle);
-	hero->currAnimId = animlist_hero_idle;
+	entity_addAnim(assetManager, hero, "Claude_idle");
+	entity_setActiveAnim(hero, "Claude_idle");
 
+#if 0
 	/* Create a NPC */
 	pos         = V2(hero->pos.x * 3, CAST(f32) state->tileSize);
 	size        = hero->hitboxSize;
@@ -825,6 +802,7 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	pos = V2(renderer->size.w - (renderer->size.w / 3.0f),
 	         CAST(f32) state->tileSize);
 	entity_addGenericMob(arena, assetManager, world, pos);
+#endif
 
 #ifdef DENGINE_DEBUG
 	DEBUG_LOG("World populated");
@@ -1152,7 +1130,7 @@ INTERNAL inline void updateWorldBattleEntities(World *world, Entity *entity,
 INTERNAL inline void resetEntityState(World *world, Entity *entity)
 {
 	updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
-	entity_setActiveAnim(entity, animlist_hero_idle);
+	entity_setActiveAnim(entity, "Claude_idle");
 	entity->stats->busyDuration     = 0;
 	entity->stats->actionTimer      = entity->stats->actionRate;
 	entity->stats->queuedAttack     = entityattack_invalid;
@@ -1196,7 +1174,7 @@ INTERNAL void entityStateSwitch(EventQueue *eventQueue, World *world,
 		// or not (i.e. has moved out of frame last frame).
 		case entitystate_dead:
 			registerEvent(eventQueue, eventtype_entity_died, CAST(void *)entity);
-			entity_setActiveAnim(entity, animlist_hero_idle);
+			entity_setActiveAnim(entity, "Claude_idle");
 			entity->stats->busyDuration     = 0;
 			entity->stats->actionTimer      = entity->stats->actionRate;
 			entity->stats->queuedAttack     = entityattack_invalid;
@@ -1236,7 +1214,7 @@ INTERNAL void entityStateSwitch(EventQueue *eventQueue, World *world,
 		switch (newState)
 		{
 		case entitystate_battle:
-			entity_setActiveAnim(entity, animlist_hero_battlePose);
+			entity_setActiveAnim(entity, "Claude_idle");
 			entity->stats->actionTimer  = entity->stats->actionRate;
 			entity->stats->busyDuration = 0;
 			break;
@@ -1288,6 +1266,7 @@ typedef struct AttackSpec
 INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
                           Entity *attacker)
 {
+#if 0
 #ifdef DENGINE_DEBUG
 	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
 	ASSERT(attacker->state == entitystate_battle);
@@ -1313,6 +1292,7 @@ INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
 #endif
 		break;
 	}
+#endif
 }
 
 // TODO(doyle): MemArena here is temporary until we incorporate AttackSpec to
@@ -1320,6 +1300,7 @@ INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
 INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
                         World *world, Entity *attacker)
 {
+#if 0
 #ifdef DENGINE_DEBUG
 	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
 #endif
@@ -1398,6 +1379,7 @@ INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
 			entityStateSwitch(eventQueue, world, attacker, entitystate_idle);
 		}
 	}
+#endif
 }
 
 INTERNAL void sortWorldEntityList(World *world)
@@ -1735,12 +1717,12 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				hero->dPos = V2(0.0f, 0.0f);
 				if (hero->currAnimId == animlist_hero_walk)
 				{
-					entity_setActiveAnim(hero, animlist_hero_idle);
+					entity_setActiveAnim(hero, "Claude_idle");
 				}
 			}
 			else if (hero->currAnimId == animlist_hero_idle)
 			{
-				entity_setActiveAnim(hero, animlist_hero_walk);
+				entity_setActiveAnim(hero, "Claude_idle");
 			}
 
 			f32 heroSpeed = 6.2f * METERS_TO_PIXEL;
@@ -1978,7 +1960,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		{
 			hero->state                       = entitystate_idle;
 			world->entityIdInBattle[hero->id] = FALSE;
-			entity_setActiveAnim(hero, animlist_hero_idle);
+			entity_setActiveAnim(hero, "Claude_idle");
 		}
 		hero->stats->entityIdToAttack = -1;
 		hero->stats->actionTimer      = hero->stats->actionRate;
@@ -2058,6 +2040,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	state->uiState.keyChar    = keycode_null;
 
 	/* Draw hero avatar */
+#if 0
 	TexAtlas *heroAtlas  = asset_getTextureAtlas(assetManager, texlist_hero);
 	v4 heroAvatarTexRect = heroAtlas->texRect[herorects_head];
 	v2 heroAvatarSize    = math_getRectSize(heroAvatarTexRect);
@@ -2079,6 +2062,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 	renderer_staticString(&state->renderer, &state->arena, font, heroAvatarStr,
 	                      strPos, V2(0, 0), 0, V4(0, 0, 1, 1));
+#endif
 
 	for (i32 i = 0; i < world->maxEntities; i++)
 	{

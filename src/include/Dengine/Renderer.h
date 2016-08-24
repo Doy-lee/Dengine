@@ -25,6 +25,8 @@ typedef struct Renderer
 typedef struct RenderTex
 {
 	Texture *tex;
+
+	// TODO(doyle): Switch to rect
 	v4 texRect;
 } RenderTex;
 

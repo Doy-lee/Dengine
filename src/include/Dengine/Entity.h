@@ -63,12 +63,12 @@ typedef struct EntityStats
 	enum EntityAttack queuedAttack;
 } EntityStats;
 
-typedef struct EntityAnim_
+typedef struct EntityAnim
 {
 	Animation *anim;
 	i32 currFrame;
 	f32 currDuration;
-} EntityAnim_;
+} EntityAnim;
 
 typedef struct Entity
 {
@@ -86,22 +86,17 @@ typedef struct Entity
 	Texture *tex;
 	b32 collides;
 
-	// TODO(doyle): String based access
-	// TODO(doyle): Separate animation refs from curr animation state, entity
-	// only ever has one active current animation. ATM every entity animation
-	// has a currframe and duration .. either that or we stop resetting
-	// animation on entity context switch
-	EntityAnim_ anim[16];
-	enum AnimList currAnimId;
+	EntityAnim animList[16];
+	i32 currAnimId;
 
 	EntityStats *stats;
 	AudioRenderer *audioRenderer;
 	i32 numAudioRenderers;
 } Entity;
 
-void entity_setActiveAnim(Entity *entity, enum AnimList animId);
+void entity_setActiveAnim(Entity *entity, char *animName);
 void entity_updateAnim(Entity *entity, f32 dt);
-void entity_addAnim(AssetManager *assetManager, Entity *entity, i32 animId);
+void entity_addAnim(AssetManager *assetManager, Entity *entity, char *animName);
 void entity_addGenericMob(MemoryArena *arena, AssetManager *assetManager,
                           World *world, v2 pos);
 Entity *entity_add(MemoryArena *arena, World *world, v2 pos, v2 size,

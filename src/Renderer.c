@@ -175,16 +175,13 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
                      v2 pivotPoint, f32 rotate, v4 color)
 {
 	i32 strLen = common_strlen(string);
-	// TODO(doyle): Scale, not too important .. but rudimentary infrastructure
-	// laid out here
-	f32 scale = 1.0f;
 
 	// TODO(doyle): Slightly incorrect string length in pixels calculation,
 	// because we use the advance metric of each character for length not
 	// maximum character size in rendering
 	v2 rightAlignedP =
-	    v2_add(pos, V2(scale *(CAST(f32) font->maxSize.w * CAST(f32) strLen),
-	                   scale * CAST(f32) font->maxSize.h));
+	    v2_add(pos, V2((CAST(f32) font->maxSize.w * CAST(f32) strLen),
+	                   CAST(f32) font->maxSize.h));
 	v2 leftAlignedP  = pos;
 	if (math_pointInRect(camera, leftAlignedP) ||
 	    math_pointInRect(camera, rightAlignedP))
@@ -197,27 +194,32 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 		pos = posInCameraSpace;
 
 		// TODO(doyle): Find why font is 1px off, might be arial font semantics
+		Texture *tex = font->atlas->tex;
 		f32 baseline = pos.y - font->verticalSpacing + 1;
 		for (i32 i = 0; i < strLen; i++)
 		{
-			// NOTE(doyle): Atlas packs fonts tightly, so offset the codepoint
-			// to its actual atlas index, i.e. we skip the first 31 glyphs
 			i32 codepoint     = string[i];
 			i32 relativeIndex = CAST(i32)(codepoint - font->codepointRange.x);
 			CharMetrics charMetric = font->charMetrics[relativeIndex];
-			pos.y                  = baseline - (scale * charMetric.offset.y);
+			pos.y                  = baseline - (charMetric.offset.y);
 
 			const v4 charRectOnScreen =
-			    math_getRect(pos, V2(scale * CAST(f32) font->maxSize.w,
-			                         scale * CAST(f32) font->maxSize.h));
+			    math_getRect(pos, V2(CAST(f32) font->maxSize.w,
+			                         CAST(f32) font->maxSize.h));
 
-			pos.x += scale * charMetric.advance;
+			pos.x += charMetric.advance;
 
 			/* Get texture out */
-			v4 charTexRect = font->atlas->texRect[relativeIndex];
-			flipTexCoord(&charTexRect, FALSE, TRUE);
-			RenderTex renderTex = {font->tex, charTexRect};
+			Rect charTexRect =
+			    asset_getAtlasSubTexRect(font->atlas, &CAST(char)codepoint);
 
+			v4 deprecatedTexRect = {0};
+			deprecatedTexRect.vec2[0] = charTexRect.pos;
+			deprecatedTexRect.vec2[1] = v2_add(charTexRect.pos, charTexRect.size);
+
+			flipTexCoord(&deprecatedTexRect, FALSE, TRUE);
+
+			RenderTex renderTex = {tex, deprecatedTexRect};
 			RenderQuad charQuad =
 			    createTexQuad(renderer, charRectOnScreen, renderTex);
 			stringQuads[quadIndex++] = charQuad;
@@ -228,7 +230,7 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 		// we're rendering a window sized buffer
 		updateBufferObject(renderer, stringQuads, quadIndex);
 		renderObject(renderer, V2(0.0f, 0.0f), renderer->size, pivotPoint,
-		             rotate, color, font->tex);
+		             rotate, color, tex);
 		PLATFORM_MEM_FREE(arena, stringQuads, strLen * sizeof(RenderQuad));
 	}
 }
@@ -246,12 +248,17 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 	if (math_pointInRect(camera, leftAlignedP) ||
 	    math_pointInRect(camera, rightAlignedP))
 	{
-		EntityAnim_ *entityAnim = &entity->anim[entity->currAnimId];
-		Animation *anim         = entityAnim->anim;
-		i32 frameIndex          = anim->frameIndex[entityAnim->currFrame];
-		v4 animTexRect          = anim->atlas->texRect[frameIndex];
+		EntityAnim *entityAnim = &entity->animList[entity->currAnimId];
+		Animation *anim        = entityAnim->anim;
+		char *frameName        = anim->frameList[entityAnim->currFrame];
+		Rect animRect = asset_getAtlasSubTexRect(anim->atlas, frameName);
 
-		if (entity->direction == direction_east)
+		// TODO(doyle): Switch to rect
+		v4 animTexRect = {0};
+		animTexRect.vec2[0] = animRect.pos;
+		animTexRect.vec2[1] = v2_add(animRect.pos, animRect.size);
+
+		    if (entity->direction == direction_east)
 		{
 			flipTexCoord(&animTexRect, TRUE, FALSE);
 		}

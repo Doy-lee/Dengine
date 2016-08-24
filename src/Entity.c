@@ -3,20 +3,28 @@
 #include "Dengine/Platform.h"
 #include "Dengine/WorldTraveller.h"
 
-void entity_setActiveAnim(Entity *entity, enum AnimList animId)
+void entity_setActiveAnim(Entity *entity, char *animName)
 {
-#ifdef DENGINE_DEBUG
-	ASSERT(animId < animlist_count);
-	ASSERT(entity->anim[animId].anim);
-#endif
-
 	/* Reset current anim data */
-	EntityAnim_ *currAnim  = &entity->anim[entity->currAnimId];
-	currAnim->currDuration = currAnim->anim->frameDuration;
-	currAnim->currFrame    = 0;
+	EntityAnim *currEntityAnim = &entity->animList[entity->currAnimId];
+	currEntityAnim->currDuration = currEntityAnim->anim->frameDuration;
+	currEntityAnim->currFrame    = 0;
 
 	/* Set entity active animation */
-	entity->currAnimId = animId;
+	for (i32 i = 0; i < ARRAY_COUNT(entity->animList); i++)
+	{
+		Animation *anim = entity->animList[i].anim;
+		if (anim)
+		{
+			if (common_strcmp(anim->key, animName) == 0)
+			{
+				entity->currAnimId = i;
+				return;
+			}
+		}
+	}
+	
+	DEBUG_LOG("Entity does not have access to desired anim");
 }
 
 void entity_updateAnim(Entity *entity, f32 dt)
@@ -24,20 +32,15 @@ void entity_updateAnim(Entity *entity, f32 dt)
 	if (!entity->tex)
 		return;
 
-	// TODO(doyle): Recheck why we have this twice
-	EntityAnim_ *entityAnim = &entity->anim[entity->currAnimId];
-	Animation anim          = *entityAnim->anim;
-	i32 frameIndex          = anim.frameIndex[entityAnim->currFrame];
-	v4 texRect              = anim.atlas->texRect[frameIndex];
+	EntityAnim *currEntityAnim = &entity->animList[entity->currAnimId];
+	Animation *anim = currEntityAnim->anim;
 
-	entityAnim->currDuration -= dt;
-	if (entityAnim->currDuration <= 0.0f)
+	currEntityAnim->currDuration -= dt;
+	if (currEntityAnim->currDuration <= 0.0f)
 	{
-		entityAnim->currFrame++;
-		entityAnim->currFrame = entityAnim->currFrame % anim.numFrames;
-		frameIndex = entityAnim->anim->frameIndex[entityAnim->currFrame];
-		texRect    = anim.atlas->texRect[frameIndex];
-		entityAnim->currDuration = anim.frameDuration;
+		currEntityAnim->currFrame++;
+		currEntityAnim->currFrame    = currEntityAnim->currFrame % anim->numFrames;
+		currEntityAnim->currDuration = anim->frameDuration;
 	}
 
 	// NOTE(doyle): If humanoid entity, let animation dictate render size which
@@ -47,18 +50,31 @@ void entity_updateAnim(Entity *entity, f32 dt)
 	case entitytype_hero:
 	case entitytype_mob:
 	case entitytype_npc:
-		entity->renderSize = math_getRectSize(texRect);
+		char *frameName = anim->frameList[currEntityAnim->currFrame];
+		Rect texRect =
+		    asset_getAtlasSubTexRect(anim->atlas, frameName);
+		entity->renderSize = texRect.size;
 	default:
 		break;
 	}
 }
 
-void entity_addAnim(AssetManager *assetManager, Entity *entity, i32 animId)
+void entity_addAnim(AssetManager *assetManager, Entity *entity, char *animName)
 {
-	Animation *anim                   = asset_getAnim(assetManager, animId);
-	entity->anim[animId].anim         = anim;
-	entity->anim[animId].currFrame    = 0;
-	entity->anim[animId].currDuration = anim->frameDuration;
+	i32 freeAnimIndex = 0;
+	for (i32 i = 0; i < ARRAY_COUNT(entity->animList); i++)
+	{
+		EntityAnim *entityAnim = &entity->animList[i];
+		if (!entityAnim->anim)
+		{
+			entityAnim->anim         = asset_getAnim(assetManager, animName);
+			entityAnim->currFrame    = 0;
+			entityAnim->currDuration = entityAnim->anim->frameDuration;
+			return;
+		}
+	}
+
+	DEBUG_LOG("No more free entity animation slots");
 }
 
 void entity_addGenericMob(MemoryArena *arena, AssetManager *assetManager,
@@ -81,12 +97,7 @@ void entity_addGenericMob(MemoryArena *arena, AssetManager *assetManager,
 	mob->audioRenderer->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
 
 	/* Populate mob animation references */
-	entity_addAnim(assetManager, mob, animlist_hero_idle);
-	entity_addAnim(assetManager, mob, animlist_hero_walk);
-	entity_addAnim(assetManager, mob, animlist_hero_wave);
-	entity_addAnim(assetManager, mob, animlist_hero_battlePose);
-	entity_addAnim(assetManager, mob, animlist_hero_tackle);
-	mob->currAnimId    = animlist_hero_idle;
+	entity_addAnim(assetManager, mob, "Claude idle");
 }
 
 Entity *entity_add(MemoryArena *arena, World *world, v2 pos, v2 size,

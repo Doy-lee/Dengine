@@ -21,6 +21,76 @@
 #include "Dengine/OpenGL.h"
 #include "Dengine/Platform.h"
 
+INTERNAL AtlasSubTexture *getAtlasSubTexture(TexAtlas *atlas, char *key)
+{
+	u32 hashIndex = common_getHashIndex(key, ARRAY_COUNT(atlas->subTex));
+	AtlasSubTexture *result = &atlas->subTex[hashIndex];
+	if (result->key)
+	{
+		while (result && common_strcmp(result->key, key) != 0)
+			result = result->next;
+	}
+
+	return result;
+}
+
+INTERNAL AtlasSubTexture *makeAtlasSubTexture(TexAtlas *atlas,
+                                              MemoryArena *arena, char *key)
+{
+	u32 hashIndex = common_getHashIndex(key, ARRAY_COUNT(atlas->subTex));
+	AtlasSubTexture *result = &atlas->subTex[hashIndex];
+	if (result->key)
+	{
+		while (result->next)
+		{
+			if (common_strcmp(result->key, key) == 0)
+			{
+				// TODO(doyle): Error correction whereby if a tex atlas already
+				// exists
+				ASSERT(INVALID_CODE_PATH);
+			}
+			result = result->next;
+		}
+
+		result->next = PLATFORM_MEM_ALLOC(arena, 1, AtlasSubTexture);
+		result = result->next;
+	}
+	
+	return result;
+}
+
+INTERNAL Animation *getFreeAnimSlot(Animation *table, u32 tableSize,
+                                    MemoryArena *arena, char *key)
+{
+	u32 hashIndex     = common_getHashIndex(key, tableSize);
+	Animation *result = &table[hashIndex];
+	if (result->key)
+	{
+		while (result->next)
+		{
+			if (common_strcmp(result->key, key) == 0)
+			{
+				// TODO(doyle): Error correction whereby if a tex atlas already
+				// exists
+				ASSERT(INVALID_CODE_PATH);
+			}
+			result = result->next;
+		}
+
+		result->next = PLATFORM_MEM_ALLOC(arena, 1, Animation);
+		result = result->next;
+	}
+
+	return result;
+}
+
+Rect asset_getAtlasSubTexRect(TexAtlas *atlas, char *key)
+{
+	AtlasSubTexture *subTex = getAtlasSubTexture(atlas, key);
+	Rect result = subTex->rect;
+	return result;
+}
+
 // TODO(doyle): Switch to hash based lookup
 // TODO(doyle): Use pointers, so we can forward declare all assets?
 AudioVorbis *asset_getVorbis(AssetManager *assetManager,
@@ -49,27 +119,64 @@ Texture *asset_getTexture(AssetManager *const assetManager,
 	return NULL;
 }
 
-TexAtlas *asset_getTextureAtlas(AssetManager *assetManager, const enum TexList type)
+TexAtlas *asset_makeTexAtlas(AssetManager *const assetManager,
+                             MemoryArena *arena, const char *const key)
 {
-	if (type < texlist_count)
-		return &assetManager->texAtlas[type];
+	u32 hashIndex = common_getHashIndex(key, ARRAY_COUNT(assetManager->texAtlas));
+	TexAtlas *result = &assetManager->texAtlas[hashIndex];
+	if (result->key)
+	{
+		while (result->next)
+		{
+			if (common_strcmp(result->key, key) == 0)
+			{
+				// TODO(doyle): Error correction whereby if a tex atlas already
+				// exists
+				ASSERT(INVALID_CODE_PATH);
+			}
+			result = result->next;
+		}
 
-#ifdef DENGINE_DEBUG
-	ASSERT(INVALID_CODE_PATH);
-#endif
-	return NULL;
+		result->next = PLATFORM_MEM_ALLOC(arena, 1, TexAtlas);
+		result = result->next;
+	}
+
+	return result;
 }
 
-Animation *asset_getAnim(AssetManager *assetManager, const enum AnimList type)
+TexAtlas *asset_getTexAtlas(AssetManager *const assetManager,
+                            const char *const key)
 {
-	if (type < animlist_count)
-		return &assetManager->anims[type];
+	u32 hashIndex = common_getHashIndex(key, ARRAY_COUNT(assetManager->texAtlas));
+	TexAtlas *result = &assetManager->texAtlas[hashIndex];
+	if (result->key)
+	{
+		while (result && common_strcmp(result->key, key) != 0)
+			result = result->next;
+	}
+	else
+	{
+		return NULL;
+	}
 
-#ifdef DENGINE_DEBUG
-	ASSERT(INVALID_CODE_PATH);
-#endif
+	return result;
+}
 
-	return NULL;
+Animation *asset_getAnim(AssetManager *assetManager, char *key)
+{
+	u32 hashIndex = common_getHashIndex(key, ARRAY_COUNT(assetManager->anims));
+	Animation *result = &assetManager->anims[hashIndex];
+	if (result->key)
+	{
+		while (result && common_strcmp(result->key, key) != 0)
+			result = result->next;
+	}
+	else
+	{
+		return NULL;
+	}
+
+	return result;
 }
 
 const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
@@ -364,7 +471,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 	// TODO(doyle): We copy over the bitmap direct to the font sheet, should we
 	// align the baselines up so we don't need to do baseline adjusting at
 	// render?
-	i32 atlasIndex = 0;
+	char charToEncode = CAST(char)codepointRange.x;
+	TexAtlas *fontAtlas = asset_makeTexAtlas(assetManager, arena, "font");
 	for (i32 row = 0; row < MAX_TEXTURE_SIZE; row++)
 	{
 		u32 *destRow = fontBitmap + (row * MAX_TEXTURE_SIZE);
@@ -378,23 +486,26 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 			/* Store the location of glyph into atlas */
 			if (verticalPixelsBlitted == 0)
 			{
-				TexAtlas *fontAtlas = &assetManager->texAtlas[texlist_font];
 #ifdef DENGINE_DEBUG
-				ASSERT(activeGlyph.codepoint < ARRAY_COUNT(fontAtlas->texRect));
+				ASSERT(activeGlyph.codepoint < ARRAY_COUNT(fontAtlas->subTex));
 #endif
 
 				v2 origin =
 				    V2(CAST(f32)(glyphIndex * font->maxSize.w), CAST(f32) row);
-#if 1
-				fontAtlas->texRect[atlasIndex++] =
-				    math_getRect(origin, V2(CAST(f32) font->maxSize.w,
-				                            CAST(f32) font->maxSize.h));
-#else
-				v2i fontSize =
-				    font->charMetrics[activeGlyph.codepoint - 32].trueSize;
-				fontAtlas->texRect[atlasIndex++] = math_getRect(
-				    origin, V2(CAST(f32) fontSize.x, CAST(f32) fontSize.y));
-#endif
+
+				// NOTE(doyle): Since charToEncode starts from 0 and we record
+				// all ascii characters, charToEncode represents the character
+				// 1:1
+				char charTmp[2] = {0};
+				charTmp[0] = charToEncode;
+				AtlasSubTexture *subTex =
+				    makeAtlasSubTexture(fontAtlas, arena, charTmp);
+
+				subTex->key = PLATFORM_MEM_ALLOC(arena, 1, char);
+				subTex->key[0] = charToEncode;
+
+				subTex->rect = CAST(Rect){origin, font->maxSize};
+				charToEncode++;
 			}
 
 			/* Copy over exactly one row of pixels */
@@ -452,8 +563,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 #endif
 	PLATFORM_MEM_FREE(arena, fontBitmap, bitmapSize);
 
-	font->tex = &assetManager->textures[texlist_font];
-	font->atlas = &assetManager->texAtlas[texlist_font];
+	fontAtlas->tex = &assetManager->textures[texlist_font];
+	font->atlas   = fontAtlas;
 
 	// NOTE(doyle): Formula derived from STB Font
 	font->verticalSpacing =
@@ -472,26 +583,28 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 
 	return 0;
 }
-
 void asset_addAnimation(AssetManager *assetManager, MemoryArena *arena,
-                        i32 texId, i32 animId, i32 *frameIndex, i32 numFrames,
-                        f32 frameDuration)
+                        char *animName, TexAtlas *atlas, char **subTextureNames,
+                        i32 numSubTextures, f32 frameDuration)
 {
-#ifdef DENGINE_DEBUG
-	ASSERT(assetManager && frameIndex)
-	ASSERT(!assetManager->anims[animId].frameIndex);
-#endif
+	Animation *anim = getFreeAnimSlot(
+	    assetManager->anims, ARRAY_COUNT(assetManager->anims), arena, animName);
 
-	Animation anim = {0};
-	anim.atlas     = asset_getTextureAtlas(assetManager, texId);
+	anim->atlas         = atlas;
+	anim->frameDuration = frameDuration;
+	anim->numFrames     = numSubTextures;
 
-	anim.frameIndex = PLATFORM_MEM_ALLOC(arena, numFrames, i32);
-	for (i32 i = 0; i < numFrames; i++) anim.frameIndex[i] = frameIndex[i];
+	// NOTE(doyle): +1 for the null terminator
+	anim->name = PLATFORM_MEM_ALLOC(arena, common_strlen(animName) + 1, char);
+	common_strncpy(anim->name, animName, common_strlen(animName));
 
-	anim.numFrames     = numFrames;
-	anim.frameDuration = frameDuration;
+	anim->frameList = PLATFORM_MEM_ALLOC(arena, numSubTextures, char*);
+	for (i32 i = 0; i < numSubTextures; i++)
+	{
+		AtlasSubTexture *subTex = getAtlasSubTexture(atlas, subTextureNames[i]);
+		anim->frameList[i]       = subTex->key;
+	}
 
-	assetManager->anims[animId] = anim;
 }
 
 v2 asset_stringDimInPixels(const Font *const font, const char *const string)

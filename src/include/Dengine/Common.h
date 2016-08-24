@@ -54,4 +54,14 @@ i32 common_atoi(const char *string, const i32 len);
 //    machines.
 u32 common_murmurHash2(const void *key, i32 len, u32 seed);
 
+// TODO(doyle): Use a proper random seed
+#define RANDOM_SEED 0xDEADBEEF
+inline u32 common_getHashIndex(const char *const key, u32 tableSize)
+{
+	u32 result = common_murmurHash2(key, common_strlen(key), RANDOM_SEED);
+	result     = result % tableSize;
+	return result;
+}
+
+
 #endif

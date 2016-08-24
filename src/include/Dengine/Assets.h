@@ -83,36 +83,37 @@ typedef struct AudioVorbis
 
 typedef struct AtlasSubTexture
 {
-	char *name;
+	// NOTE(doyle): Key used to arrive to hash entry
+	char *key;
 	Rect rect;
 	
 	// NOTE(doyle): For hashing collisions
 	struct AtlasSubTexture *next;
 } AtlasSubTexture;
 
-typedef struct TexAtlasEntry
-{
-	char *name;
-	Texture *tex;
-	AtlasSubTexture subTex[1024];
-
-	// NOTE(doyle): For hashing collisions
-	struct TexAtlasEntry *next;
-} TexAtlasEntry;
-
 typedef struct TexAtlas
 {
-	// TODO(doyle): String hash based lookup
-	v4 texRect[128];
+	char *key;
+	Texture *tex;
+	AtlasSubTexture subTex[512];
+
+	struct TexAtlas *next;
 } TexAtlas;
 
 typedef struct Animation
 {
+	union {
+		char *name;
+		char *key;
+	};
+
 	TexAtlas *atlas;
-	i32 *frameIndex;
+	char **frameList;
 
 	i32 numFrames;
 	f32 frameDuration;
+
+	struct Animation *next;
 } Animation;
 
 // TODO(doyle): We only use the offset and advance metric at the moment, remove?
@@ -136,8 +137,6 @@ typedef struct CharMetrics
 typedef struct Font
 {
 	TexAtlas *atlas;
-	Texture *tex;
-
 	FontMetrics metrics;
 
 	// NOTE(doyle): Array of character's by ASCII value starting from
