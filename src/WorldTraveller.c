@@ -305,7 +305,7 @@ INTERNAL void assetInit(GameState *state)
 				if (common_strcmp(nextToken->string, node->parent->name) == 0)
 				{
 					node->parent->isClosed = TRUE;
-					node           = node->parent;
+					node                   = node->parent;
 				}
 				else
 				{
@@ -402,7 +402,9 @@ INTERNAL void assetInit(GameState *state)
 		}
 	}
 
+#if 1
 	DEBUG_RECURSIVE_PRINT_XML_TREE(&root);
+#endif
 
 	node = &root;
 	while (node)
@@ -420,6 +422,12 @@ INTERNAL void assetInit(GameState *state)
 					{
 						// TODO(doyle): Fill in details properly
 						Rect rect = {0};
+
+						// TODO(doyle): Work around for now in xml reading,
+						// reading the last node closing node not being merged
+						// to the parent
+						if (!subTextureAttrib->name) continue;
+
 						if (common_strcmp(subTextureAttrib->name, "name") == 0)
 						{
 						}
@@ -762,11 +770,29 @@ INTERNAL v2 getPosRelativeToRect(Rect rect, v2 offset,
 	return result;
 }
 
+INTERNAL void unitTest()
+{
+	ASSERT(common_atoi("-2", common_strlen("-2")) == -2);
+	ASSERT(common_atoi("100", common_strlen("100")) == 100);
+	ASSERT(common_atoi("1", common_strlen("1")) == 1);
+	ASSERT(common_atoi("954 32", common_strlen("954 32")) == 954);
+
+	ASSERT(common_atoi("", 0) == -1);
+	ASSERT(common_atoi(" 32", common_strlen(" 32")) == -1);
+	ASSERT(common_atoi("+32", common_strlen("+32")) == 32);
+	ASSERT(common_atoi("+ 32", common_strlen("+ 32")) == 0);
+
+}
+
 // TODO(doyle): Remove and implement own random generator!
 #include <time.h>
 #include <stdlib.h>
 void worldTraveller_gameInit(GameState *state, v2 windowSize)
 {
+#ifdef DENGINE_DEBUG
+	unitTest();
+#endif
+
 	i32 result = audio_init(&state->audioManager);
 	if (result)
 	{

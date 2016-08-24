@@ -74,8 +74,41 @@ void common_itoa(i32 value, char *buf, i32 bufSize)
 	reverseString(buf, common_strlen(buf));
 }
 
-i32 common_atoi(char *string, i32 len)
+// TODO(doyle): Consider if we should trash ptrs in string operations in general
+i32 common_atoi(const char *string, const i32 len)
 {
+	if (len == 0) return -1;
+
 	// TODO(doyle): Implement ATOI
-	return 0;
+	i32 index = 0;
+	if (string[index] != '-' && string[index] != '+' &&
+	    (string[index] < '0' || string[index] > '9'))
+	{
+		return -1;
+	}
+
+	b32 isNegative = FALSE;
+	if (string[index] == '-' || string[index] == '+')
+	{
+		if (string[index] == '-') isNegative = TRUE;
+		index++;
+	}
+
+	i32 result = 0;
+	for (i32 i = index; i < len; i++)
+	{
+		if (string[i] >= '0' && string[i] <= '9')
+		{
+			result *= 10;
+			result += string[i] - '0';
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	if (isNegative) result *= -1;
+
+	return result;
 }

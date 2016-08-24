@@ -35,6 +35,6 @@ char *common_memset(char *const ptr, const i32 value, const i32 numBytes);
 
 // Max buffer size should be 11 for 32 bit integers
 void common_itoa(i32 value, char *buf, i32 bufSize);
-i32 common_atoi(char *string, i32 len);
+i32 common_atoi(const char *string, const i32 len);
 
 #endif
