@@ -30,11 +30,28 @@ typedef double f64;
 
 i32 common_strlen(const char *const string);
 i32 common_strcmp(const char *a, const char *b);
+void common_strncat(char *dest, const char *src, i32 numChars);
 char *common_strncpy(char *dest, const char *src, i32 numChars);
 char *common_memset(char *const ptr, const i32 value, const i32 numBytes);
 
 // Max buffer size should be 11 for 32 bit integers
 void common_itoa(i32 value, char *buf, i32 bufSize);
 i32 common_atoi(const char *string, const i32 len);
+
+
+//-----------------------------------------------------------------------------
+// MurmurHash2, by Austin Appleby
+
+// Note - This code makes a few assumptions about how your machine behaves -
+
+// 1. We can read a 4-byte value from any address without crashing
+// 2. sizeof(int) == 4
+
+// And it has a few limitations -
+
+// 1. It will not work incrementally.
+// 2. It will not produce the same results on little-endian and big-endian
+//    machines.
+u32 common_murmurHash2(const void *key, i32 len, u32 seed);
 
 #endif

@@ -81,6 +81,25 @@ typedef struct AudioVorbis
 	i32 size;
 } AudioVorbis;
 
+typedef struct AtlasSubTexture
+{
+	char *name;
+	Rect rect;
+	
+	// NOTE(doyle): For hashing collisions
+	struct AtlasSubTexture *next;
+} AtlasSubTexture;
+
+typedef struct TexAtlasEntry
+{
+	char *name;
+	Texture *tex;
+	AtlasSubTexture subTex[1024];
+
+	// NOTE(doyle): For hashing collisions
+	struct TexAtlasEntry *next;
+} TexAtlasEntry;
+
 typedef struct TexAtlas
 {
 	// TODO(doyle): String hash based lookup

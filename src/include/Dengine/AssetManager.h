@@ -16,6 +16,8 @@ typedef struct AssetManager
 	Animation anims[32];
 	AudioVorbis audio[32];
 	Font font;
+
+	TexAtlasEntry texAtlas_[8];
 } AssetManager;
 
 #define MAX_TEXTURE_SIZE 1024

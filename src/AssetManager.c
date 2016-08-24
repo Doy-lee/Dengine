@@ -117,7 +117,7 @@ const i32 asset_loadTextureImage(AssetManager *assetManager,
 	if (imgWidth != imgHeight)
 	{
 		printf(
-		    "worldTraveller_gameInit() warning: Sprite sheet is not square: "
+		    "asset_loadTextureImage() warning: Sprite sheet is not square: "
 		    "%dx%dpx\n", imgWidth, imgHeight);
 	}
 #endif

@@ -289,9 +289,17 @@ INTERNAL void assetInit(GameState *state)
 	XmlNode root = {0};
 	XmlNode *node = &root;
 	node->parent  = node;
+
+	// NOTE(doyle): Used for when closing a node with many children. We
+	// automatically assign the next child after each child close within
+	// a group. Hence on the last child, we open another node but the next
+	// token indicates the group is closing- we need to set the last child's
+	// next reference to NULL
+	XmlNode *prevNode = NULL;
 	for (i32 i = 0; i < tokenIndex; i++)
 	{
 		XmlToken *token = &xmlTokens[i];
+
 		switch (token->type)
 		{
 
@@ -305,7 +313,16 @@ INTERNAL void assetInit(GameState *state)
 				if (common_strcmp(nextToken->string, node->parent->name) == 0)
 				{
 					node->parent->isClosed = TRUE;
-					node                   = node->parent;
+
+					if (prevNode)
+					{
+						prevNode->next = NULL;
+					}
+
+					XmlNode *parent = node->parent;
+					PLATFORM_MEM_FREE(arena, node, sizeof(XmlNode));
+
+					node            = node->parent;
 				}
 				else
 				{
@@ -360,6 +377,7 @@ INTERNAL void assetInit(GameState *state)
 		case xmltokentype_closeArrow:
 		{
 			XmlToken prevToken = xmlTokens[i - 1];
+			prevNode = node;
 
 			/* Closed node means we can return to parent */
 			if (prevToken.type == xmltokentype_backslash)
@@ -402,6 +420,9 @@ INTERNAL void assetInit(GameState *state)
 		}
 	}
 
+// TODO(doyle): Use a proper random seed
+#define RANDOM_SEED 0xDEADBEEF
+
 #if 1
 	DEBUG_RECURSIVE_PRINT_XML_TREE(&root);
 #endif
@@ -411,73 +432,164 @@ INTERNAL void assetInit(GameState *state)
 	{
 		if(common_strcmp(node->name, "TextureAtlas") == 0)
 		{
-			XmlNode *atlasXmlNode   = node;
-			XmlNode *atlasChildNode = atlasXmlNode->child;
-			while (atlasChildNode)
+			XmlNode *atlasXmlNode     = node;
+			TexAtlasEntry *atlasEntry = NULL;
+			if (common_strcmp(node->attribute.name, "imagePath") == 0)
 			{
-				if (common_strcmp(atlasChildNode->name, "SubTexture") == 0)
+				char *imageName = atlasXmlNode->attribute.value;
+				u32 atlasHashIndex = common_murmurHash2(
+				    imageName, common_strlen(imageName), RANDOM_SEED);
+				atlasHashIndex =
+				    atlasHashIndex % ARRAY_COUNT(assetManager->texAtlas_);
+
+				atlasEntry = &assetManager->texAtlas_[atlasHashIndex];
+				if (atlasEntry->name)
 				{
-					XmlAttribute *subTextureAttrib = &atlasChildNode->attribute;
-					while (subTextureAttrib)
+#ifdef DENGINE_DEBUG
+
+					// NOTE(doyle): Two atlas textures have the same access name
+					ASSERT(common_strcmp(atlasEntry->name, imageName) != 0);
+#endif
+
+					while (atlasEntry->next)
+						atlasEntry = atlasEntry->next;
+
+					atlasEntry->next =
+					    PLATFORM_MEM_ALLOC(arena, 1, TexAtlasEntry);
+					atlasEntry       = atlasEntry->next;
+				}
+
+				char *dataDir = "data/textures/WorldTraveller/";
+				char imagePath[512] = {0};
+				common_strncat(imagePath, dataDir, common_strlen(dataDir));
+				common_strncat(imagePath, imageName, common_strlen(imageName));
+
+				asset_loadTextureImage(assetManager, imagePath, texlist_claude);
+
+				atlasEntry->name =
+				    PLATFORM_MEM_ALLOC(arena, common_strlen(imageName), char);
+				common_strncpy(atlasEntry->name, imageName,
+				               common_strlen(imageName));
+
+				atlasEntry->tex =
+				    asset_getTexture(assetManager, texlist_claude);
+
+				XmlNode *atlasChildNode = atlasXmlNode->child;
+				while (atlasChildNode)
+				{
+					if (common_strcmp(atlasChildNode->name, "SubTexture") == 0)
 					{
-						// TODO(doyle): Fill in details properly
-						Rect rect = {0};
+						XmlAttribute *subTextureAttrib =
+						    &atlasChildNode->attribute;
 
-						// TODO(doyle): Work around for now in xml reading,
-						// reading the last node closing node not being merged
-						// to the parent
-						if (!subTextureAttrib->name) continue;
+						AtlasSubTexture newSubTexEntry = {0};
+						while (subTextureAttrib)
+						{
 
-						if (common_strcmp(subTextureAttrib->name, "name") == 0)
-						{
+							// TODO(doyle): Work around for now in xml reading,
+							// reading the last node closing node not being
+							// merged to the parent
+							if (!subTextureAttrib->name) continue;
+
+							if (common_strcmp(subTextureAttrib->name, "name") ==
+							    0)
+							{
+								char *value   = subTextureAttrib->value;
+								newSubTexEntry.name = value;
+							}
+							else if (common_strcmp(subTextureAttrib->name,
+							                       "x") == 0)
+							{
+								char *value  = subTextureAttrib->value;
+								i32 valueLen = common_strlen(value);
+								newSubTexEntry.rect.pos.x =
+								    CAST(f32) common_atoi(value, valueLen);
+							}
+							else if (common_strcmp(subTextureAttrib->name,
+							                       "y") == 0)
+							{
+								char *value  = subTextureAttrib->value;
+								i32 valueLen = common_strlen(value);
+								newSubTexEntry.rect.pos.y =
+								    CAST(f32) common_atoi(value, valueLen);
+							}
+							else if (common_strcmp(subTextureAttrib->name,
+							                       "width") == 0)
+							{
+								char *value  = subTextureAttrib->value;
+								i32 valueLen = common_strlen(value);
+								newSubTexEntry.rect.size.w =
+								    CAST(f32) common_atoi(value, valueLen);
+							}
+							else if (common_strcmp(subTextureAttrib->name,
+							                       "height") == 0)
+							{
+								char *value  = subTextureAttrib->value;
+								i32 valueLen = common_strlen(value);
+								newSubTexEntry.rect.size.h =
+								    CAST(f32) common_atoi(value, valueLen);
+							}
+							else
+							{
+#ifdef DENGINE_DEBUG
+								DEBUG_LOG(
+								    "Unsupported xml attribute in SubTexture");
+#endif
+							}
+
+							subTextureAttrib = subTextureAttrib->next;
 						}
-						else if (common_strcmp(subTextureAttrib->name, "x") ==
-						         0)
-						{
-							char *name  = subTextureAttrib->name;
-							i32 nameLen = common_strlen(name);
-							rect.pos.x  = CAST(f32) common_atoi(name, nameLen);
-						}
-						else if (common_strcmp(subTextureAttrib->name, "y") ==
-						         0)
-						{
-							char *name  = subTextureAttrib->name;
-							i32 nameLen = common_strlen(name);
-							rect.pos.y  = CAST(f32) common_atoi(name, nameLen);
-						}
-						else if (common_strcmp(subTextureAttrib->name,
-						                       "width") == 0)
-						{
-							char *name  = subTextureAttrib->name;
-							i32 nameLen = common_strlen(name);
-							rect.size.w = CAST(f32) common_atoi(name, nameLen);
-						}
-						else if (common_strcmp(subTextureAttrib->name,
-						                       "height") == 0)
-						{
-							char *name  = subTextureAttrib->name;
-							i32 nameLen = common_strlen(name);
-							rect.size.h = CAST(f32) common_atoi(name, nameLen);
-						}
-						else
+
+#ifdef DENGINE_DEBUG
+						ASSERT(newSubTexEntry.name)
+#endif
+
+
+						u32 subTexHashIndex = common_murmurHash2(
+						    newSubTexEntry.name, common_strlen(newSubTexEntry.name),
+						    RANDOM_SEED);
+						subTexHashIndex =
+						    subTexHashIndex % ARRAY_COUNT(atlasEntry->subTex);
+
+						// NOTE(doyle): Hash collision
+						AtlasSubTexture *subTexEntry =
+						    &atlasEntry->subTex[subTexHashIndex];
+						if (subTexEntry->name)
 						{
 #ifdef DENGINE_DEBUG
-							DEBUG_LOG(
-							    "Unsupported xml attribute in SubTexture");
+
+							// NOTE(doyle): Two textures have the same access
+							// name
+							ASSERT(common_strcmp(subTexEntry->name,
+							                     newSubTexEntry.name) != 0);
 #endif
+							while (subTexEntry->next)
+								subTexEntry = subTexEntry->next;
+
+							subTexEntry->next =
+							    PLATFORM_MEM_ALLOC(arena, 1, AtlasSubTexture);
+							subTexEntry = subTexEntry->next;
 						}
 
-						subTextureAttrib = subTextureAttrib->next;
+						*subTexEntry = newSubTexEntry;
+						common_strncpy(subTexEntry->name, newSubTexEntry.name,
+						               common_strlen(newSubTexEntry.name));
 					}
-				}
-				else
-				{
+					else
+					{
 #ifdef DENGINE_DEBUG
-					DEBUG_LOG("Unsupported xml node name not parsed");
+						DEBUG_LOG("Unsupported xml node name not parsed");
 #endif
-				}
+					}
 
-				atlasChildNode = atlasChildNode->next;
+					atlasChildNode = atlasChildNode->next;
+				}
+			}
+			else
+			{
+#ifdef DENGINE_DEBUG
+				DEBUG_LOG("Unsupported xml node");
+#endif
 			}
 		}
 		else
@@ -486,7 +598,6 @@ INTERNAL void assetInit(GameState *state)
 			DEBUG_LOG("Unsupported xml node name not parsed");
 #endif
 		}
-
 		node = node->next;
 	}
 
