@@ -451,7 +451,9 @@ void debug_drawUi(GameState *state, f32 dt)
 	i32 debug_bAllocated = state->arena.bytesAllocated;
 	DEBUG_PUSH_VAR("TotalMemoryAllocated: %db", debug_bAllocated, "i32");
 	i32 debug_kbAllocated = state->arena.bytesAllocated / 1024;
+	i32 debug_mbAllocated = debug_kbAllocated / 1024;
 	DEBUG_PUSH_VAR("TotalMemoryAllocated: %dkb", debug_kbAllocated, "i32");
+	DEBUG_PUSH_VAR("TotalMemoryAllocated: %dmb", debug_mbAllocated, "i32");
 	DEBUG_PUSH_STRING("");
 
 	AudioManager *audioManager = &state->audioManager;

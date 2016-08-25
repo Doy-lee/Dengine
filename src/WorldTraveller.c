@@ -188,78 +188,90 @@ INTERNAL void debug_recursivePrintXmlTree(XmlNode *root, i32 levelsDeep)
 	}
 }
 
-INTERNAL void assetInit(GameState *state)
+INTERNAL XmlToken *tokeniseXmlBuffer(MemoryArena *arena, char *buffer,
+                                     i32 bufferSize, int *numTokens)
 {
-	AssetManager *assetManager = &state->assetManager;
-	MemoryArena *arena = &state->arena;
-
-	/* Create empty 1x1 4bpp black texture */
-	u32 bitmap       = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
-	Texture emptyTex = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
-	assetManager->textures[texlist_empty] = emptyTex;
-
 	/*
 	 **********************
 	 * Tokenise XML Buffer
 	 **********************
 	 */
-	PlatformFileRead xmlFileRead = {0};
-
-	i32 result = platform_readFileToBuffer(
-	    arena, "data/textures/WorldTraveller/ClaudeSprite.xml",
-	    &xmlFileRead);
-
 	XmlToken *xmlTokens = PLATFORM_MEM_ALLOC(arena, 8192, XmlToken);
-	i32 tokenIndex     = 0;
-	if (result)
+	i32 tokenIndex      = 0;
+	for (i32 i = 0; i < bufferSize; i++)
 	{
-		DEBUG_LOG("Failed to read sprite sheet xml");
-	}
-	else
-	{
-		for (i32 i = 0; i < xmlFileRead.size; i++)
+		char c = (CAST(char *) buffer)[i];
+		switch (c)
 		{
-			char c = (CAST(char *)xmlFileRead.buffer)[i];
-			switch (c)
-			{
-			case '<':
-			case '>':
-			case '=':
-			case '/':
-			{
+		case '<':
+		case '>':
+		case '=':
+		case '/':
+		{
 
-				enum XmlTokenType type = xmltokentype_unknown;
-				if (c == '<')
+			enum XmlTokenType type = xmltokentype_unknown;
+			if (c == '<')
+			{
+				type = xmltokentype_openArrow;
+			}
+			else if (c == '>')
+			{
+				type = xmltokentype_closeArrow;
+			}
+			else if (c == '=')
+			{
+				type = xmltokentype_equals;
+			}
+			else
+			{
+				type = xmltokentype_backslash;
+			}
+
+			xmlTokens[tokenIndex].type = type;
+			xmlTokens[tokenIndex].len  = 1;
+			tokenIndex++;
+			break;
+		}
+
+		case '"':
+		{
+			xmlTokens[tokenIndex].type = xmltokentype_value;
+			for (i32 j = i + 1; j < bufferSize; j++)
+			{
+				char c = (CAST(char *) buffer)[j];
+
+				if (c == '"')
 				{
-					type = xmltokentype_openArrow;
-				}
-				else if (c == '>')
-				{
-					type = xmltokentype_closeArrow;
-				}
-				else if (c == '=')
-				{
-					type = xmltokentype_equals;
+					break;
 				}
 				else
 				{
-					type = xmltokentype_backslash;
+					xmlTokens[tokenIndex].string[xmlTokens[tokenIndex].len++] =
+					    c;
+#ifdef DENGINE_DEBUG
+					ASSERT(xmlTokens[tokenIndex].len <
+					       ARRAY_COUNT(xmlTokens[tokenIndex].string));
+#endif
 				}
-
-				xmlTokens[tokenIndex].type = type;
-				xmlTokens[tokenIndex].len = 1;
-				tokenIndex++;
-				break;
 			}
 
-			case '"':
-			{
-				xmlTokens[tokenIndex].type = xmltokentype_value;
-				for (i32 j = i + 1; j < xmlFileRead.size; j++)
-				{
-					char c = (CAST(char *) xmlFileRead.buffer)[j];
+			// NOTE(doyle): +1 to skip the closing quotes
+			i += (xmlTokens[tokenIndex].len + 1);
+			tokenIndex++;
+			break;
+		}
 
-					if (c == '"')
+		default:
+		{
+			if ((c >= 'a' && c <= 'z') || c >= 'A' && c <= 'Z')
+			{
+				xmlTokens[tokenIndex].type = xmltokentype_name;
+				for (i32 j = i; j < bufferSize; j++)
+				{
+					char c = (CAST(char *) buffer)[j];
+
+					if (c == ' ' || c == '=' || c == '>' || c == '<' ||
+					    c == '\\')
 					{
 						break;
 					}
@@ -273,48 +285,24 @@ INTERNAL void assetInit(GameState *state)
 #endif
 					}
 				}
-
-				// NOTE(doyle): +1 to skip the closing quotes
-				i += (xmlTokens[tokenIndex].len + 1);
+				i += xmlTokens[tokenIndex].len;
 				tokenIndex++;
-				break;
 			}
-
-			default:
-			{
-				if ((c >= 'a' && c <= 'z') || c >= 'A' && c <= 'Z')
-				{
-					xmlTokens[tokenIndex].type = xmltokentype_name;
-					for (i32 j = i; j < xmlFileRead.size; j++)
-					{
-						char c = (CAST(char *) xmlFileRead.buffer)[j];
-
-						if (c == ' ' || c == '=' || c == '>' || c == '<' ||
-						    c == '\\')
-						{
-							break;
-						}
-						else
-						{
-							xmlTokens[tokenIndex]
-							    .string[xmlTokens[tokenIndex].len++] = c;
-#ifdef DENGINE_DEBUG
-							ASSERT(xmlTokens[tokenIndex].len <
-							       ARRAY_COUNT(xmlTokens[tokenIndex].string));
-#endif
-						}
-					}
-					i += xmlTokens[tokenIndex].len;
-					tokenIndex++;
-				}
-				break;
-			}
-			}
+			break;
+		}
 		}
 	}
 
-	XmlNode root = {0};
-	XmlNode *node = &root;
+	// TODO(doyle): Dynamic token allocation
+	*numTokens = 8192;
+	return xmlTokens;
+}
+
+INTERNAL XmlNode *buildXmlTree(MemoryArena *arena, XmlToken *xmlTokens,
+                               i32 numTokens)
+{
+	XmlNode *root = PLATFORM_MEM_ALLOC(arena, 1, XmlNode);
+	XmlNode *node = root;
 	node->parent  = node;
 
 	// NOTE(doyle): Used for when closing a node with many children. We
@@ -323,7 +311,7 @@ INTERNAL void assetInit(GameState *state)
 	// token indicates the group is closing- we need to set the last child's
 	// next reference to NULL
 	XmlNode *prevNode = NULL;
-	for (i32 i = 0; i < tokenIndex; i++)
+	for (i32 i = 0; i < numTokens; i++)
 	{
 		XmlToken *token = &xmlTokens[i];
 
@@ -397,7 +385,7 @@ INTERNAL void assetInit(GameState *state)
 			/* Followed by the value */
 			token            = &xmlTokens[++i];
 			attribute->value = token->string;
-			attribute->init = TRUE;
+			attribute->init  = TRUE;
 			break;
 		}
 
@@ -447,31 +435,33 @@ INTERNAL void assetInit(GameState *state)
 		}
 	}
 
-#if 1
-	DEBUG_RECURSIVE_PRINT_XML_TREE(&root);
-#endif
+	return root;
+}
 
-	node = &root;
+INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
+                                 XmlNode *root)
+{
+	XmlNode *node = root;
 	while (node)
 	{
-		if(common_strcmp(node->name, "TextureAtlas") == 0)
+		if (common_strcmp(node->name, "TextureAtlas") == 0)
 		{
-			XmlNode *atlasXmlNode     = node;
-			TexAtlas *atlasEntry = NULL;
+			XmlNode *atlasXmlNode = node;
+			TexAtlas *atlasEntry  = NULL;
 			if (common_strcmp(node->attribute.name, "imagePath") == 0)
 			{
 				char *imageName = atlasXmlNode->attribute.value;
 				atlasEntry = asset_makeTexAtlas(assetManager, arena, imageName);
 
-				char *dataDir = "data/textures/WorldTraveller/";
+				char *dataDir       = "data/textures/WorldTraveller/";
 				char imagePath[512] = {0};
 				common_strncat(imagePath, dataDir, common_strlen(dataDir));
 				common_strncat(imagePath, imageName, common_strlen(imageName));
 
 				asset_loadTextureImage(assetManager, imagePath, texlist_claude);
 
-				atlasEntry->key =
-				    PLATFORM_MEM_ALLOC(arena, common_strlen(imageName)+1, char);
+				atlasEntry->key = PLATFORM_MEM_ALLOC(
+				    arena, common_strlen(imageName) + 1, char);
 				common_strncpy(atlasEntry->key, imageName,
 				               common_strlen(imageName));
 
@@ -498,7 +488,7 @@ INTERNAL void assetInit(GameState *state)
 							if (common_strcmp(subTextureAttrib->name, "name") ==
 							    0)
 							{
-								char *value   = subTextureAttrib->value;
+								char *value        = subTextureAttrib->value;
 								newSubTexEntry.key = value;
 							}
 							else if (common_strcmp(subTextureAttrib->name,
@@ -588,7 +578,7 @@ INTERNAL void assetInit(GameState *state)
 						i32 keyLen   = common_strlen(newSubTexEntry.key);
 
 						subTexEntry->key =
-						    PLATFORM_MEM_ALLOC(arena, keyLen+1, char);
+						    PLATFORM_MEM_ALLOC(arena, keyLen + 1, char);
 						common_strncpy(subTexEntry->key, newSubTexEntry.key,
 						               keyLen);
 					}
@@ -617,6 +607,159 @@ INTERNAL void assetInit(GameState *state)
 		}
 		node = node->next;
 	}
+}
+
+INTERNAL void recursiveFreeXmlTree(MemoryArena *arena, XmlNode *node)
+{
+	if (!node)
+	{
+		return;
+	} else
+	{
+		// NOTE(doyle): First attribute is statically allocated, only if there's
+		// more attributes do we dynamically allocate
+		XmlAttribute *attrib = node->attribute.next;
+
+		while (attrib)
+		{
+			XmlAttribute *next = attrib->next;
+
+			attrib->name  = NULL;
+			attrib->value = NULL;
+			PLATFORM_MEM_FREE(arena, attrib, sizeof(XmlAttribute));
+			attrib = next;
+		}
+
+		recursiveFreeXmlTree(arena, node->child);
+		recursiveFreeXmlTree(arena, node->next);
+
+		node->name     = NULL;
+		node->isClosed = FALSE;
+		PLATFORM_MEM_FREE(arena, node, sizeof(XmlNode));
+	}
+}
+
+INTERNAL void freeXmlData(MemoryArena *arena, XmlToken *tokens, i32 numTokens,
+                          XmlNode *tree)
+{
+	if (tree) recursiveFreeXmlTree(arena, tree);
+	if (tokens) PLATFORM_MEM_FREE(arena, tokens, numTokens * sizeof(XmlToken));
+}
+
+INTERNAL void assetInit(GameState *state)
+{
+	AssetManager *assetManager = &state->assetManager;
+	MemoryArena *arena = &state->arena;
+
+	/* Create empty 1x1 4bpp black texture */
+	u32 bitmap       = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
+	Texture emptyTex = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
+	assetManager->textures[texlist_empty] = emptyTex;
+
+	PlatformFileRead terrainXml = {0};
+	i32 result = platform_readFileToBuffer(
+	    arena, "data/textures/WorldTraveller/terrain.xml", &terrainXml);
+	
+	if (result)
+	{
+		DEBUG_LOG("Failed to read sprite sheet xml");
+	}
+	else
+	{
+		/* Tokenise buffer */
+		i32 numTokens    = 0;
+		XmlToken *xmlTokens = tokeniseXmlBuffer(arena, terrainXml.buffer,
+		                                        terrainXml.size, &numTokens);
+
+		/* Build XML tree from tokens */
+		XmlNode *xmlTree = buildXmlTree(arena, xmlTokens, numTokens);
+
+		/* Parse XML tree to game structures */
+		parseXmlTreeToGame(assetManager, arena, xmlTree);
+
+		/* Free data */
+		freeXmlData(arena, xmlTokens, numTokens, xmlTree);
+		platform_closeFileRead(arena, &terrainXml);
+	}
+
+	PlatformFileRead claudeXml = {0};
+	result = platform_readFileToBuffer(
+	    arena, "data/textures/WorldTraveller/ClaudeSprite.xml", &claudeXml);
+
+	if (result)
+	{
+		DEBUG_LOG("Failed to read sprite sheet xml");
+	}
+	else
+	{
+		/* Tokenise buffer */
+		i32 numTokens    = 0;
+		XmlToken *xmlTokens = tokeniseXmlBuffer(arena, claudeXml.buffer,
+		                                        claudeXml.size, &numTokens);
+
+		/* Build XML tree from tokens */
+		XmlNode *xmlTree = buildXmlTree(arena, xmlTokens, numTokens);
+
+		/* Parse XML tree to game structures */
+		parseXmlTreeToGame(assetManager, arena, xmlTree);
+
+		/* Free data */
+		freeXmlData(arena, xmlTokens, numTokens, xmlTree);
+		platform_closeFileRead(arena, &claudeXml);
+
+		TexAtlas *claudeAtlas =
+		    asset_getTexAtlas(assetManager, "ClaudeSprite.png");
+
+		char *claudeIdle[1] = {"ClaudeSprite_Walk_Left_01"};
+		f32 duration        = 1.0f;
+		i32 numRects        = ARRAY_COUNT(claudeIdle);
+		asset_addAnimation(assetManager, arena, "claudeIdle", claudeAtlas,
+		                   claudeIdle, numRects, duration);
+
+		// Run animation
+		char *claudeRun[6] = {
+		    "ClaudeSprite_Run_Left_01", "ClaudeSprite_Run_Left_02",
+		    "ClaudeSprite_Run_Left_03", "ClaudeSprite_Run_Left_04",
+		    "ClaudeSprite_Run_Left_05", "ClaudeSprite_Run_Left_06"};
+		duration = 0.1f;
+		numRects = ARRAY_COUNT(claudeRun);
+		asset_addAnimation(assetManager, arena, "claudeRun", claudeAtlas,
+		                   claudeRun, numRects, duration);
+
+		// Battle Idle animation
+		char *claudeBattleIdle[3] = {"ClaudeSprite_BattleIdle_Left_01",
+		                             "ClaudeSprite_BattleIdle_Left_02",
+		                             "ClaudeSprite_BattleIdle_Left_03"};
+		numRects = ARRAY_COUNT(claudeBattleIdle);
+		duration = 0.2f;
+		asset_addAnimation(assetManager, arena, "claudeBattleIdle", claudeAtlas,
+		                   claudeBattleIdle, numRects, duration);
+
+		// Attack Left animation
+		char *claudeAttack[6] = {
+		    "ClaudeSprite_Attack_Left_01", "ClaudeSprite_Attack_Left_02",
+		    "ClaudeSprite_Attack_Left_03", "ClaudeSprite_Attack_Left_04",
+		    "ClaudeSprite_Attack_Left_05", "ClaudeSprite_Attack_Left_06"};
+		numRects = ARRAY_COUNT(claudeAttack);
+		duration = 0.1f;
+		asset_addAnimation(assetManager, arena, "claudeAttack", claudeAtlas,
+		                   claudeAttack, numRects, duration);
+
+		//  Victory animation
+		char *claudeVictory[8] = {
+		    "ClaudeSprite_Battle_Victory_01", "ClaudeSprite_Battle_Victory_02",
+		    "ClaudeSprite_Battle_Victory_03", "ClaudeSprite_Battle_Victory_04",
+		    "ClaudeSprite_Battle_Victory_05", "ClaudeSprite_Battle_Victory_06",
+		    "ClaudeSprite_Battle_Victory_07", "ClaudeSprite_Battle_Victory_08"};
+		numRects = ARRAY_COUNT(claudeVictory);
+		duration = 0.1f;
+		asset_addAnimation(assetManager, arena, "claudeVictory", claudeAtlas,
+		                   claudeVictory, numRects, duration);
+
+#ifdef DENGINE_DEBUG
+		DEBUG_LOG("Animations created");
+#endif
+	}
 
 	/* Load shaders */
 	asset_loadShaderFiles(assetManager, arena, "data/shaders/sprite.vert.glsl",
@@ -630,59 +773,6 @@ INTERNAL void assetInit(GameState *state)
 	if (result) DEBUG_LOG("Font loading failed");
 	GL_CHECK_ERROR();
 	DEBUG_LOG("Assets loaded");
-#endif
-
-	TexAtlas *claudeAtlas =
-	    asset_getTexAtlas(assetManager, "ClaudeSprite.png");
-
-	char *claudeIdle[1] = {"ClaudeSprite_Walk_Left_01"};
-	f32 duration = 1.0f;
-	i32 numRects = ARRAY_COUNT(claudeIdle);
-	asset_addAnimation(assetManager, arena, "claudeIdle", claudeAtlas,
-	                   claudeIdle, numRects, duration);
-
-	// Run animation
-	char *claudeRun[6] = {
-	    "ClaudeSprite_Run_Left_01", "ClaudeSprite_Run_Left_02",
-	    "ClaudeSprite_Run_Left_03", "ClaudeSprite_Run_Left_04",
-	    "ClaudeSprite_Run_Left_05", "ClaudeSprite_Run_Left_06"};
-	duration = 0.1f;
-	numRects = ARRAY_COUNT(claudeRun);
-	asset_addAnimation(assetManager, arena, "claudeRun", claudeAtlas,
-	                   claudeRun, numRects, duration);
-
-	// Battle Idle animation
-	char *claudeBattleIdle[3] = {"ClaudeSprite_BattleIdle_Left_01",
-	                             "ClaudeSprite_BattleIdle_Left_02",
-	                             "ClaudeSprite_BattleIdle_Left_03"};
-	numRects          = ARRAY_COUNT(claudeBattleIdle);
-	duration          = 0.2f;
-	asset_addAnimation(assetManager, arena, "claudeBattleIdle", claudeAtlas,
-	                   claudeBattleIdle, numRects, duration);
-
-	// Attack Left animation
-	char *claudeAttack[6] = {
-	    "ClaudeSprite_Attack_Left_01", "ClaudeSprite_Attack_Left_02",
-	    "ClaudeSprite_Attack_Left_03", "ClaudeSprite_Attack_Left_04",
-	    "ClaudeSprite_Attack_Left_05", "ClaudeSprite_Attack_Left_06"};
-	numRects          = ARRAY_COUNT(claudeAttack);
-	duration          = 0.1f;
-	asset_addAnimation(assetManager, arena, "claudeAttack", claudeAtlas,
-	                   claudeAttack, numRects, duration);
-
-	//  Victory animation
-	char *claudeVictory[8] = {
-	    "ClaudeSprite_Battle_Victory_01", "ClaudeSprite_Battle_Victory_02",
-	    "ClaudeSprite_Battle_Victory_03", "ClaudeSprite_Battle_Victory_04",
-	    "ClaudeSprite_Battle_Victory_05", "ClaudeSprite_Battle_Victory_06",
-	    "ClaudeSprite_Battle_Victory_07", "ClaudeSprite_Battle_Victory_08"};
-	numRects          = ARRAY_COUNT(claudeVictory);
-	duration          = 0.1f;
-	asset_addAnimation(assetManager, arena, "claudeVictory", claudeAtlas,
-	                   claudeVictory, numRects, duration);
-
-#ifdef DENGINE_DEBUG
-	DEBUG_LOG("Animations created");
 #endif
 
 	/* Load sound */
@@ -874,7 +964,7 @@ INTERNAL v2 getPosRelativeToRect(Rect rect, v2 offset,
 	return result;
 }
 
-INTERNAL void unitTest()
+INTERNAL void unitTest(MemoryArena *arena)
 {
 	ASSERT(common_atoi("-2", common_strlen("-2")) == -2);
 	ASSERT(common_atoi("100", common_strlen("100")) == 100);
@@ -886,6 +976,29 @@ INTERNAL void unitTest()
 	ASSERT(common_atoi("+32", common_strlen("+32")) == 32);
 	ASSERT(common_atoi("+ 32", common_strlen("+ 32")) == 0);
 
+
+	PlatformFileRead xmlFileRead = {0};
+	i32 result = platform_readFileToBuffer(
+	    arena, "data/textures/WorldTraveller/ClaudeSprite.xml", &xmlFileRead);
+	if (result)
+	{
+		DEBUG_LOG(
+		    "unitTest() error: Could not load XML file for memory free test");
+	}
+	else
+	{
+		/* Tokenise buffer */
+		i32 memBefore = arena->bytesAllocated;
+		i32 numTokens    = 0;
+		XmlToken *xmlTokens = tokeniseXmlBuffer(arena, xmlFileRead.buffer,
+		                                        xmlFileRead.size, &numTokens);
+		/* Build XML tree from tokens */
+		XmlNode *xmlTree = buildXmlTree(arena, xmlTokens, numTokens);
+		freeXmlData(arena, xmlTokens, numTokens, xmlTree);
+		i32 memAfter = arena->bytesAllocated;
+
+		ASSERT(memBefore == memAfter);
+	}
 }
 
 // TODO(doyle): Remove and implement own random generator!
@@ -894,7 +1007,7 @@ INTERNAL void unitTest()
 void worldTraveller_gameInit(GameState *state, v2 windowSize)
 {
 #ifdef DENGINE_DEBUG
-	unitTest();
+	unitTest(&state->arena);
 #endif
 
 	i32 result = audio_init(&state->audioManager);
@@ -1290,11 +1403,12 @@ INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
 	switch (attacker->stats->queuedAttack)
 	{
 	case entityattack_tackle:
+		entity_setActiveAnim(attacker, "claudeAttack");
 		EntityAnim attackAnim = attacker->animList[attacker->currAnimId];
 		f32 busyDuration      = attackAnim.anim->frameDuration *
 		                   CAST(f32) attackAnim.anim->numFrames;
 		attacker->stats->busyDuration = busyDuration;
-		entity_setActiveAnim(attacker, "claudeAttack");
+
 		if (attacker->direction == direction_east)
 			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
 		else

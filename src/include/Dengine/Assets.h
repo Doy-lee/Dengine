@@ -32,21 +32,6 @@ enum TerrainRects
 	terrainrects_count,
 };
 
-enum HeroRects
-{
-	herorects_idle,
-	herorects_walkA,
-	herorects_walkB,
-	herorects_head,
-	herorects_waveA,
-	herorects_waveB,
-	herorects_battlePose,
-	herorects_castA,
-	herorects_castB,
-	herorects_castC,
-	herorects_count,
-};
-
 enum AnimList
 {
 	animlist_hero_idle,

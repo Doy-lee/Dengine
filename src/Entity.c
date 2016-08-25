@@ -6,7 +6,7 @@
 void entity_setActiveAnim(Entity *entity, char *animName)
 {
 	/* Reset current anim data */
-	EntityAnim *currEntityAnim = &entity->animList[entity->currAnimId];
+	EntityAnim *currEntityAnim   = &entity->animList[entity->currAnimId];
 	currEntityAnim->currDuration = currEntityAnim->anim->frameDuration;
 	currEntityAnim->currFrame    = 0;
 
@@ -19,11 +19,10 @@ void entity_setActiveAnim(Entity *entity, char *animName)
 			if (common_strcmp(anim->key, animName) == 0)
 			{
 				entity->currAnimId = i;
-				EntityAnim *currEntityAnim =
-				    &entity->animList[entity->currAnimId];
-				currEntityAnim->currDuration =
-				    currEntityAnim->anim->frameDuration;
-				currEntityAnim->currFrame = 0;
+				EntityAnim *newEntityAnim = &entity->animList[i];
+				newEntityAnim->currDuration =
+				    newEntityAnim->anim->frameDuration;
+				newEntityAnim->currFrame = 0;
 				return;
 			}
 		}
@@ -44,7 +43,7 @@ void entity_updateAnim(Entity *entity, f32 dt)
 	if (currEntityAnim->currDuration <= 0.0f)
 	{
 		currEntityAnim->currFrame++;
-		currEntityAnim->currFrame    = currEntityAnim->currFrame % anim->numFrames;
+		currEntityAnim->currFrame = currEntityAnim->currFrame % anim->numFrames;
 		currEntityAnim->currDuration = anim->frameDuration;
 	}
 
