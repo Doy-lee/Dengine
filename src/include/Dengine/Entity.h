@@ -97,8 +97,6 @@ typedef struct Entity
 void entity_setActiveAnim(Entity *entity, char *animName);
 void entity_updateAnim(Entity *entity, f32 dt);
 void entity_addAnim(AssetManager *assetManager, Entity *entity, char *animName);
-void entity_addGenericMob(MemoryArena *arena, AssetManager *assetManager,
-                          World *world, v2 pos);
 Entity *entity_add(MemoryArena *arena, World *world, v2 pos, v2 size,
                    enum EntityType type, enum Direction direction, Texture *tex,
                    b32 collides);

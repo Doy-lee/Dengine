@@ -19,6 +19,11 @@ void entity_setActiveAnim(Entity *entity, char *animName)
 			if (common_strcmp(anim->key, animName) == 0)
 			{
 				entity->currAnimId = i;
+				EntityAnim *currEntityAnim =
+				    &entity->animList[entity->currAnimId];
+				currEntityAnim->currDuration =
+				    currEntityAnim->anim->frameDuration;
+				currEntityAnim->currFrame = 0;
 				return;
 			}
 		}
@@ -75,29 +80,6 @@ void entity_addAnim(AssetManager *assetManager, Entity *entity, char *animName)
 	}
 
 	DEBUG_LOG("No more free entity animation slots");
-}
-
-void entity_addGenericMob(MemoryArena *arena, AssetManager *assetManager,
-                          World *world, v2 pos)
-{
-#ifdef DENGINE_DEBUG
-	DEBUG_LOG("Mob entity spawned");
-#endif
-
-	Entity *hero = &world->entities[entity_getIndex(world, world->heroId)];
-
-	v2 size              = V2(58.0f, 98.0f);
-	enum EntityType type = entitytype_mob;
-	enum Direction dir   = direction_west;
-	Texture *tex         = asset_getTexture(assetManager, texlist_hero);
-	b32 collides         = TRUE;
-	Entity *mob = entity_add(arena, world, pos, size, type, dir, tex, collides);
-
-	mob->audioRenderer = PLATFORM_MEM_ALLOC(arena, 1, AudioRenderer);
-	mob->audioRenderer->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
-
-	/* Populate mob animation references */
-	entity_addAnim(assetManager, mob, "Claude idle");
 }
 
 Entity *entity_add(MemoryArena *arena, World *world, v2 pos, v2 size,

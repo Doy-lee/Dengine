@@ -41,6 +41,33 @@ INTERNAL Entity *getHeroEntity(World *world)
 	return result;
 }
 
+INTERNAL void addGenericMob(MemoryArena *arena, AssetManager *assetManager,
+                          World *world, v2 pos)
+{
+#ifdef DENGINE_DEBUG
+	DEBUG_LOG("Mob entity spawned");
+#endif
+
+	Entity *hero = &world->entities[entity_getIndex(world, world->heroId)];
+
+	v2 size              = V2(58.0f, 98.0f);
+	enum EntityType type = entitytype_mob;
+	enum Direction dir   = direction_west;
+	Texture *tex         = asset_getTexture(assetManager, texlist_claude);
+	b32 collides         = TRUE;
+	Entity *mob = entity_add(arena, world, pos, size, type, dir, tex, collides);
+
+	mob->audioRenderer = PLATFORM_MEM_ALLOC(arena, 1, AudioRenderer);
+	mob->audioRenderer->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
+
+	/* Populate mob animation references */
+	entity_addAnim(assetManager, mob, "claudeIdle");
+	entity_addAnim(assetManager, mob, "claudeRun");
+	entity_addAnim(assetManager, mob, "claudeBattleIdle");
+	entity_addAnim(assetManager, mob, "claudeAttack");
+	entity_setActiveAnim(mob, "claudeIdle");
+}
+
 INTERNAL void rendererInit(GameState *state, v2 windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
@@ -179,7 +206,7 @@ INTERNAL void assetInit(GameState *state)
 	PlatformFileRead xmlFileRead = {0};
 
 	i32 result = platform_readFileToBuffer(
-	    arena, "data/textures/WorldTraveller/ClaudeSpriteSheet.xml",
+	    arena, "data/textures/WorldTraveller/ClaudeSprite.xml",
 	    &xmlFileRead);
 
 	XmlToken *xmlTokens = PLATFORM_MEM_ALLOC(arena, 8192, XmlToken);
@@ -605,68 +632,54 @@ INTERNAL void assetInit(GameState *state)
 	DEBUG_LOG("Assets loaded");
 #endif
 
-#if 0
-	/* Load animations */
-	f32 duration = 1.0f;
-	i32 numRects = 1;
-	v4 *animRects = PLATFORM_MEM_ALLOC(arena, numRects, v4);
-	i32 terrainAnimAtlasIndexes[1] = {terrainrects_ground};
-
-	// TODO(doyle): Optimise animation storage, we waste space having 1:1 with
-	// animlist when some textures don't have certain animations
-	asset_addAnimation(assetManager, arena, texlist_terrain, animlist_terrain,
-	                   terrainAnimAtlasIndexes, numRects, duration);
-
-	// Idle animation
-	duration      = 1.0f;
-	numRects      = 1;
-	i32 idleAnimAtlasIndexes[1] = {herorects_idle};
-	asset_addAnimation(assetManager, arena, texlist_hero, animlist_hero_idle,
-	                   idleAnimAtlasIndexes, numRects, duration);
-#else
-	f32 duration = 1.0f;
-	i32 numRects = 1;
 	TexAtlas *claudeAtlas =
-	    asset_getTexAtlas(assetManager, "ClaudeSpriteSheet.png");
+	    asset_getTexAtlas(assetManager, "ClaudeSprite.png");
 
-	duration      = 1.0f;
-	numRects      = 1;
-	char *subTextureNames = {"ClaudeSprite_001"};
-	asset_addAnimation(assetManager, arena, "Claude_idle", claudeAtlas,
-	                   &subTextureNames, 1, 1.0f);
-#endif
+	char *claudeIdle[1] = {"ClaudeSprite_Walk_Left_01"};
+	f32 duration = 1.0f;
+	i32 numRects = ARRAY_COUNT(claudeIdle);
+	asset_addAnimation(assetManager, arena, "claudeIdle", claudeAtlas,
+	                   claudeIdle, numRects, duration);
 
-#if 0
-	// Walk animation
-	duration          = 0.10f;
-	numRects          = 3;
-	i32 walkAnimAtlasIndexes[3] = {herorects_walkA, herorects_idle,
-	                               herorects_walkB};
-	asset_addAnimation(assetManager, arena, texlist_hero, animlist_hero_walk,
-	                   walkAnimAtlasIndexes, numRects, duration);
+	// Run animation
+	char *claudeRun[6] = {
+	    "ClaudeSprite_Run_Left_01", "ClaudeSprite_Run_Left_02",
+	    "ClaudeSprite_Run_Left_03", "ClaudeSprite_Run_Left_04",
+	    "ClaudeSprite_Run_Left_05", "ClaudeSprite_Run_Left_06"};
+	duration = 0.1f;
+	numRects = ARRAY_COUNT(claudeRun);
+	asset_addAnimation(assetManager, arena, "claudeRun", claudeAtlas,
+	                   claudeRun, numRects, duration);
 
-	// Wave animation
-	duration          = 0.30f;
-	numRects          = 2;
-	i32 waveAnimAtlasIndexes[2] = {herorects_waveA, herorects_waveB};
-	asset_addAnimation(assetManager, arena, texlist_hero, animlist_hero_wave,
-	                   waveAnimAtlasIndexes, numRects, duration);
+	// Battle Idle animation
+	char *claudeBattleIdle[3] = {"ClaudeSprite_BattleIdle_Left_01",
+	                             "ClaudeSprite_BattleIdle_Left_02",
+	                             "ClaudeSprite_BattleIdle_Left_03"};
+	numRects          = ARRAY_COUNT(claudeBattleIdle);
+	duration          = 0.2f;
+	asset_addAnimation(assetManager, arena, "claudeBattleIdle", claudeAtlas,
+	                   claudeBattleIdle, numRects, duration);
 
-	// Battle Stance animation
-	duration          = 1.0f;
-	numRects          = 1;
-	i32 battleStanceAnimAtlasIndexes[1] = {herorects_battlePose};
-	asset_addAnimation(assetManager, arena, texlist_hero, animlist_hero_battlePose,
-	                   battleStanceAnimAtlasIndexes, numRects, duration);
+	// Attack Left animation
+	char *claudeAttack[6] = {
+	    "ClaudeSprite_Attack_Left_01", "ClaudeSprite_Attack_Left_02",
+	    "ClaudeSprite_Attack_Left_03", "ClaudeSprite_Attack_Left_04",
+	    "ClaudeSprite_Attack_Left_05", "ClaudeSprite_Attack_Left_06"};
+	numRects          = ARRAY_COUNT(claudeAttack);
+	duration          = 0.1f;
+	asset_addAnimation(assetManager, arena, "claudeAttack", claudeAtlas,
+	                   claudeAttack, numRects, duration);
 
-	// Battle tackle animation
-	duration          = 0.15f;
-	numRects          = 3;
-	i32 tackleAnimAtlasIndexes[3] = {herorects_castA, herorects_castB,
-	                                 herorects_castC};
-	asset_addAnimation(assetManager, arena, texlist_hero, animlist_hero_tackle,
-	                   tackleAnimAtlasIndexes, numRects, duration);
-#endif
+	//  Victory animation
+	char *claudeVictory[8] = {
+	    "ClaudeSprite_Battle_Victory_01", "ClaudeSprite_Battle_Victory_02",
+	    "ClaudeSprite_Battle_Victory_03", "ClaudeSprite_Battle_Victory_04",
+	    "ClaudeSprite_Battle_Victory_05", "ClaudeSprite_Battle_Victory_06",
+	    "ClaudeSprite_Battle_Victory_07", "ClaudeSprite_Battle_Victory_08"};
+	numRects          = ARRAY_COUNT(claudeVictory);
+	duration          = 0.1f;
+	asset_addAnimation(assetManager, arena, "claudeVictory", claudeAtlas,
+	                   claudeVictory, numRects, duration);
 
 #ifdef DENGINE_DEBUG
 	DEBUG_LOG("Animations created");
@@ -674,9 +687,10 @@ INTERNAL void assetInit(GameState *state)
 
 	/* Load sound */
 
-	char *audioPath = "data/audio/Nobuo Uematsu - Battle 1.ogg";
+	char *audioPath =
+	    "data/audio/Motoi Sakuraba - Stab the sword of justice.ogg";
 	asset_loadVorbis(assetManager, arena, audioPath, audiolist_battle);
-	audioPath = "data/audio/Yuki Kajiura - Swordland.ogg";
+	audioPath = "data/audio/Motoi Sakuraba - Field of Exper.ogg";
 	asset_loadVorbis(assetManager, arena, audioPath, audiolist_overworld);
 	audioPath = "data/audio/nuindependent_hit22.ogg";
 	asset_loadVorbis(assetManager, arena, audioPath, audiolist_tackle);
@@ -777,14 +791,16 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 
 	hero->audioRenderer = PLATFORM_MEM_ALLOC(arena, 1, AudioRenderer);
 	hero->audioRenderer->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
-	world->heroId       = hero->id;
-	world->cameraFollowingId = hero->id;
+	world->heroId                    = hero->id;
+	world->cameraFollowingId         = hero->id;
 
 	/* Populate hero animation references */
-	entity_addAnim(assetManager, hero, "Claude_idle");
-	entity_setActiveAnim(hero, "Claude_idle");
+	entity_addAnim(assetManager, hero, "claudeIdle");
+	entity_addAnim(assetManager, hero, "claudeRun");
+	entity_addAnim(assetManager, hero, "claudeBattleIdle");
+	entity_addAnim(assetManager, hero, "claudeAttack");
+	entity_setActiveAnim(hero, "claudeIdle");
 
-#if 0
 	/* Create a NPC */
 	pos         = V2(hero->pos.x * 3, CAST(f32) state->tileSize);
 	size        = hero->hitboxSize;
@@ -795,14 +811,13 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	Entity *npc = entity_add(arena, world, pos, size, type, dir, tex, collides);
 
 	/* Populate npc animation references */
-	entity_addAnim(assetManager, npc, animlist_hero_wave);
-	npc->currAnimId = animlist_hero_wave;
+	entity_addAnim(assetManager, npc, "claudeVictory");
+	entity_setActiveAnim(npc, "claudeVictory");
 
 	/* Create a Mob */
 	pos = V2(renderer->size.w - (renderer->size.w / 3.0f),
 	         CAST(f32) state->tileSize);
-	entity_addGenericMob(arena, assetManager, world, pos);
-#endif
+	addGenericMob(arena, assetManager, world, pos);
 
 #ifdef DENGINE_DEBUG
 	DEBUG_LOG("World populated");
@@ -1130,7 +1145,7 @@ INTERNAL inline void updateWorldBattleEntities(World *world, Entity *entity,
 INTERNAL inline void resetEntityState(World *world, Entity *entity)
 {
 	updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
-	entity_setActiveAnim(entity, "Claude_idle");
+	entity_setActiveAnim(entity, "claudeIdle");
 	entity->stats->busyDuration     = 0;
 	entity->stats->actionTimer      = entity->stats->actionRate;
 	entity->stats->queuedAttack     = entityattack_invalid;
@@ -1174,7 +1189,7 @@ INTERNAL void entityStateSwitch(EventQueue *eventQueue, World *world,
 		// or not (i.e. has moved out of frame last frame).
 		case entitystate_dead:
 			registerEvent(eventQueue, eventtype_entity_died, CAST(void *)entity);
-			entity_setActiveAnim(entity, "Claude_idle");
+			entity_setActiveAnim(entity, "claudeIdle");
 			entity->stats->busyDuration     = 0;
 			entity->stats->actionTimer      = entity->stats->actionRate;
 			entity->stats->queuedAttack     = entityattack_invalid;
@@ -1214,7 +1229,7 @@ INTERNAL void entityStateSwitch(EventQueue *eventQueue, World *world,
 		switch (newState)
 		{
 		case entitystate_battle:
-			entity_setActiveAnim(entity, "Claude_idle");
+			entity_setActiveAnim(entity, "claudeBattleIdle");
 			entity->stats->actionTimer  = entity->stats->actionRate;
 			entity->stats->busyDuration = 0;
 			break;
@@ -1266,7 +1281,6 @@ typedef struct AttackSpec
 INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
                           Entity *attacker)
 {
-#if 0
 #ifdef DENGINE_DEBUG
 	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
 	ASSERT(attacker->state == entitystate_battle);
@@ -1276,11 +1290,11 @@ INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
 	switch (attacker->stats->queuedAttack)
 	{
 	case entityattack_tackle:
-		EntityAnim_ attackAnim = attacker->anim[animlist_hero_tackle];
-		f32 busyDuration       = attackAnim.anim->frameDuration *
+		EntityAnim attackAnim = attacker->animList[attacker->currAnimId];
+		f32 busyDuration      = attackAnim.anim->frameDuration *
 		                   CAST(f32) attackAnim.anim->numFrames;
 		attacker->stats->busyDuration = busyDuration;
-		entity_setActiveAnim(attacker, animlist_hero_tackle);
+		entity_setActiveAnim(attacker, "claudeAttack");
 		if (attacker->direction == direction_east)
 			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
 		else
@@ -1292,7 +1306,6 @@ INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
 #endif
 		break;
 	}
-#endif
 }
 
 // TODO(doyle): MemArena here is temporary until we incorporate AttackSpec to
@@ -1300,7 +1313,6 @@ INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
 INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
                         World *world, Entity *attacker)
 {
-#if 0
 #ifdef DENGINE_DEBUG
 	ASSERT(attacker->stats->entityIdToAttack != ENTITY_NULL_ID);
 #endif
@@ -1379,7 +1391,6 @@ INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
 			entityStateSwitch(eventQueue, world, attacker, entitystate_idle);
 		}
 	}
-#endif
 }
 
 INTERNAL void sortWorldEntityList(World *world)
@@ -1511,8 +1522,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 			v2 pos =
 			    V2(renderer->size.w - (renderer->size.w / xModifier), yPos);
-			entity_addGenericMob(&state->arena, &state->assetManager, world,
-			                     pos);
+			addGenericMob(&state->arena, &state->assetManager, world, pos);
 		}
 	}
 
@@ -1694,10 +1704,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				if (ddPos.x != 0.0f && ddPos.y != 0.0f)
 				{
 					// NOTE(doyle): Cheese it and pre-compute the vector for
-					// diagonal
-					// using
-					// pythagoras theorem on a unit triangle
-					// 1^2 + 1^2 = c^2
+					// diagonal using pythagoras theorem on a unit triangle 1^2
+					// + 1^2 = c^2
 					ddPos = v2_scale(ddPos, 0.70710678118f);
 				}
 			}
@@ -1708,21 +1716,22 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			 **************************
 			 */
 			// NOTE(doyle): Clipping threshold for snapping velocity to 0
-			f32 epsilon    = 0.5f;
+			f32 epsilon    = 15.0f;
 			v2 epsilonDpos = v2_sub(V2(epsilon, epsilon),
 			                        V2(ABS(hero->dPos.x), ABS(hero->dPos.y)));
 
+			char *currAnimName = hero->animList[hero->currAnimId].anim->key;
 			if (epsilonDpos.x >= 0.0f && epsilonDpos.y >= 0.0f)
 			{
 				hero->dPos = V2(0.0f, 0.0f);
-				if (hero->currAnimId == animlist_hero_walk)
+				if (common_strcmp(currAnimName, "claudeRun") == 0)
 				{
-					entity_setActiveAnim(hero, "Claude_idle");
+					entity_setActiveAnim(hero, "claudeIdle");
 				}
 			}
-			else if (hero->currAnimId == animlist_hero_idle)
+			else if (common_strcmp(currAnimName, "claudeIdle") == 0)
 			{
-				entity_setActiveAnim(hero, "Claude_idle");
+				entity_setActiveAnim(hero, "claudeRun");
 			}
 
 			f32 heroSpeed = 6.2f * METERS_TO_PIXEL;
@@ -1960,7 +1969,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		{
 			hero->state                       = entitystate_idle;
 			world->entityIdInBattle[hero->id] = FALSE;
-			entity_setActiveAnim(hero, "Claude_idle");
+			entity_setActiveAnim(hero, "claudeIdle");
 		}
 		hero->stats->entityIdToAttack = -1;
 		hero->stats->actionTimer      = hero->stats->actionRate;
@@ -2040,15 +2049,19 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	state->uiState.keyChar    = keycode_null;
 
 	/* Draw hero avatar */
-#if 0
-	TexAtlas *heroAtlas  = asset_getTextureAtlas(assetManager, texlist_hero);
-	v4 heroAvatarTexRect = heroAtlas->texRect[herorects_head];
-	v2 heroAvatarSize    = math_getRectSize(heroAvatarTexRect);
+	TexAtlas *heroAtlas =
+	    asset_getTexAtlas(assetManager, "ClaudeSprite.png");
+	Rect heroAvatarRect =
+	    asset_getAtlasSubTexRect(heroAtlas, "ClaudeSprite_Avatar_01");
 	v2 heroAvatarP =
-	    V2(10.0f, (renderer->size.h * 0.5f) - (0.5f * heroAvatarSize.h));
+	    V2(10.0f, (renderer->size.h * 0.5f) - (0.5f * heroAvatarRect.size.h));
+
+	v4 heroAvatarTexRect      = {0};
+	heroAvatarTexRect.vec2[0] = heroAvatarRect.pos;
+	heroAvatarTexRect.vec2[1] = v2_add(heroAvatarRect.pos, heroAvatarRect.size);
 
 	RenderTex heroRenderTex = {hero->tex, heroAvatarTexRect};
-	renderer_staticRect(renderer, heroAvatarP, heroAvatarSize, V2(0, 0), 0,
+	renderer_staticRect(renderer, heroAvatarP, heroAvatarRect.size, V2(0, 0), 0,
 	                    heroRenderTex, V4(1, 1, 1, 1));
 
 	char heroAvatarStr[20];
@@ -2056,13 +2069,13 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	         hero->stats->health, hero->stats->maxHealth);
 	f32 strLenInPixels =
 	    CAST(f32)(font->maxSize.w * common_strlen(heroAvatarStr));
-	v2 strPos = V2(heroAvatarP.x, heroAvatarP.y - (0.5f * heroAvatarSize.h));
+	v2 strPos =
+	    V2(heroAvatarP.x, heroAvatarP.y - (0.5f * heroAvatarRect.size.h));
 	renderer_staticString(&state->renderer, &state->arena, font, heroAvatarStr,
 	                      strPos, V2(0, 0), 0, V4(0, 0, 1, 1));
 
 	renderer_staticString(&state->renderer, &state->arena, font, heroAvatarStr,
 	                      strPos, V2(0, 0), 0, V4(0, 0, 1, 1));
-#endif
 
 	for (i32 i = 0; i < world->maxEntities; i++)
 	{
@@ -2092,7 +2105,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		    state->input.keys[i].newHalfTransitionCount;
 	}
 
-	/*
+    /*
 	 ********************
 	 * DEBUG CODE
 	 ********************

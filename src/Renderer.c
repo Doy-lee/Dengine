@@ -269,7 +269,8 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 		updateBufferObject(renderer, &entityQuad, 1);
 
 		v2 posInCameraSpace = v2_sub(entity->pos, camera.pos);
-		renderObject(renderer, posInCameraSpace, entity->renderSize,
+		// TODO(doyle): Scale temporarily
+		renderObject(renderer, posInCameraSpace, v2_scale(entity->renderSize, 2),
 		             pivotPoint, rotate, color, entity->tex);
 	}
 }
