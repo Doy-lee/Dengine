@@ -154,7 +154,7 @@ INTERNAL v2 mapWorldToCameraSpace(v2 worldPos, v4 cameraBounds)
 
 RenderTex renderer_createNullRenderTex(AssetManager *const assetManager)
 {
-	Texture *emptyTex = asset_getTexture(assetManager, texlist_empty);
+	Texture *emptyTex = asset_getTex(assetManager, "nullTex");
 	RenderTex result  = {emptyTex, V4(0, 1, 1, 0)};
 	return result;
 }

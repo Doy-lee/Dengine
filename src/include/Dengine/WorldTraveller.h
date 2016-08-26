@@ -45,8 +45,6 @@ typedef struct World
 	b32 *entityIdInBattle;
 	i32 numEntitiesInBattle;
 
-	enum TexList texType;
-
 	i32 cameraFollowingId;
 	v2 cameraPos; // In pixels
 	v4 bounds; // In pixels

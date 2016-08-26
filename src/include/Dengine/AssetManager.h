@@ -26,8 +26,7 @@ Rect asset_getAtlasSubTexRect(TexAtlas *atlas, char *key);
 AudioVorbis *asset_getVorbis(AssetManager *assetManager,
                              const enum AudioList type);
 
-Texture *asset_getTexture(AssetManager *const assetManager,
-                          const enum TexList type);
+Texture *asset_getTex(AssetManager *const assetManager, const char *const key);
 
 TexAtlas *asset_makeTexAtlas(AssetManager *const assetManager,
                              MemoryArena *arena, const char *const key);
@@ -37,13 +36,17 @@ Shader *asset_getShader(AssetManager *assetManager, const enum ShaderList type);
 TexAtlas *asset_getTexAtlas(AssetManager *const assetManager,
                             const char *const key);
 
+Texture *asset_getAndAllocFreeTexSlot(AssetManager *assetManager,
+                                      MemoryArena *arena,
+                                      const char *const key);
+
 Animation *asset_getAnim(AssetManager *assetManager, char *key);
 
 const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
                            const char *const path, const enum AudioList type);
-const i32 asset_loadTextureImage(AssetManager *assetManager,
+const i32 asset_loadTextureImage(AssetManager *assetManager, MemoryArena *arena,
                                  const char *const path,
-                                 const enum TexList type);
+                                 const char *const key);
 
 const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena *arena,
                                 const char *const vertexPath,

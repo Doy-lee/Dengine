@@ -10,6 +10,12 @@
 // TODO(doyle): Look into merging into assets.h file ..
 typedef struct Texture
 {
+	union
+	{
+		char *key;
+		char *name;
+	};
+
 	// Holds the ID of the texture object, used for all texture operations to
 	// reference to this particlar texture
 	GLuint id;
@@ -30,6 +36,8 @@ typedef struct Texture
 	GLuint filterMinification;
 	// Filtering mode if texture pixels > screen pixels
 	GLuint filterMagnification;
+
+	struct Texture *next;
 } Texture;
 
 // Generates texture from image data

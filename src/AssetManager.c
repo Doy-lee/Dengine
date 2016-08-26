@@ -106,17 +106,17 @@ AudioVorbis *asset_getVorbis(AssetManager *assetManager,
 	return NULL;
 }
 
-Texture *asset_getTexture(AssetManager *const assetManager,
-                          const enum TexList type)
+Texture *asset_getTex(AssetManager *const assetManager, const char *const key)
 {
-	if (type < texlist_count)
-		return &assetManager->textures[type];
+	u32 hashIndex = common_getHashIndex(key, ARRAY_COUNT(assetManager->textures));
+	Texture *result = &assetManager->textures[hashIndex];
+	if (result->key)
+	{
+		while (result && common_strcmp(result->key, key) != 0)
+			result = result->next;
+	}
 
-#ifdef DENGINE_DEBUG
-	ASSERT(INVALID_CODE_PATH);
-#endif
-
-	return NULL;
+	return result;
 }
 
 TexAtlas *asset_makeTexAtlas(AssetManager *const assetManager,
@@ -211,8 +211,35 @@ const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
 	return 0;
 }
 
-const i32 asset_loadTextureImage(AssetManager *assetManager,
-                                 const char *const path, const enum TexList type)
+// TODO(doyle): Revise passing in the assetmanager
+Texture *asset_getAndAllocFreeTexSlot(AssetManager *assetManager,
+                                      MemoryArena *arena, const char *const key)
+{
+	i32 texListSize = ARRAY_COUNT(assetManager->textures);
+	u32 hashIndex = common_getHashIndex(key, ARRAY_COUNT(assetManager->textures));
+	Texture *result = &assetManager->textures[hashIndex];
+	if (result->key)
+	{
+		while (result->next)
+		{
+			if (common_strcmp(result->key, key) == 0)
+			{
+				// TODO(doyle): Error correction whereby if a tex atlas already
+				// exists
+				ASSERT(INVALID_CODE_PATH);
+			}
+			result = result->next;
+		}
+
+		result->next = PLATFORM_MEM_ALLOC(arena, 1, Texture);
+		result       = result->next;
+	}
+
+	return result;
+}
+
+const i32 asset_loadTextureImage(AssetManager *assetManager, MemoryArena *arena,
+                                 const char *const path, const char *const key)
 {
 	/* Open the texture image */
 	i32 imgWidth, imgHeight, bytesPerPixel;
@@ -235,12 +262,13 @@ const i32 asset_loadTextureImage(AssetManager *assetManager,
 		return -1;
 	}
 
-	Texture tex = texture_gen(CAST(GLuint)(imgWidth), CAST(GLuint)(imgHeight),
-	                          CAST(GLint)(bytesPerPixel), image);
+	Texture *tex = asset_getAndAllocFreeTexSlot(assetManager, arena, key);
+	*tex         = texture_gen(CAST(GLuint)(imgWidth), CAST(GLuint)(imgHeight),
+	                   CAST(GLint)(bytesPerPixel), image);
+
 	GL_CHECK_ERROR();
 	stbi_image_free(image);
 
-	assetManager->textures[type] = tex;
 	return 0;
 }
 

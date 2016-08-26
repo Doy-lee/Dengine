@@ -34,12 +34,12 @@ Texture texture_gen(const GLuint width, const GLuint height,
 	// TODO(doyle): Let us set the parameters gl params as well
 	GL_CHECK_ERROR();
 	Texture tex = {0};
-	tex.width  = width;
-	tex.height = height;
-	tex.internalFormat = GL_RGBA;
-	tex.wrapS = GL_REPEAT;
-	tex.wrapT = GL_REPEAT;
-	tex.filterMinification = GL_NEAREST;
+	tex.width               = width;
+	tex.height              = height;
+	tex.internalFormat      = GL_RGBA;
+	tex.wrapS               = GL_REPEAT;
+	tex.wrapT               = GL_REPEAT;
+	tex.filterMinification  = GL_NEAREST;
 	tex.filterMagnification = GL_NEAREST;
 
 	glGenTextures(1, &tex.id);

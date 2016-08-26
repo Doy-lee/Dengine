@@ -32,18 +32,6 @@ enum TerrainRects
 	terrainrects_count,
 };
 
-enum AnimList
-{
-	animlist_hero_idle,
-	animlist_hero_walk,
-	animlist_hero_wave,
-	animlist_hero_battlePose,
-	animlist_hero_tackle,
-	animlist_terrain,
-	animlist_count,
-	animlist_invalid,
-};
-
 enum AudioList
 {
 	audiolist_battle,

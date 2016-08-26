@@ -53,7 +53,7 @@ INTERNAL void addGenericMob(MemoryArena *arena, AssetManager *assetManager,
 	v2 size              = V2(58.0f, 98.0f);
 	enum EntityType type = entitytype_mob;
 	enum Direction dir   = direction_west;
-	Texture *tex         = asset_getTexture(assetManager, texlist_claude);
+	Texture *tex         = asset_getTex(assetManager, "ClaudeSprite.png");
 	b32 collides         = TRUE;
 	Entity *mob = entity_add(arena, world, pos, size, type, dir, tex, collides);
 
@@ -458,25 +458,15 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
 				common_strncat(imagePath, dataDir, common_strlen(dataDir));
 				common_strncat(imagePath, imageName, common_strlen(imageName));
 
-				// TODO(doyle): Fixme proper loading of texture into right slot
-				if (common_strcmp(imageName, "ClaudeSprite.png") == 0)
-				{
-					asset_loadTextureImage(assetManager, imagePath,
-					                       texlist_claude);
-				}
-				else
-				{
-					asset_loadTextureImage(assetManager, imagePath,
-					                       texlist_terrain);
-				}
+				asset_loadTextureImage(assetManager, arena, imagePath,
+				                       imageName);
 
 				atlasEntry->key = PLATFORM_MEM_ALLOC(
 				    arena, common_strlen(imageName) + 1, char);
 				common_strncpy(atlasEntry->key, imageName,
 				               common_strlen(imageName));
 
-				atlasEntry->tex =
-				    asset_getTexture(assetManager, texlist_claude);
+				atlasEntry->tex = asset_getTex(assetManager, imageName);
 
 				XmlNode *atlasChildNode = atlasXmlNode->child;
 				while (atlasChildNode)
@@ -663,8 +653,8 @@ INTERNAL void assetInit(GameState *state)
 
 	/* Create empty 1x1 4bpp black texture */
 	u32 bitmap       = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
-	Texture emptyTex = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
-	assetManager->textures[texlist_empty] = emptyTex;
+	Texture *tex = asset_getAndAllocFreeTexSlot(assetManager, arena, "nullTex");
+	*tex         = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
 
 	PlatformFileRead terrainXml = {0};
 	i32 result = platform_readFileToBuffer(
@@ -833,7 +823,6 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 		world->entityIdInBattle =
 		    PLATFORM_MEM_ALLOC(arena, world->maxEntities, i32);
 		world->numEntitiesInBattle = 0;
-		world->texType             = texlist_terrain;
 		world->bounds =
 		    math_getRect(V2(0, 0), v2_scale(worldDimensionInTiles,
 		                                    CAST(f32) state->tileSize));
@@ -856,7 +845,7 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 				    V2(CAST(f32) state->tileSize, CAST(f32) state->tileSize);
 				enum EntityType type = entitytype_tile;
 				enum Direction dir = direction_null;
-				Texture *tex = asset_getTexture(assetManager, world->texType);
+				Texture *tex = asset_getTex(assetManager, "terrain.png");
 				b32 collides = FALSE;
 				Entity *tile = entity_add(arena, world, pos, size, type, dir,
 				                          tex, collides);
@@ -891,7 +880,7 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	pos             = V2(size.x, CAST(f32) state->tileSize);
 	type            = entitytype_hero;
 	dir             = direction_east;
-	tex             = asset_getTexture(assetManager, texlist_claude);
+	tex             = asset_getTex(assetManager, "ClaudeSprite.png");
 	collides        = TRUE;
 	Entity *hero =
 	    entity_add(arena, world, pos, size, type, dir, tex, collides);
