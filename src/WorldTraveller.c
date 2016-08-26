@@ -458,7 +458,17 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
 				common_strncat(imagePath, dataDir, common_strlen(dataDir));
 				common_strncat(imagePath, imageName, common_strlen(imageName));
 
-				asset_loadTextureImage(assetManager, imagePath, texlist_claude);
+				// TODO(doyle): Fixme proper loading of texture into right slot
+				if (common_strcmp(imageName, "ClaudeSprite.png") == 0)
+				{
+					asset_loadTextureImage(assetManager, imagePath,
+					                       texlist_claude);
+				}
+				else
+				{
+					asset_loadTextureImage(assetManager, imagePath,
+					                       texlist_terrain);
+				}
 
 				atlasEntry->key = PLATFORM_MEM_ALLOC(
 				    arena, common_strlen(imageName) + 1, char);
@@ -680,6 +690,14 @@ INTERNAL void assetInit(GameState *state)
 		/* Free data */
 		freeXmlData(arena, xmlTokens, numTokens, xmlTree);
 		platform_closeFileRead(arena, &terrainXml);
+
+		TexAtlas *terrainAtlas = asset_getTexAtlas(assetManager, "terrain.png");
+
+		i32 numSubTextures = 1;
+		f32 duration = 1.0f;
+		char *grassTerrain[1] = {"grass.png"};
+		asset_addAnimation(assetManager, arena, "terrainGrass", terrainAtlas,
+		                   grassTerrain, numSubTextures, duration);
 	}
 
 	PlatformFileRead claudeXml = {0};
@@ -821,9 +839,8 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 		                                    CAST(f32) state->tileSize));
 		world->uniqueIdAccumulator = 0;
 
-#if 0
-		TexAtlas *const atlas =
-		    asset_getTextureAtlas(assetManager, world->texType);
+#if 1
+		TexAtlas *const atlas = asset_getTexAtlas(assetManager, "terrain.png");
 
 		for (i32 y = 0; y < 1; y++)
 		{
@@ -844,8 +861,8 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 				Entity *tile = entity_add(arena, world, pos, size, type, dir,
 				                          tex, collides);
 
-				entity_addAnim(assetManager, tile, animlist_terrain);
-				tile->currAnimId = animlist_terrain;
+				entity_addAnim(assetManager, tile, "terrainGrass");
+				entity_setActiveAnim(tile, "terrainGrass");
 			}
 		}
 #endif
@@ -1020,7 +1037,7 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 
 	state->state              = state_active;
 	state->currWorldIndex     = 0;
-	state->tileSize           = 64;
+	state->tileSize           = 70;
 
 	state->uiState.uniqueId   = 1;
 	state->uiState.keyEntered = keycode_null;
