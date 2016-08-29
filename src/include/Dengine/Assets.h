@@ -10,6 +10,32 @@
 /* Forward Declaration */
 typedef struct Texture Texture;
 
+typedef struct XmlAttribute
+{
+	b32 init;
+	char *name;
+	char *value;
+
+	struct XmlAttribute *next;
+} XmlAttribute;
+
+typedef struct XmlNode
+{
+	char *name;
+	XmlAttribute attribute;
+
+	// NOTE(doyle): Track if node has more children
+	b32 isClosed;
+
+	// NOTE(doyle): Direct child/parent
+	struct XmlNode *parent;
+	struct XmlNode *child;
+
+	// NOTE(doyle): Else all other nodes
+	struct XmlNode *next;
+} XmlNode;
+
+
 enum TexList
 {
 	texlist_empty,

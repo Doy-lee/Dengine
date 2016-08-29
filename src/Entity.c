@@ -56,7 +56,7 @@ void entity_updateAnim(Entity *entity, f32 dt)
 	case entitytype_npc:
 		char *frameName = anim->frameList[currEntityAnim->currFrame];
 		Rect texRect =
-		    asset_getAtlasSubTexRect(anim->atlas, frameName);
+		    asset_getSubTexRect(anim->atlas, frameName);
 		entity->renderSize = texRect.size;
 	default:
 		break;

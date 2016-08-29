@@ -211,7 +211,7 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 
 			/* Get texture out */
 			Rect charTexRect =
-			    asset_getAtlasSubTexRect(font->atlas, &CAST(char)codepoint);
+			    asset_getSubTexRect(font->atlas, &CAST(char)codepoint);
 
 			v4 deprecatedTexRect = {0};
 			deprecatedTexRect.vec2[0] = charTexRect.pos;
@@ -251,7 +251,7 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 		EntityAnim *entityAnim = &entity->animList[entity->currAnimId];
 		Animation *anim        = entityAnim->anim;
 		char *frameName        = anim->frameList[entityAnim->currFrame];
-		Rect animRect = asset_getAtlasSubTexRect(anim->atlas, frameName);
+		Rect animRect = asset_getSubTexRect(anim->atlas, frameName);
 
 		// TODO(doyle): Switch to rect
 		v4 animTexRect = {0};

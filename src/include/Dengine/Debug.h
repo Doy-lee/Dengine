@@ -18,6 +18,9 @@ enum DebugCallCount
 
 void debug_init(MemoryArena *arena, v2 windowSize, Font font);
 
+#define DEBUG_RECURSIVE_PRINT_XML_TREE(sig) debug_recursivePrintXmlTree(sig, 1)
+void debug_recursivePrintXmlTree(XmlNode *root, i32 levelsDeep);
+
 void debug_callCountIncrement(enum DebugCallCount id);
 void debug_clearCallCounter();
 #define DEBUG_LOG(string) debug_consoleLog(string, __FILE__, __LINE__);

@@ -103,6 +103,36 @@ void debug_init(MemoryArena *arena, v2 windowSize, Font font)
 	GLOBAL_debug.initialConsoleP = V2(consoleXPos, consoleYPos);
 }
 
+void debug_recursivePrintXmlTree(XmlNode *root, i32 levelsDeep)
+{
+	if (!root)
+	{
+		return;
+	}
+	else
+	{
+		for (i32 i = 0; i < levelsDeep; i++)
+		{
+			printf("-");
+		}
+
+		printf("%s ", root->name);
+
+		XmlAttribute *attribute = &root->attribute;
+		printf("| %s = %s", attribute->name, attribute->value);
+
+		while (attribute->next)
+		{
+			attribute = attribute->next;
+			printf("| %s = %04s", attribute->name, attribute->value);
+		}
+		printf("\n");
+
+		debug_recursivePrintXmlTree(root->child, levelsDeep+1);
+		debug_recursivePrintXmlTree(root->next, levelsDeep);
+	}
+}
+
 void debug_callCountIncrement(i32 id)
 {
 	ASSERT(id < debugcallcount_num);
