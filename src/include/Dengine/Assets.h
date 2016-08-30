@@ -111,8 +111,6 @@ typedef struct Animation
 
 	i32 numFrames;
 	f32 frameDuration;
-
-	struct Animation *next;
 } Animation;
 
 // TODO(doyle): We only use the offset and advance metric at the moment, remove?

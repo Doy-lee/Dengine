@@ -9,15 +9,6 @@
 typedef struct MemoryArena MemoryArena;
 typedef struct PlatformFileRead PlatformFileRead;
 
-enum HashTableType
-{
-	hashtabletype_unknown,
-	hashtabletype_texture,
-	hashtabletype_textureAtlas,
-	hashtabletype_animation,
-	hashtabletype_count,
-};
-
 typedef struct HashTableEntry
 {
 	void *data;
@@ -30,15 +21,14 @@ typedef struct HashTable
 {
 	HashTableEntry *entries;
 	i32 size;
-	enum HashTableType type;
 } HashTable;
 
 typedef struct AssetManager
 {
 	/* Hash Tables */
-	TexAtlas texAtlas[8];
-	Texture textures[32];
-	Animation anims[1024];
+	HashTable texAtlas;
+	HashTable textures;
+	HashTable anims;
 
 	/* Primitive Array */
 	Shader shaders[32];
@@ -55,13 +45,12 @@ typedef struct AssetManager
  */
 Rect asset_getSubTexRect(TexAtlas *atlas, char *key);
 Texture *asset_getTex(AssetManager *const assetManager, const char *const key);
-TexAtlas *asset_makeTexAtlas(AssetManager *const assetManager,
-                             MemoryArena *arena, const char *const key);
+TexAtlas *asset_getFreeTexAtlasSlot(AssetManager *const assetManager,
+                                    MemoryArena *arena, const char *const key);
 TexAtlas *asset_getTexAtlas(AssetManager *const assetManager,
                             const char *const key);
-Texture *asset_getAndAllocFreeTexSlot(AssetManager *assetManager,
-                                      MemoryArena *arena,
-                                      const char *const key);
+Texture *asset_getFreeTexSlot(AssetManager *const assetManager,
+                              MemoryArena *const arena, const char *const key);
 const i32 asset_loadTextureImage(AssetManager *assetManager, MemoryArena *arena,
                                  const char *const path,
                                  const char *const key);
@@ -74,7 +63,8 @@ const i32 asset_loadTextureImage(AssetManager *assetManager, MemoryArena *arena,
 void asset_addAnimation(AssetManager *assetManager, MemoryArena *arena,
                         char *animName, TexAtlas *atlas, char **subTextureNames,
                         i32 numSubTextures, f32 frameDuration);
-Animation *asset_getAnim(AssetManager *assetManager, char *key);
+Animation *asset_getAnim(AssetManager *const assetManager,
+                         const char *const key);
 
 /*
  *********************************

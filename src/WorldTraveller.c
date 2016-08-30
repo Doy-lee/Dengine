@@ -116,12 +116,25 @@ INTERNAL void assetInit(GameState *state)
 	AssetManager *assetManager = &state->assetManager;
 	MemoryArena *arena = &state->arena;
 
-	/* Create empty 1x1 4bpp black texture */
-	u32 bitmap       = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
-	Texture *tex = asset_getAndAllocFreeTexSlot(assetManager, arena, "nullTex");
-	*tex         = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
+	i32 texAtlasEntries         = 8;
+	assetManager->texAtlas.size = texAtlasEntries;
+	assetManager->texAtlas.entries =
+	    PLATFORM_MEM_ALLOC(arena, texAtlasEntries, HashTableEntry);
 
-	//assetManager->texAtlas.type = hashtabletype_textureAtlas;
+	i32 texEntries          = 32;
+	assetManager->textures.size = texEntries;
+	assetManager->textures.entries =
+	    PLATFORM_MEM_ALLOC(arena, texEntries, HashTableEntry);
+
+	i32 animEntries          = 1024;
+	assetManager->anims.size = animEntries;
+	assetManager->anims.entries =
+	    PLATFORM_MEM_ALLOC(arena, animEntries, HashTableEntry);
+
+	/* Create empty 1x1 4bpp black texture */
+	u32 bitmap   = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
+	Texture *tex = asset_getFreeTexSlot(assetManager, arena, "nullTex");
+	*tex         = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
 
 	/*
 	 *********************************

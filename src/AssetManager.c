@@ -24,6 +24,61 @@
 
 /*
  *********************************
+ * Hash Table Operations
+ *********************************
+ */
+INTERNAL HashTableEntry *getFreeHashSlot(HashTable *const table,
+                                         MemoryArena *arena,
+                                         const char *const key)
+{
+	u32 hashIndex = common_getHashIndex(key, table->size);
+	HashTableEntry *result = &table->entries[hashIndex];
+	if (result->key)
+	{
+		while (result->next)
+		{
+			if (common_strcmp(result->key, key) == 0)
+			{
+				// TODO(doyle): Error hash item already exists
+				ASSERT(INVALID_CODE_PATH);
+			}
+			result = result->next;
+		}
+
+		result->next = PLATFORM_MEM_ALLOC(arena, 1, HashTableEntry);
+		result       = result->next;
+
+	}
+
+	/* Check if platform_mem_alloc failed(), otherwise always true if hash table
+	 * entries initialised*/
+	if (result)
+	{
+		// +1 Null terminator
+		i32 keyLen  = common_strlen(key) + 1;
+		result->key = PLATFORM_MEM_ALLOC(arena, keyLen, char);
+		common_strncpy(result->key, key, keyLen);
+	}
+
+	return result;
+}
+
+INTERNAL HashTableEntry *getEntryFromHash(HashTable *const table,
+                                          const char *const key)
+{
+	u32 hashIndex = common_getHashIndex(key, table->size);
+	HashTableEntry *result = &table->entries[hashIndex];
+	if (result->key)
+	{
+		while (result && common_strcmp(result->key, key) != 0)
+			result = result->next;
+	}
+
+	return result;
+}
+
+/*
+ *********************************
  * XML Operations
  *********************************
  */
@@ -308,7 +363,8 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
 			if (common_strcmp(node->attribute.name, "imagePath") == 0)
 			{
 				char *imageName = atlasXmlNode->attribute.value;
-				atlasEntry = asset_makeTexAtlas(assetManager, arena, imageName);
+				atlasEntry =
+				    asset_getFreeTexAtlasSlot(assetManager, arena, imageName);
 
 				char *dataDir       = "data/textures/WorldTraveller/";
 				char imagePath[512] = {0};
@@ -574,29 +630,21 @@ INTERNAL AtlasSubTexture *getFreeAtlasSubTexSlot(TexAtlas *atlas,
 	return result;
 }
 
-INTERNAL Animation *getFreeAnimationSlot(Animation *table, u32 tableSize,
+INTERNAL Animation *getFreeAnimationSlot(AssetManager *assetManager,
                                          MemoryArena *arena, char *key)
 {
-	u32 hashIndex     = common_getHashIndex(key, tableSize);
-	Animation *result = &table[hashIndex];
-	if (result->key)
+	HashTableEntry *entry = getFreeHashSlot(&assetManager->anims, arena, key);
+
+	if (entry)
 	{
-		while (result->next)
-		{
-			if (common_strcmp(result->key, key) == 0)
-			{
-				// TODO(doyle): Error correction whereby if a tex atlas already
-				// exists
-				ASSERT(INVALID_CODE_PATH);
-			}
-			result = result->next;
-		}
-
-		result->next = PLATFORM_MEM_ALLOC(arena, 1, Animation);
-		result = result->next;
+		entry->data       = PLATFORM_MEM_ALLOC(arena, 1, Animation);
+		Animation *result = CAST(Animation *) entry->data;
+		return result;
 	}
-
-	return result;
+	else
+	{
+		return NULL;
+	}
 }
 
 Rect asset_getSubTexRect(TexAtlas *atlas, char *key)
@@ -623,73 +671,71 @@ AudioVorbis *asset_getVorbis(AssetManager *assetManager,
 
 Texture *asset_getTex(AssetManager *const assetManager, const char *const key)
 {
-	u32 hashIndex = common_getHashIndex(key, ARRAY_COUNT(assetManager->textures));
-	Texture *result = &assetManager->textures[hashIndex];
-	if (result->key)
-	{
-		while (result && common_strcmp(result->key, key) != 0)
-			result = result->next;
-	}
+	HashTableEntry *entry = getEntryFromHash(&assetManager->textures, key);
+
+	Texture *result = NULL;
+	if (entry) result = CAST(Texture *)entry->data;
 
 	return result;
 }
 
-TexAtlas *asset_makeTexAtlas(AssetManager *const assetManager,
-                             MemoryArena *arena, const char *const key)
+Texture *asset_getFreeTexSlot(AssetManager *const assetManager,
+                              MemoryArena *const arena, const char *const key)
 {
-	u32 hashIndex = common_getHashIndex(key, ARRAY_COUNT(assetManager->texAtlas));
-	TexAtlas *result = &assetManager->texAtlas[hashIndex];
-	if (result->key)
+
+	HashTableEntry *const entry =
+	    getFreeHashSlot(&assetManager->textures, arena, key);
+
+	if (entry)
 	{
-		while (result->next)
-		{
-			if (common_strcmp(result->key, key) == 0)
-			{
-				// TODO(doyle): Error correction whereby if a tex atlas already
-				// exists
-				ASSERT(INVALID_CODE_PATH);
-			}
-			result = result->next;
-		}
-
-		result->next = PLATFORM_MEM_ALLOC(arena, 1, TexAtlas);
-		result = result->next;
+		entry->data     = PLATFORM_MEM_ALLOC(arena, 1, Texture);
+		Texture *result = CAST(Texture *) entry->data;
+		return result;
 	}
+	else
+	{
+		return NULL;
+	}
+}
 
-	return result;
+TexAtlas *asset_getFreeTexAtlasSlot(AssetManager *const assetManager,
+                                    MemoryArena *arena, const char *const key)
+{
+
+	HashTableEntry *const entry =
+	    getFreeHashSlot(&assetManager->texAtlas, arena, key);
+
+	if (entry)
+	{
+		entry->data      = PLATFORM_MEM_ALLOC(arena, 1, TexAtlas);
+		TexAtlas *result = CAST(TexAtlas *) entry->data;
+		return result;
+	}
+	else
+	{
+		return NULL;
+	}
 }
 
 TexAtlas *asset_getTexAtlas(AssetManager *const assetManager,
                             const char *const key)
 {
-	u32 hashIndex = common_getHashIndex(key, ARRAY_COUNT(assetManager->texAtlas));
-	TexAtlas *result = &assetManager->texAtlas[hashIndex];
-	if (result->key)
-	{
-		while (result && common_strcmp(result->key, key) != 0)
-			result = result->next;
-	}
-	else
-	{
-		return NULL;
-	}
+
+	HashTableEntry *entry = getEntryFromHash(&assetManager->texAtlas, key);
+
+	TexAtlas *result = NULL;
+	if (entry) result = CAST(TexAtlas *)entry->data;
 
 	return result;
 }
 
-Animation *asset_getAnim(AssetManager *assetManager, char *key)
+Animation *asset_getAnim(AssetManager *const assetManager,
+                         const char *const key)
 {
-	u32 hashIndex = common_getHashIndex(key, ARRAY_COUNT(assetManager->anims));
-	Animation *result = &assetManager->anims[hashIndex];
-	if (result->key)
-	{
-		while (result && common_strcmp(result->key, key) != 0)
-			result = result->next;
-	}
-	else
-	{
-		return NULL;
-	}
+	HashTableEntry *entry = getEntryFromHash(&assetManager->anims, key);
+
+	Animation *result = NULL;
+	if (entry) result = CAST(Animation *)entry->data;
 
 	return result;
 }
@@ -726,33 +772,6 @@ const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
 	return 0;
 }
 
-// TODO(doyle): Revise passing in the assetmanager
-Texture *asset_getAndAllocFreeTexSlot(AssetManager *assetManager,
-                                      MemoryArena *arena, const char *const key)
-{
-	i32 texListSize = ARRAY_COUNT(assetManager->textures);
-	u32 hashIndex = common_getHashIndex(key, ARRAY_COUNT(assetManager->textures));
-	Texture *result = &assetManager->textures[hashIndex];
-	if (result->key)
-	{
-		while (result->next)
-		{
-			if (common_strcmp(result->key, key) == 0)
-			{
-				// TODO(doyle): Error correction whereby if a tex atlas already
-				// exists
-				ASSERT(INVALID_CODE_PATH);
-			}
-			result = result->next;
-		}
-
-		result->next = PLATFORM_MEM_ALLOC(arena, 1, Texture);
-		result       = result->next;
-	}
-
-	return result;
-}
-
 const i32 asset_loadTextureImage(AssetManager *assetManager, MemoryArena *arena,
                                  const char *const path, const char *const key)
 {
@@ -777,7 +796,7 @@ const i32 asset_loadTextureImage(AssetManager *assetManager, MemoryArena *arena,
 		return -1;
 	}
 
-	Texture *tex = asset_getAndAllocFreeTexSlot(assetManager, arena, key);
+	Texture *tex = asset_getFreeTexSlot(assetManager, arena, key);
 	*tex         = texture_gen(CAST(GLuint)(imgWidth), CAST(GLuint)(imgHeight),
 	                   CAST(GLint)(bytesPerPixel), image);
 
@@ -1015,7 +1034,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 	// align the baselines up so we don't need to do baseline adjusting at
 	// render?
 	char charToEncode = CAST(char)codepointRange.x;
-	TexAtlas *fontAtlas = asset_makeTexAtlas(assetManager, arena, "font");
+	TexAtlas *fontAtlas =
+	    asset_getFreeTexAtlasSlot(assetManager, arena, "font");
 	for (i32 row = 0; row < MAX_TEXTURE_SIZE; row++)
 	{
 		u32 *destRow = fontBitmap + (row * MAX_TEXTURE_SIZE);
@@ -1095,9 +1115,9 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 		}
 	}
 
-	Texture tex = texture_gen(MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4,
-	                          CAST(u8 *) fontBitmap);
-	assetManager->textures[texlist_font] = tex;
+	Texture *tex = asset_getFreeTexSlot(assetManager, arena, "font");
+	*tex         = texture_gen(MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4,
+	                   CAST(u8 *) fontBitmap);
 
 #ifdef WT_RENDER_FONT_FILE
 	/* save out a 4 channel image */
@@ -1106,7 +1126,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 #endif
 	PLATFORM_MEM_FREE(arena, fontBitmap, bitmapSize);
 
-	fontAtlas->tex = &assetManager->textures[texlist_font];
+	fontAtlas->tex = tex;
 	font->atlas   = fontAtlas;
 
 	// NOTE(doyle): Formula derived from STB Font
@@ -1130,16 +1150,15 @@ void asset_addAnimation(AssetManager *assetManager, MemoryArena *arena,
                         char *animName, TexAtlas *atlas, char **subTextureNames,
                         i32 numSubTextures, f32 frameDuration)
 {
-	Animation *anim = getFreeAnimationSlot(
-	    assetManager->anims, ARRAY_COUNT(assetManager->anims), arena, animName);
+	Animation *anim = getFreeAnimationSlot(assetManager, arena, animName);
+
+	/* Use same animation ptr for name from entry key */
+	HashTableEntry *entry = getEntryFromHash(&assetManager->anims, animName);
+	anim->name            = entry->key;
 
 	anim->atlas         = atlas;
 	anim->frameDuration = frameDuration;
 	anim->numFrames     = numSubTextures;
-
-	// NOTE(doyle): +1 for the null terminator
-	anim->name = PLATFORM_MEM_ALLOC(arena, common_strlen(animName) + 1, char);
-	common_strncpy(anim->name, animName, common_strlen(animName));
 
 	anim->frameList = PLATFORM_MEM_ALLOC(arena, numSubTextures, char*);
 	for (i32 i = 0; i < numSubTextures; i++)
