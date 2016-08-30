@@ -51,7 +51,7 @@ INTERNAL HashTableEntry *getFreeHashSlot(HashTable *const table,
 	}
 
 	/* Check if platform_mem_alloc failed(), otherwise always true if hash table
-	 * entries initialised*/
+	 * entries initialised, assign key to hash entry */
 	if (result)
 	{
 		// +1 Null terminator
@@ -73,6 +73,205 @@ INTERNAL HashTableEntry *getEntryFromHash(HashTable *const table,
 		while (result && common_strcmp(result->key, key) != 0)
 			result = result->next;
 	}
+
+	return result;
+}
+
+/*
+ *********************************
+ * Texture Operations
+ *********************************
+ */
+INTERNAL Rect *getFreeAtlasSubTexSlot(TexAtlas *const atlas,
+                                      MemoryArena *const arena,
+                                      const char *const key)
+{
+	HashTableEntry *entry = getFreeHashSlot(&atlas->subTex, arena, key);
+
+	if (entry)
+	{
+		entry->data  = PLATFORM_MEM_ALLOC(arena, 1, Rect);
+		Rect *result = CAST(Rect *) entry->data;
+		return result;
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
+Rect *asset_getAtlasSubTex(TexAtlas *const atlas, const char *const key)
+{
+
+	HashTableEntry *entry = getEntryFromHash(&atlas->subTex, key);
+
+	Rect *result      = NULL;
+	if (entry) result = CAST(Rect *) entry->data;
+
+	return result;
+}
+
+Texture *asset_getTex(AssetManager *const assetManager, const char *const key)
+{
+	HashTableEntry *entry = getEntryFromHash(&assetManager->textures, key);
+
+	Texture *result = NULL;
+	if (entry) result = CAST(Texture *)entry->data;
+
+	return result;
+}
+
+TexAtlas *asset_getFreeTexAtlasSlot(AssetManager *const assetManager,
+                                    MemoryArena *arena, const char *const key,
+                                    i32 numSubTex)
+{
+
+	HashTableEntry *const entry =
+	    getFreeHashSlot(&assetManager->texAtlas, arena, key);
+
+	if (entry)
+	{
+		entry->data      = PLATFORM_MEM_ALLOC(arena, 1, TexAtlas);
+		TexAtlas *result = CAST(TexAtlas *) entry->data;
+
+		if (result)
+		{
+			result->subTex.size = numSubTex;
+			result->subTex.entries =
+			    PLATFORM_MEM_ALLOC(arena, numSubTex, HashTableEntry);
+
+			if (!result->subTex.entries)
+			{
+				PLATFORM_MEM_FREE(arena, result, sizeof(TexAtlas));
+				result = NULL;
+			}
+		}
+
+		return result;
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
+TexAtlas *asset_getTexAtlas(AssetManager *const assetManager,
+                            const char *const key)
+{
+
+	HashTableEntry *entry = getEntryFromHash(&assetManager->texAtlas, key);
+
+	TexAtlas *result = NULL;
+	if (entry) result = CAST(TexAtlas *)entry->data;
+
+	return result;
+}
+
+
+Texture *asset_getFreeTexSlot(AssetManager *const assetManager,
+                              MemoryArena *const arena, const char *const key)
+{
+
+	HashTableEntry *const entry =
+	    getFreeHashSlot(&assetManager->textures, arena, key);
+
+	if (entry)
+	{
+		entry->data     = PLATFORM_MEM_ALLOC(arena, 1, Texture);
+		Texture *result = CAST(Texture *) entry->data;
+		return result;
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
+Texture *asset_loadTextureImage(AssetManager *assetManager, MemoryArena *arena,
+                                const char *const path, const char *const key)
+{
+	/* Open the texture image */
+	i32 imgWidth, imgHeight, bytesPerPixel;
+	stbi_set_flip_vertically_on_load(TRUE);
+	u8 *image =
+	    stbi_load(path, &imgWidth, &imgHeight, &bytesPerPixel, 0);
+
+#ifdef DENGINE_DEBUG
+	if (imgWidth != imgHeight)
+	{
+		printf(
+		    "asset_loadTextureImage() warning: Sprite sheet is not square: "
+		    "%dx%dpx\n", imgWidth, imgHeight);
+	}
+#endif
+
+	if (!image)
+	{
+		printf("stdbi_load() failed: %s\n", stbi_failure_reason());
+		return NULL;
+	}
+
+	Texture *result = asset_getFreeTexSlot(assetManager, arena, key);
+	*result = texture_gen(CAST(GLuint)(imgWidth), CAST(GLuint)(imgHeight),
+	                      CAST(GLint)(bytesPerPixel), image);
+
+	GL_CHECK_ERROR();
+	stbi_image_free(image);
+
+	return result;
+}
+
+/*
+ *********************************
+ * Animation Asset Managing
+ *********************************
+ */
+INTERNAL Animation *getFreeAnimationSlot(AssetManager *assetManager,
+                                         MemoryArena *arena, char *key)
+{
+	HashTableEntry *entry = getFreeHashSlot(&assetManager->anims, arena, key);
+
+	if (entry)
+	{
+		entry->data       = PLATFORM_MEM_ALLOC(arena, 1, Animation);
+		Animation *result = CAST(Animation *) entry->data;
+		return result;
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
+void asset_addAnimation(AssetManager *assetManager, MemoryArena *arena,
+                        char *animName, TexAtlas *atlas, char **subTextureNames,
+                        i32 numSubTextures, f32 frameDuration)
+{
+	Animation *anim = getFreeAnimationSlot(assetManager, arena, animName);
+
+	/* Use same animation ptr for name from entry key */
+	HashTableEntry *entry = getEntryFromHash(&assetManager->anims, animName);
+	anim->name            = entry->key;
+
+	anim->atlas         = atlas;
+	anim->frameDuration = frameDuration;
+	anim->numFrames     = numSubTextures;
+
+	anim->frameList = PLATFORM_MEM_ALLOC(arena, numSubTextures, char*);
+	for (i32 i = 0; i < numSubTextures; i++)
+	{
+		anim->frameList[i] = subTextureNames[i];
+	}
+
+}
+
+Animation *asset_getAnim(AssetManager *const assetManager,
+                         const char *const key)
+{
+	HashTableEntry *entry = getEntryFromHash(&assetManager->anims, key);
+
+	Animation *result = NULL;
+	if (entry) result = CAST(Animation *)entry->data;
 
 	return result;
 }
@@ -356,89 +555,127 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
 	XmlNode *node = root;
 	while (node)
 	{
+		/*
+		 *********************************
+		 * Branch on node names
+		 *********************************
+		 */
 		if (common_strcmp(node->name, "TextureAtlas") == 0)
 		{
 			XmlNode *atlasXmlNode = node;
-			TexAtlas *atlasEntry  = NULL;
+			TexAtlas *atlas  = NULL;
 			if (common_strcmp(node->attribute.name, "imagePath") == 0)
 			{
+
+				/*
+				 **********************************************
+				 * Create a texture atlas with imageName as key
+				 **********************************************
+				 */
 				char *imageName = atlasXmlNode->attribute.value;
-				atlasEntry =
-				    asset_getFreeTexAtlasSlot(assetManager, arena, imageName);
+				i32 numSubTex   = 1024;
+				atlas           = asset_getFreeTexAtlasSlot(assetManager, arena,
+				                                  imageName, numSubTex);
 
-				char *dataDir       = "data/textures/WorldTraveller/";
-				char imagePath[512] = {0};
-				common_strncat(imagePath, dataDir, common_strlen(dataDir));
-				common_strncat(imagePath, imageName, common_strlen(imageName));
+				if (!atlas)
+				{
+					DEBUG_LOG(
+					    "parseXmlTreeToGame() failed: Could not get free atlas "
+					    "entry");
+					return;
+				}
 
-				asset_loadTextureImage(assetManager, arena, imagePath,
-				                       imageName);
+				/*
+				 *************************************************
+				 * Load a texture to hash, with imageName as key
+				 *************************************************
+				 */
+				char *dataDir    = "data/textures/WorldTraveller/";
+				i32 dataDirLen   = common_strlen(dataDir);
+				i32 imageNameLen = common_strlen(imageName);
+				i32 totalPathLen = (dataDirLen + imageNameLen) + 1;
 
-				atlasEntry->key = PLATFORM_MEM_ALLOC(
-				    arena, common_strlen(imageName) + 1, char);
-				common_strncpy(atlasEntry->key, imageName,
-				               common_strlen(imageName));
+				char *imagePath = PLATFORM_MEM_ALLOC(arena, totalPathLen, char);
+				common_strncat(imagePath, dataDir, dataDirLen);
+				common_strncat(imagePath, imageName, imageNameLen);
 
-				atlasEntry->tex = asset_getTex(assetManager, imageName);
+				Texture *tex = asset_loadTextureImage(assetManager, arena,
+				                                      imagePath, imageName);
 
+				if (!tex)
+				{
+					DEBUG_LOG("parseXmlTreeToGame() failed: Could not load image");
+					PLATFORM_MEM_FREE(arena, imagePath,
+					                  totalPathLen * sizeof(char));
+					return;
+				}
+
+				PLATFORM_MEM_FREE(arena, imagePath,
+				                  totalPathLen * sizeof(char));
+				atlas->tex = tex;
+
+				/*
+				 *************************************************
+				 * Iterate over XML attributes
+				 *************************************************
+				 */
 				XmlNode *atlasChildNode = atlasXmlNode->child;
 				while (atlasChildNode)
 				{
 					if (common_strcmp(atlasChildNode->name, "SubTexture") == 0)
 					{
-						XmlAttribute *subTextureAttrib =
-						    &atlasChildNode->attribute;
+						XmlAttribute *subTexAttrib = &atlasChildNode->attribute;
 
-						AtlasSubTexture newSubTexEntry = {0};
-						while (subTextureAttrib)
+						char *key   = NULL;
+						Rect subTex = {0};
+						while (subTexAttrib)
 						{
 
 							// TODO(doyle): Work around for now in xml reading,
 							// reading the last node closing node not being
 							// merged to the parent
-							if (!subTextureAttrib->name) continue;
+							if (!subTexAttrib->name) continue;
 
-							if (common_strcmp(subTextureAttrib->name, "name") ==
-							    0)
+							if (common_strcmp(subTexAttrib->name, "name") == 0)
 							{
-								char *value        = subTextureAttrib->value;
-								newSubTexEntry.key = value;
+								char *value = subTexAttrib->value;
+								key         = value;
 							}
-							else if (common_strcmp(subTextureAttrib->name,
-							                       "x") == 0)
+							else if (common_strcmp(subTexAttrib->name, "x") ==
+							         0)
 							{
-								char *value  = subTextureAttrib->value;
+								char *value  = subTexAttrib->value;
 								i32 valueLen = common_strlen(value);
 								i32 intValue = common_atoi(value, valueLen);
 
-								newSubTexEntry.rect.pos.x = CAST(f32) intValue;
+								subTex.pos.x = CAST(f32) intValue;
 							}
-							else if (common_strcmp(subTextureAttrib->name,
-							                       "y") == 0)
+							else if (common_strcmp(subTexAttrib->name, "y") ==
+							         0)
 							{
-								char *value  = subTextureAttrib->value;
+								char *value  = subTexAttrib->value;
 								i32 valueLen = common_strlen(value);
 
 								i32 intValue = common_atoi(value, valueLen);
-								newSubTexEntry.rect.pos.y = CAST(f32) intValue;
+								subTex.pos.y = CAST(f32) intValue;
 							}
-							else if (common_strcmp(subTextureAttrib->name,
+							else if (common_strcmp(subTexAttrib->name,
 							                       "width") == 0)
 							{
-								char *value  = subTextureAttrib->value;
+								char *value  = subTexAttrib->value;
 								i32 valueLen = common_strlen(value);
 								i32 intValue = common_atoi(value, valueLen);
 
-								newSubTexEntry.rect.size.w = CAST(f32) intValue;
+								subTex.size.w = CAST(f32) intValue;
 							}
-							else if (common_strcmp(subTextureAttrib->name,
+							else if (common_strcmp(subTexAttrib->name,
 							                       "height") == 0)
 							{
-								char *value  = subTextureAttrib->value;
+								char *value  = subTexAttrib->value;
 								i32 valueLen = common_strlen(value);
 								i32 intValue = common_atoi(value, valueLen);
 
-								newSubTexEntry.rect.size.h = CAST(f32) intValue;
+								subTex.size.h = CAST(f32) intValue;
 							}
 							else
 							{
@@ -447,53 +684,21 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
 								    "Unsupported xml attribute in SubTexture");
 #endif
 							}
-							subTextureAttrib = subTextureAttrib->next;
+							subTexAttrib = subTexAttrib->next;
 						}
 
 						// TODO(doyle): XML specifies 0,0 top left, we
 						// prefer 0,0 bottom right, so offset by size since 0,0
 						// is top left and size creates a bounding box below it
-						newSubTexEntry.rect.pos.y =
-						    1024 - newSubTexEntry.rect.pos.y;
-						newSubTexEntry.rect.pos.y -= newSubTexEntry.rect.size.h;
+						subTex.pos.y = 1024 - subTex.pos.y;
+						subTex.pos.y -= subTex.size.h;
 
 #ifdef DENGINE_DEBUG
-						ASSERT(newSubTexEntry.key)
+						ASSERT(key);
 #endif
-
-						u32 subTexHashIndex = common_murmurHash2(
-						    newSubTexEntry.key,
-						    common_strlen(newSubTexEntry.key), 0xDEADBEEF);
-						subTexHashIndex =
-						    subTexHashIndex % ARRAY_COUNT(atlasEntry->subTex);
-
-						// NOTE(doyle): Hash collision
-						AtlasSubTexture *subTexEntry =
-						    &atlasEntry->subTex[subTexHashIndex];
-						if (subTexEntry->key)
-						{
-#ifdef DENGINE_DEBUG
-
-							// NOTE(doyle): Two textures have the same access
-							// name
-							ASSERT(common_strcmp(subTexEntry->key,
-							                     newSubTexEntry.key) != 0);
-#endif
-							while (subTexEntry->next)
-								subTexEntry = subTexEntry->next;
-
-							subTexEntry->next =
-							    PLATFORM_MEM_ALLOC(arena, 1, AtlasSubTexture);
-							subTexEntry = subTexEntry->next;
-						}
-
-						*subTexEntry = newSubTexEntry;
-						i32 keyLen   = common_strlen(newSubTexEntry.key);
-
-						subTexEntry->key =
-						    PLATFORM_MEM_ALLOC(arena, keyLen + 1, char);
-						common_strncpy(subTexEntry->key, newSubTexEntry.key,
-						               keyLen);
+						Rect *subTexInHash =
+						    getFreeAtlasSubTexSlot(atlas, arena, key);
+						*subTexInHash = subTex;
 					}
 					else
 					{
@@ -559,6 +764,11 @@ INTERNAL void freeXmlData(MemoryArena *arena, XmlToken *tokens, i32 numTokens,
 	if (tokens) PLATFORM_MEM_FREE(arena, tokens, numTokens * sizeof(XmlToken));
 }
 
+/*
+ *********************************
+ * Everything else
+ *********************************
+ */
 i32 asset_loadXmlFile(AssetManager *assetManager, MemoryArena *arena,
                       PlatformFileRead *fileRead)
 {
@@ -587,73 +797,6 @@ i32 asset_loadXmlFile(AssetManager *assetManager, MemoryArena *arena,
 	return result;
 }
 
-/*
- *********************************
- * Texture Operations
- *********************************
- */
-INTERNAL AtlasSubTexture *getAtlasSubTex(TexAtlas *atlas, char *key)
-{
-	u32 hashIndex = common_getHashIndex(key, ARRAY_COUNT(atlas->subTex));
-	AtlasSubTexture *result = &atlas->subTex[hashIndex];
-	if (result->key)
-	{
-		while (result && common_strcmp(result->key, key) != 0)
-			result = result->next;
-	}
-
-	return result;
-}
-
-INTERNAL AtlasSubTexture *getFreeAtlasSubTexSlot(TexAtlas *atlas,
-                                                 MemoryArena *arena, char *key)
-{
-	u32 hashIndex = common_getHashIndex(key, ARRAY_COUNT(atlas->subTex));
-	AtlasSubTexture *result = &atlas->subTex[hashIndex];
-	if (result->key)
-	{
-		while (result->next)
-		{
-			if (common_strcmp(result->key, key) == 0)
-			{
-				// TODO(doyle): Error correction whereby if a tex atlas already
-				// exists
-				ASSERT(INVALID_CODE_PATH);
-			}
-			result = result->next;
-		}
-
-		result->next = PLATFORM_MEM_ALLOC(arena, 1, AtlasSubTexture);
-		result = result->next;
-	}
-	
-	return result;
-}
-
-INTERNAL Animation *getFreeAnimationSlot(AssetManager *assetManager,
-                                         MemoryArena *arena, char *key)
-{
-	HashTableEntry *entry = getFreeHashSlot(&assetManager->anims, arena, key);
-
-	if (entry)
-	{
-		entry->data       = PLATFORM_MEM_ALLOC(arena, 1, Animation);
-		Animation *result = CAST(Animation *) entry->data;
-		return result;
-	}
-	else
-	{
-		return NULL;
-	}
-}
-
-Rect asset_getSubTexRect(TexAtlas *atlas, char *key)
-{
-	AtlasSubTexture *subTex = getAtlasSubTex(atlas, key);
-	Rect result = subTex->rect;
-	return result;
-}
-
 // TODO(doyle): Switch to hash based lookup
 // TODO(doyle): Use pointers, so we can forward declare all assets?
 AudioVorbis *asset_getVorbis(AssetManager *assetManager,
@@ -667,77 +810,6 @@ AudioVorbis *asset_getVorbis(AssetManager *assetManager,
 #endif
 
 	return NULL;
-}
-
-Texture *asset_getTex(AssetManager *const assetManager, const char *const key)
-{
-	HashTableEntry *entry = getEntryFromHash(&assetManager->textures, key);
-
-	Texture *result = NULL;
-	if (entry) result = CAST(Texture *)entry->data;
-
-	return result;
-}
-
-Texture *asset_getFreeTexSlot(AssetManager *const assetManager,
-                              MemoryArena *const arena, const char *const key)
-{
-
-	HashTableEntry *const entry =
-	    getFreeHashSlot(&assetManager->textures, arena, key);
-
-	if (entry)
-	{
-		entry->data     = PLATFORM_MEM_ALLOC(arena, 1, Texture);
-		Texture *result = CAST(Texture *) entry->data;
-		return result;
-	}
-	else
-	{
-		return NULL;
-	}
-}
-
-TexAtlas *asset_getFreeTexAtlasSlot(AssetManager *const assetManager,
-                                    MemoryArena *arena, const char *const key)
-{
-
-	HashTableEntry *const entry =
-	    getFreeHashSlot(&assetManager->texAtlas, arena, key);
-
-	if (entry)
-	{
-		entry->data      = PLATFORM_MEM_ALLOC(arena, 1, TexAtlas);
-		TexAtlas *result = CAST(TexAtlas *) entry->data;
-		return result;
-	}
-	else
-	{
-		return NULL;
-	}
-}
-
-TexAtlas *asset_getTexAtlas(AssetManager *const assetManager,
-                            const char *const key)
-{
-
-	HashTableEntry *entry = getEntryFromHash(&assetManager->texAtlas, key);
-
-	TexAtlas *result = NULL;
-	if (entry) result = CAST(TexAtlas *)entry->data;
-
-	return result;
-}
-
-Animation *asset_getAnim(AssetManager *const assetManager,
-                         const char *const key)
-{
-	HashTableEntry *entry = getEntryFromHash(&assetManager->anims, key);
-
-	Animation *result = NULL;
-	if (entry) result = CAST(Animation *)entry->data;
-
-	return result;
 }
 
 const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
@@ -772,52 +844,8 @@ const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
 	return 0;
 }
 
-const i32 asset_loadTextureImage(AssetManager *assetManager, MemoryArena *arena,
-                                 const char *const path, const char *const key)
-{
-	/* Open the texture image */
-	i32 imgWidth, imgHeight, bytesPerPixel;
-	stbi_set_flip_vertically_on_load(TRUE);
-	u8 *image =
-	    stbi_load(path, &imgWidth, &imgHeight, &bytesPerPixel, 0);
-
-#ifdef DENGINE_DEBUG
-	if (imgWidth != imgHeight)
-	{
-		printf(
-		    "asset_loadTextureImage() warning: Sprite sheet is not square: "
-		    "%dx%dpx\n", imgWidth, imgHeight);
-	}
-#endif
-
-	if (!image)
-	{
-		printf("stdbi_load() failed: %s\n", stbi_failure_reason());
-		return -1;
-	}
-
-	Texture *tex = asset_getFreeTexSlot(assetManager, arena, key);
-	*tex         = texture_gen(CAST(GLuint)(imgWidth), CAST(GLuint)(imgHeight),
-	                   CAST(GLint)(bytesPerPixel), image);
-
-	GL_CHECK_ERROR();
-	stbi_image_free(image);
-
-	return 0;
-}
-
-Shader *asset_getShader(AssetManager *assetManager, const enum ShaderList type)
-{
-	if (type < shaderlist_count)
-		return &assetManager->shaders[type];
-
-#ifdef DENGINE_DEBUG
-	ASSERT(INVALID_CODE_PATH);
-#endif
-	return NULL;
-}
-
-INTERNAL GLuint createShaderFromPath(MemoryArena *arena, const char *const path, GLuint shadertype)
+INTERNAL GLuint createShaderFromPath(MemoryArena *arena, const char *const path,
+                                     GLuint shadertype)
 {
 	PlatformFileRead file = {0};
 
@@ -869,6 +897,17 @@ INTERNAL i32 shaderLoadProgram(Shader *const shader, const GLuint vertexShader,
 	return 0;
 }
 
+Shader *asset_getShader(AssetManager *assetManager, const enum ShaderList type)
+{
+	if (type < shaderlist_count)
+		return &assetManager->shaders[type];
+
+#ifdef DENGINE_DEBUG
+	ASSERT(INVALID_CODE_PATH);
+#endif
+	return NULL;
+}
+
 const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena *arena,
                                 const char *const vertexPath,
                                 const char *const fragmentPath,
@@ -906,7 +945,11 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 	stbtt_InitFont(&fontInfo, fontFileRead.buffer,
 	               stbtt_GetFontOffsetForIndex(fontFileRead.buffer, 0));
 
-	/* Initialise Assetmanager Font */
+	/*
+	 ****************************************
+	 * Initialise assetmanager font reference
+	 ****************************************
+	 */
 	Font *font = &assetManager->font;
 	font->codepointRange = V2i(32, 127);
 	v2 codepointRange = font->codepointRange;
@@ -930,7 +973,11 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 
 	font->charMetrics = PLATFORM_MEM_ALLOC(arena, numGlyphs, CharMetrics);
 
-	/* Use STB_TrueType to generate a series of bitmap characters */
+	/*
+	 ************************************************************
+	 * Use STB_TrueType to generate a series of bitmap characters
+	 ************************************************************
+	 */
 	i32 glyphIndex = 0;
 	for (i32 codepoint = CAST(i32) codepointRange.x;
 	     codepoint < CAST(i32) codepointRange.y; codepoint++)
@@ -1034,8 +1081,16 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 	// align the baselines up so we don't need to do baseline adjusting at
 	// render?
 	char charToEncode = CAST(char)codepointRange.x;
+
+	i32 numSubTex = numGlyphs;
 	TexAtlas *fontAtlas =
-	    asset_getFreeTexAtlasSlot(assetManager, arena, "font");
+	    asset_getFreeTexAtlasSlot(assetManager, arena, "font", numSubTex);
+
+	/*
+	 *********************************************************
+	 * Load individual glyph bitmap data into one font bitmap
+	 *********************************************************
+	 */
 	for (i32 row = 0; row < MAX_TEXTURE_SIZE; row++)
 	{
 		u32 *destRow = fontBitmap + (row * MAX_TEXTURE_SIZE);
@@ -1049,25 +1104,15 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 			/* Store the location of glyph into atlas */
 			if (verticalPixelsBlitted == 0)
 			{
-#ifdef DENGINE_DEBUG
-				ASSERT(activeGlyph.codepoint < ARRAY_COUNT(fontAtlas->subTex));
-#endif
-
 				v2 origin =
 				    V2(CAST(f32)(glyphIndex * font->maxSize.w), CAST(f32) row);
 
 				// NOTE(doyle): Since charToEncode starts from 0 and we record
 				// all ascii characters, charToEncode represents the character
 				// 1:1
-				char charTmp[2] = {0};
-				charTmp[0] = charToEncode;
-				AtlasSubTexture *subTex =
-				    getFreeAtlasSubTexSlot(fontAtlas, arena, charTmp);
-
-				subTex->key = PLATFORM_MEM_ALLOC(arena, 1, char);
-				subTex->key[0] = charToEncode;
-
-				subTex->rect = CAST(Rect){origin, font->maxSize};
+				const char key[2] = {charToEncode, 0};
+				Rect *subTex = getFreeAtlasSubTexSlot(fontAtlas, arena, key);
+				*subTex = CAST(Rect){origin, font->maxSize};
 				charToEncode++;
 			}
 
@@ -1115,6 +1160,11 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 		}
 	}
 
+	/*
+	 *******************************************
+	 * Generate and store font bitmap to assets
+	 *******************************************
+	 */
 	Texture *tex = asset_getFreeTexSlot(assetManager, arena, "font");
 	*tex         = texture_gen(MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4,
 	                   CAST(u8 *) fontBitmap);
@@ -1145,28 +1195,6 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 	platform_closeFileRead(arena, &fontFileRead);
 
 	return 0;
-}
-void asset_addAnimation(AssetManager *assetManager, MemoryArena *arena,
-                        char *animName, TexAtlas *atlas, char **subTextureNames,
-                        i32 numSubTextures, f32 frameDuration)
-{
-	Animation *anim = getFreeAnimationSlot(assetManager, arena, animName);
-
-	/* Use same animation ptr for name from entry key */
-	HashTableEntry *entry = getEntryFromHash(&assetManager->anims, animName);
-	anim->name            = entry->key;
-
-	anim->atlas         = atlas;
-	anim->frameDuration = frameDuration;
-	anim->numFrames     = numSubTextures;
-
-	anim->frameList = PLATFORM_MEM_ALLOC(arena, numSubTextures, char*);
-	for (i32 i = 0; i < numSubTextures; i++)
-	{
-		AtlasSubTexture *subTex = getAtlasSubTex(atlas, subTextureNames[i]);
-		anim->frameList[i]       = subTex->key;
-	}
-
 }
 
 v2 asset_stringDimInPixels(const Font *const font, const char *const string)

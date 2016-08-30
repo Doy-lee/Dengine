@@ -10,6 +10,12 @@
 /* Forward Declaration */
 typedef struct Texture Texture;
 
+/*
+ *********************************
+ * XML
+ *********************************
+ */
+// TODO(doyle): We only expose this to for debug.h to print out xml trees
 typedef struct XmlAttribute
 {
 	b32 init;
@@ -36,28 +42,17 @@ typedef struct XmlNode
 } XmlNode;
 
 
-enum TexList
-{
-	texlist_empty,
-	texlist_hero,
-	texlist_claude,
-	texlist_terrain,
-	texlist_font,
-	texlist_count,
-};
-
 enum ShaderList
 {
 	shaderlist_sprite,
 	shaderlist_count,
 };
 
-enum TerrainRects
-{
-	terrainrects_ground,
-	terrainrects_count,
-};
-
+/*
+ *********************************
+ * Audio
+ *********************************
+ */
 enum AudioList
 {
 	audiolist_battle,
@@ -80,23 +75,36 @@ typedef struct AudioVorbis
 	i32 size;
 } AudioVorbis;
 
-typedef struct AtlasSubTexture
+/*
+ *********************************
+ * Hash Table
+ *********************************
+ */
+typedef struct HashTableEntry
 {
-	// NOTE(doyle): Key used to arrive to hash entry
+	void *data;
 	char *key;
-	Rect rect;
-	
-	// NOTE(doyle): For hashing collisions
-	struct AtlasSubTexture *next;
-} AtlasSubTexture;
 
+	void *next;
+} HashTableEntry;
+
+typedef struct HashTable
+{
+	HashTableEntry *entries;
+	i32 size;
+} HashTable;
+
+/*
+ *********************************
+ * Texture Assets
+ *********************************
+ */
 typedef struct TexAtlas
 {
-	char *key;
 	Texture *tex;
-	AtlasSubTexture subTex[512];
 
-	struct TexAtlas *next;
+	HashTable subTex;
+	i32 numSubTex;
 } TexAtlas;
 
 typedef struct Animation
@@ -113,6 +121,11 @@ typedef struct Animation
 	f32 frameDuration;
 } Animation;
 
+/*
+ *********************************
+ * Font
+ *********************************
+ */
 // TODO(doyle): We only use the offset and advance metric at the moment, remove?
 typedef struct FontMetrics
 {
