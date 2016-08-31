@@ -266,6 +266,7 @@ INTERNAL i32 initRendererForPlayback(MemoryArena *arena,
 	return result;
 }
 
+#include <stdlib.h>
 const i32 audio_playVorbis(MemoryArena *arena, AudioManager *audioManager,
                            AudioRenderer *audioRenderer, AudioVorbis *vorbis,
                            i32 numPlays)
@@ -280,6 +281,10 @@ const i32 audio_playVorbis(MemoryArena *arena, AudioManager *audioManager,
 	alBufferData(audioRenderer->bufferId[0], audioRenderer->format,
 	             soundSamples, numSamples * vorbis->info.channels * sizeof(i16),
 	             vorbis->info.sample_rate);
+
+	// NOTE(doyle): stb_vorbis specific implementation requires free()
+	// TODO(doyle): Object pool this and use our malloc to avoid dependency in Audio.c
+	free(soundSamples);
 
 	audioRenderer->audio       = vorbis;
 	audioRenderer->isStreaming = FALSE;
