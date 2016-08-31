@@ -45,6 +45,7 @@ enum EntityState
 enum EntityAttack
 {
 	entityattack_tackle,
+	entityattack_energySword,
 	entityattack_count,
 	entityattack_invalid,
 };
@@ -90,6 +91,8 @@ typedef struct Entity
 	i32 currAnimId;
 
 	EntityStats *stats;
+
+	// TODO(doyle): Audio mixing instead of multiple renderers
 	AudioRenderer *audioRenderer;
 	i32 numAudioRenderers;
 } Entity;

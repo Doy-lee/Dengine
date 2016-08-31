@@ -42,7 +42,7 @@ INTERNAL Entity *getHeroEntity(World *world)
 }
 
 INTERNAL void addGenericMob(MemoryArena *arena, AssetManager *assetManager,
-                          World *world, v2 pos)
+                            World *world, v2 pos)
 {
 #ifdef DENGINE_DEBUG
 	DEBUG_LOG("Mob entity spawned");
@@ -57,8 +57,12 @@ INTERNAL void addGenericMob(MemoryArena *arena, AssetManager *assetManager,
 	b32 collides         = TRUE;
 	Entity *mob = entity_add(arena, world, pos, size, type, dir, tex, collides);
 
-	mob->audioRenderer = PLATFORM_MEM_ALLOC(arena, 1, AudioRenderer);
-	mob->audioRenderer->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
+	mob->numAudioRenderers = 4;
+	mob->audioRenderer =
+	    PLATFORM_MEM_ALLOC(arena, mob->numAudioRenderers, AudioRenderer);
+
+	for (i32 i = 0; i < mob->numAudioRenderers; i++)
+		mob->audioRenderer[i].sourceIndex = AUDIO_SOURCE_UNASSIGNED;
 
 	/* Populate mob animation references */
 	entity_addAnim(assetManager, mob, "claudeIdle");
@@ -251,6 +255,17 @@ INTERNAL void assetInit(GameState *state)
 			asset_addAnimation(assetManager, arena, "claudeVictory",
 			                   claudeAtlas, claudeVictory, numRects, duration);
 
+			char *claudeEnergySword[6] = {"ClaudeSprite_Attack_EnergySword_01",
+			                              "ClaudeSprite_Attack_EnergySword_02",
+			                              "ClaudeSprite_Attack_EnergySword_03",
+			                              "ClaudeSprite_Attack_EnergySword_04",
+			                              "ClaudeSprite_Attack_EnergySword_05",
+			                              "ClaudeSprite_Attack_EnergySword_06"};
+			numRects = ARRAY_COUNT(claudeEnergySword);
+			duration = 0.1f;
+			asset_addAnimation(assetManager, arena, "claudeEnergySword",
+			                   claudeAtlas, claudeEnergySword, numRects,
+			                   duration);
 		}
 		else
 		{
@@ -282,6 +297,77 @@ INTERNAL void assetInit(GameState *state)
 #endif
 
 	/* Load sound */
+
+	i32 before = arena->bytesAllocated;
+
+	char *sfxListPath = "data/audio/sfx/sfx.txt";
+	PlatformFileRead sfxList = {0};
+	result = platform_readFileToBuffer(arena, sfxListPath, &sfxList);
+
+	char *sfxAudioNames[256];
+	i32 sfxAudioIndex = 0;
+	if (!result)
+	{
+		char string[256] = {0};
+		i32 stringIndex  = 0;
+		for (i32 i = 0; i < sfxList.size; i++)
+		{
+			char c = (CAST(char *)sfxList.buffer)[i];
+			switch(c)
+			{
+				case 0x0a:
+				{
+				    i32 actualStrLen = common_strlen(string) + 1;
+				    sfxAudioNames[sfxAudioIndex] =
+				        PLATFORM_MEM_ALLOC(arena, actualStrLen, char);
+				    common_strncpy(sfxAudioNames[sfxAudioIndex++], string,
+				                   actualStrLen);
+
+				    common_memset(string, 0, ARRAY_COUNT(string));
+				    stringIndex = 0;
+				    break;
+			    }
+				default:
+				{
+					if (c >= ' ' && c <= '~')
+					{
+					    string[stringIndex++] = c;
+				    }
+					break;
+				}
+			}
+		}
+	}
+
+	char *sfxDir        = "data/audio/sfx/";
+	char *sfxExtension  = ".ogg";
+	i32 sfxDirLen       = common_strlen(sfxDir);
+	i32 sfxExtensionLen = common_strlen(sfxExtension);
+
+	for (i32 i = 0; i < sfxAudioIndex; i++)
+	{
+		char *sfxName  = sfxAudioNames[i];
+		i32 sfxNameLen = common_strlen(sfxName);
+
+		i32 sfxFullPathLen = sfxDirLen + sfxExtensionLen + sfxNameLen + 1;
+		char *sfxFullPath  = PLATFORM_MEM_ALLOC(arena, sfxFullPathLen, char);
+
+		common_strncat(sfxFullPath, sfxDir, sfxDirLen);
+		common_strncat(sfxFullPath, sfxName, sfxNameLen);
+		common_strncat(sfxFullPath, sfxExtension, sfxExtensionLen);
+
+		i32 result = asset_loadVorbis(assetManager, arena, sfxFullPath, sfxName);
+		if (result) DEBUG_LOG("Failed to load sfx file");
+
+		// TODO(doyle): Need better string type to account for null terminating
+		// character, having to remember to +1 on allocation AND freeing since
+		// strlen only counts until null char is going to leave memory leaks
+		// everywhere
+		PLATFORM_MEM_FREE(arena, sfxName, sfxNameLen * sizeof(char) + 1);
+		PLATFORM_MEM_FREE(arena, sfxFullPath, sfxFullPathLen * sizeof(char));
+	}
+
+	platform_closeFileRead(arena, &sfxList);
 
 	char *audioPath =
 	    "data/audio/Motoi Sakuraba - Stab the sword of justice.ogg";
@@ -370,8 +456,11 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	    entity_add(arena, world, pos, size, type, dir, tex, collides);
 
 	world->soundscape = soundscape;
-	soundscape->audioRenderer = PLATFORM_MEM_ALLOC(arena, 1, AudioRenderer);
-	soundscape->audioRenderer->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
+	soundscape->numAudioRenderers = 1;
+	soundscape->audioRenderer =
+	    PLATFORM_MEM_ALLOC(arena, soundscape->numAudioRenderers, AudioRenderer);
+	for (i32 i = 0; i < soundscape->numAudioRenderers; i++)
+		soundscape->audioRenderer[i].sourceIndex = AUDIO_SOURCE_UNASSIGNED;
 
 	/* Init hero entity */
 	size            = V2(58.0f, 98.0f);
@@ -383,8 +472,13 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	Entity *hero =
 	    entity_add(arena, world, pos, size, type, dir, tex, collides);
 
-	hero->audioRenderer = PLATFORM_MEM_ALLOC(arena, 1, AudioRenderer);
-	hero->audioRenderer->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
+	hero->numAudioRenderers = 4;
+	hero->audioRenderer =
+	    PLATFORM_MEM_ALLOC(arena, hero->numAudioRenderers, AudioRenderer);
+
+	for (i32 i = 0; i < hero->numAudioRenderers; i++)
+		hero->audioRenderer[i].sourceIndex = AUDIO_SOURCE_UNASSIGNED;
+
 	world->heroId                    = hero->id;
 	world->cameraFollowingId         = hero->id;
 
@@ -393,6 +487,7 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	entity_addAnim(assetManager, hero, "claudeRun");
 	entity_addAnim(assetManager, hero, "claudeBattleIdle");
 	entity_addAnim(assetManager, hero, "claudeAttack");
+	entity_addAnim(assetManager, hero, "claudeEnergySword");
 	entity_setActiveAnim(hero, "claudeIdle");
 
 	/* Create a NPC */
@@ -884,6 +979,7 @@ INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
 	switch (attacker->stats->queuedAttack)
 	{
 	case entityattack_tackle:
+	{
 		entity_setActiveAnim(attacker, "claudeAttack");
 		EntityAnim attackAnim = attacker->animList[attacker->currAnimId];
 		f32 busyDuration      = attackAnim.anim->frameDuration *
@@ -895,6 +991,18 @@ INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
 		else
 			attacker->dPos.x -= (1.0f * METERS_TO_PIXEL);
 		break;
+	}
+
+	case entityattack_energySword:
+	{
+		entity_setActiveAnim(attacker, "claudeEnergySword");
+		EntityAnim attackAnim = attacker->animList[attacker->currAnimId];
+		f32 busyDuration      = attackAnim.anim->frameDuration *
+		                   CAST(f32) attackAnim.anim->numFrames;
+		attacker->stats->busyDuration = busyDuration;
+		break;
+	}
+
 	default:
 #ifdef DENGINE_DEBUG
 		ASSERT(INVALID_CODE_PATH);
@@ -923,6 +1031,17 @@ INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
 			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
 
 		break;
+
+	case entityattack_energySword:
+		attacker->stats->health += 80;
+
+		AttackSpec *attackSpec = PLATFORM_MEM_ALLOC(arena, 1, AttackSpec);
+		attackSpec->attacker   = attacker;
+		attackSpec->defender   = attacker;
+		attackSpec->damage     = 30;
+		registerEvent(eventQueue, eventtype_end_attack, attackSpec);
+		return;
+
 	default:
 #ifdef DENGINE_DEBUG
 		ASSERT(INVALID_CODE_PATH);
@@ -978,6 +1097,12 @@ INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
 		if (attacker->type == entitytype_hero)
 		{
 			defender->stats->health -= damage;
+			if (defender->stats->health <= 0.0f) defender->stats->health = 10.0f;
+		}
+		else if (attacker->type == entitytype_mob)
+		{
+			defender->stats->health -= damage * 0.25f;
+			if (defender->stats->health <= 0.0f) defender->stats->health = 10.0f;
 		}
 
 		if (defender->stats->health <= 0)
@@ -1011,6 +1136,33 @@ INTERNAL void sortWorldEntityList(World *world)
 		}
 		numUnsortedEntities--;
 	}
+}
+
+INTERNAL enum EntityAttack selectBestAttack(Entity *entity)
+{
+	if (entity->stats->health <= 50.0f && entity->type == entitytype_hero)
+	{
+		return entityattack_energySword;
+	}
+	else
+	{
+		return entityattack_tackle;
+	}
+}
+
+INTERNAL i32 entityGetFreeAudioRendererIndex(Entity *entity)
+{
+	i32 result = -1;
+	for (i32 i = 0; i < entity->numAudioRenderers; i++)
+	{
+		if (entity->audioRenderer[i].state == audiostate_stopped)
+		{
+			result = i;
+			break;
+		}
+	}
+
+	return result;
 }
 
 typedef struct DamageDisplay
@@ -1151,7 +1303,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 		if (entity->type == entitytype_soundscape)
 		{
-			AudioRenderer *audioRenderer = entity->audioRenderer;
+			AudioRenderer *audioRenderer = &entity->audioRenderer[0];
 			if (!state->config.playWorldAudio)
 			{
 				// TODO(doyle): Use is playing flag, not just streaming flag
@@ -1244,7 +1396,37 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				newState = entitystate_idle;
 			}
 
+			i32 numEntitiesInBattleBefore = world->numEntitiesInBattle;
 			entityStateSwitch(&eventQueue, world, entity, newState);
+
+			if (numEntitiesInBattleBefore == 0 &&
+			    world->numEntitiesInBattle > 0)
+			{
+				i32 freeAudioIndex = entityGetFreeAudioRendererIndex(hero);
+				if (freeAudioIndex != -1)
+				{
+					char *battleTaunt[11] = {
+					    "Battle_come_on",
+					    "Battle_heh",
+					    "Battle_heres_the_enemy",
+					    "Battle_hey",
+					    "Battle_oh_its_just_them",
+					    "Battle_shouldnt_you_run_away",
+					    "Battle_things_will_work_out_somehow",
+					    "Battle_things_will_work_out",
+					    "Battle_were_gonna_win",
+					    "Battle_we_can_win_this",
+					    "Battle_you_think_you_can_win_over_the_hero_of_light"};
+
+					i32 battleTauntSfxIndex = rand() % ARRAY_COUNT(battleTaunt);
+					audio_playVorbis(
+					    arena, audioManager,
+					    &hero->audioRenderer[freeAudioIndex],
+					    asset_getVorbis(assetManager,
+					                    battleTaunt[battleTauntSfxIndex]),
+					    1);
+				}
+			}
 		}
 
 		/*
@@ -1432,7 +1614,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				{
 					stats->actionTimer = 0;
 					if (stats->queuedAttack == entityattack_invalid)
-						stats->queuedAttack = entityattack_tackle;
+					{
+						enum EntityAttack attack = selectBestAttack(entity);
+						stats->queuedAttack      = attack;
+					}
 
 					/* Launch up attack animation */
 					beginAttack(&eventQueue, world, entity);
@@ -1456,10 +1641,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		 * Update Entity
 		 ****************
 		 */
-		if (entity->audioRenderer)
+		for (i32 i = 0; i < entity->numAudioRenderers; i++)
 		{
 			audio_updateAndPlay(&state->arena, &state->audioManager,
-			                    entity->audioRenderer);
+			                    &entity->audioRenderer[i]);
 		}
 
 		if (entity->tex)
@@ -1490,9 +1675,75 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			Entity *attacker       = attackSpec->attacker;
 			Entity *defender       = attackSpec->defender;
 
-			audio_playVorbis(arena, audioManager, attacker->audioRenderer,
-			                 asset_getVorbis(assetManager, "audio_tackle"),
-			                 1);
+			if (attacker->stats->queuedAttack == entityattack_tackle)
+			{
+				i32 freeAudioIndex = entityGetFreeAudioRendererIndex(attacker);
+				if (freeAudioIndex != -1)
+				{
+					char *attackSfx[19] = {"Attack_1",
+					                       "Attack_2",
+					                       "Attack_3",
+					                       "Attack_4",
+					                       "Attack_5",
+					                       "Attack_6",
+					                       "Attack_7",
+					                       "Attack_hit_it",
+					                       "Attack_take_that",
+					                       "Attack_hya",
+					                       "Attack_air_slash",
+					                       "Attack_Dragon_howl",
+					                       "Attack_burn",
+					                       "Attack_burst_knuckle",
+					                       "Attack_mirror_slice",
+					                       "Attack_shooting_star",
+					                       "Attack_sword_bomber",
+					                       "Attack_tear_into_pieces",
+					                       "Attack_twin_slash"};
+
+					i32 attackSfxIndex = rand() % ARRAY_COUNT(attackSfx);
+					audio_playVorbis(arena, audioManager,
+					                 &attacker->audioRenderer[freeAudioIndex],
+					                 asset_getVorbis(assetManager,
+					                                 attackSfx[attackSfxIndex]),
+					                 1);
+				}
+
+				freeAudioIndex = entityGetFreeAudioRendererIndex(defender);
+				if (freeAudioIndex != -1)
+				{
+					char *hurtSfx[10] = {"Hurt_1",         "Hurt_2",
+					                     "Hurt_3",         "Hurt_hows_this",
+					                     "Hurt_battlecry", "Hurt_ow",
+					                     "Hurt_uh_oh",     "Hurt_ugh",
+					                     "Hurt_woah",      "Hurt_yearning"};
+
+					i32 hurtSfxIndex = rand() % ARRAY_COUNT(hurtSfx);
+
+					audio_playVorbis(
+					    arena, audioManager,
+					    &defender->audioRenderer[freeAudioIndex],
+					    asset_getVorbis(assetManager, hurtSfx[hurtSfxIndex]),
+					    1);
+				}
+			}
+			else if (attacker->stats->queuedAttack == entityattack_energySword)
+			{
+				i32 freeAudioIndex = entityGetFreeAudioRendererIndex(attacker);
+				if (freeAudioIndex != -1)
+				{
+					audio_playVorbis(
+					    arena, audioManager,
+					    &attacker->audioRenderer[freeAudioIndex],
+					    asset_getVorbis(assetManager, "Attack_energy_sword"),
+					    1);
+				}
+			}
+			else
+			{
+				ASSERT(INVALID_CODE_PATH);
+			}
+
+			attacker->stats->queuedAttack = entityattack_invalid;
 
 			/* Get first free string position and store the damage str data */
 			for (i32 i = 0; i < ARRAY_COUNT(battleState.damageDisplay); i++)
@@ -1528,8 +1779,11 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			if (!event.data) continue;
 
 			Entity *entity = (CAST(Entity *) event.data);
-			audio_stopVorbis(&state->arena, audioManager,
-			                 entity->audioRenderer);
+			for (i32 i = 0; i < entity->numAudioRenderers; i++)
+			{
+				audio_stopVorbis(&state->arena, audioManager,
+				                 &entity->audioRenderer[i]);
+			}
 			entity_clearData(&state->arena, world, entity);
 			numDeadEntities++;
 			break;
@@ -1554,7 +1808,9 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		// NOTE(doyle): If battle entities is 1 then only the hero left
 		if (hero->state == entitystate_battle &&
 		    world->numEntitiesInBattle == 1)
+		{
 			entityStateSwitch(&eventQueue, world, hero, entitystate_idle);
+		}
 		else if (hero->state != entitystate_attack)
 		{
 			entityStateSwitch(&eventQueue, world, hero, entitystate_battle);

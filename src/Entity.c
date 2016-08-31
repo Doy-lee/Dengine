@@ -150,7 +150,8 @@ void entity_clearData(MemoryArena *const arena, World *const world,
 		PLATFORM_MEM_FREE(arena, entity->stats, sizeof(EntityStats));
 
 	if (entity->audioRenderer)
-		PLATFORM_MEM_FREE(arena, entity->audioRenderer, sizeof(AudioRenderer));
+		PLATFORM_MEM_FREE(arena, entity->audioRenderer,
+		                  sizeof(AudioRenderer) * entity->numAudioRenderers);
 
 	entity->type = entitytype_null;
 }

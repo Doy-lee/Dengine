@@ -833,7 +833,7 @@ const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
 	PlatformFileRead fileRead = {0};
 	platform_readFileToBuffer(arena, path, &fileRead);
 
-	entry->data        = PLATFORM_MEM_ALLOC(arena, 1, AudioVorbis);
+	entry->data = PLATFORM_MEM_ALLOC(arena, 1, AudioVorbis);
 
 	i32 error;
 	AudioVorbis *audio = CAST(AudioVorbis *) entry->data;

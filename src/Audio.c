@@ -215,11 +215,14 @@ INTERNAL const i32 rendererRelease(MemoryArena *arena, AudioManager *audioManage
 		PLATFORM_MEM_FREE(arena, audioRenderer->audio, sizeof(AudioVorbis));
 	}
 
-	audioRenderer->audio    = NULL;
-	audioRenderer->numPlays = 0;
-
 	u32 sourceIndexToFree      = audioRenderer->sourceIndex;
 	audioRenderer->sourceIndex = AUDIO_SOURCE_UNASSIGNED;
+
+	audioRenderer->audio       = NULL;
+	audioRenderer->numPlays    = 0;
+
+	audioRenderer->isStreaming = FALSE;
+	audioRenderer->state       = audiostate_stopped;
 
 	audioManager->sourceList[sourceIndexToFree].isFree = TRUE;
 
@@ -280,6 +283,7 @@ const i32 audio_playVorbis(MemoryArena *arena, AudioManager *audioManager,
 
 	audioRenderer->audio       = vorbis;
 	audioRenderer->isStreaming = FALSE;
+	audioRenderer->state       = audiostate_playing;
 
 	return result;
 }
