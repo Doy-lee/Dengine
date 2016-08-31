@@ -50,33 +50,6 @@ enum ShaderList
 
 /*
  *********************************
- * Audio
- *********************************
- */
-enum AudioList
-{
-	audiolist_battle,
-	audiolist_overworld,
-	audiolist_tackle,
-	audiolist_count,
-	audiolist_invalid,
-};
-
-typedef struct AudioVorbis
-{
-	enum AudioList type;
-	stb_vorbis *file;
-	stb_vorbis_info info;
-
-	u32 lengthInSamples;
-	f32 lengthInSeconds;
-
-	u8 *data;
-	i32 size;
-} AudioVorbis;
-
-/*
- *********************************
  * Hash Table
  *********************************
  */
@@ -93,6 +66,28 @@ typedef struct HashTable
 	HashTableEntry *entries;
 	i32 size;
 } HashTable;
+
+/*
+ *********************************
+ * Audio
+ *********************************
+ */
+typedef struct AudioVorbis
+{
+	union {
+		char *key;
+		char *name;
+	};
+
+	stb_vorbis *file;
+	stb_vorbis_info info;
+
+	u32 lengthInSamples;
+	f32 lengthInSeconds;
+
+	u8 *data;
+	i32 size;
+} AudioVorbis;
 
 /*
  *********************************

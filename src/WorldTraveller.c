@@ -114,7 +114,12 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 INTERNAL void assetInit(GameState *state)
 {
 	AssetManager *assetManager = &state->assetManager;
-	MemoryArena *arena = &state->arena;
+	MemoryArena *arena         = &state->arena;
+
+	i32 audioEntries         = 32;
+	assetManager->audio.size = audioEntries;
+	assetManager->audio.entries =
+	    PLATFORM_MEM_ALLOC(arena, audioEntries, HashTableEntry);
 
 	i32 texAtlasEntries         = 8;
 	assetManager->texAtlas.size = texAtlasEntries;
@@ -280,11 +285,11 @@ INTERNAL void assetInit(GameState *state)
 
 	char *audioPath =
 	    "data/audio/Motoi Sakuraba - Stab the sword of justice.ogg";
-	asset_loadVorbis(assetManager, arena, audioPath, audiolist_battle);
+	asset_loadVorbis(assetManager, arena, audioPath, "audio_battle");
 	audioPath = "data/audio/Motoi Sakuraba - Field of Exper.ogg";
-	asset_loadVorbis(assetManager, arena, audioPath, audiolist_overworld);
+	asset_loadVorbis(assetManager, arena, audioPath, "audio_overworld");
 	audioPath = "data/audio/nuindependent_hit22.ogg";
-	asset_loadVorbis(assetManager, arena, audioPath, audiolist_tackle);
+	asset_loadVorbis(assetManager, arena, audioPath, "audio_tackle");
 
 #ifdef DENGINE_DEBUG
 	DEBUG_LOG("Sound assets initialised");
@@ -1160,10 +1165,11 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				if (world->numEntitiesInBattle > 0)
 				{
 					AudioVorbis *battleTheme =
-					    asset_getVorbis(assetManager, audiolist_battle);
+					    asset_getVorbis(assetManager, "audio_battle");
 					if (audioRenderer->audio)
 					{
-						if (audioRenderer->audio->type != audiolist_battle)
+						if (common_strcmp(audioRenderer->audio->key,
+						                  "audio_battle") != 0)
 						{
 							audio_streamPlayVorbis(arena, &state->audioManager,
 							                       audioRenderer, battleTheme,
@@ -1180,10 +1186,11 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				else
 				{
 					AudioVorbis *overworldTheme =
-					    asset_getVorbis(assetManager, audiolist_overworld);
+					    asset_getVorbis(assetManager, "audio_overworld");
 					if (audioRenderer->audio)
 					{
-						if (audioRenderer->audio->type != audiolist_overworld)
+						if (common_strcmp(audioRenderer->audio->key,
+						                  "audio_overworld") != 0)
 						{
 							audio_streamPlayVorbis(
 							    arena, &state->audioManager, audioRenderer,
@@ -1484,7 +1491,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			Entity *defender       = attackSpec->defender;
 
 			audio_playVorbis(arena, audioManager, attacker->audioRenderer,
-			                 asset_getVorbis(assetManager, audiolist_tackle),
+			                 asset_getVorbis(assetManager, "audio_tackle"),
 			                 1);
 
 			/* Get first free string position and store the damage str data */

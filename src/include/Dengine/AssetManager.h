@@ -15,10 +15,10 @@ typedef struct AssetManager
 	HashTable texAtlas;
 	HashTable textures;
 	HashTable anims;
+	HashTable audio;
 
 	/* Primitive Array */
-	Shader shaders[32];
-	AudioVorbis audio[32];
+	Shader shaders[2];
 	Font font;
 } AssetManager;
 
@@ -45,26 +45,33 @@ Texture *asset_loadTextureImage(AssetManager *assetManager, MemoryArena *arena,
  * Animation Asset Managing
  *********************************
  */
-void asset_addAnimation(AssetManager *assetManager, MemoryArena *arena,
-                        char *animName, TexAtlas *atlas, char **subTextureNames,
-                        i32 numSubTextures, f32 frameDuration);
+void asset_addAnimation(AssetManager *const assetManager,
+                        MemoryArena *const arena, const char *const animName,
+                        TexAtlas *const atlas, char **const subTextureNames,
+                        const i32 numSubTextures, const f32 frameDuration);
 Animation *asset_getAnim(AssetManager *const assetManager,
                          const char *const key);
+
+/*
+ *********************************
+ * Audio
+ *********************************
+ */
+AudioVorbis *const asset_getVorbis(AssetManager *const assetManager,
+                                   const char *const key);
+const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
+                           const char *const path, const char *const key);
 
 /*
  *********************************
  * Everything else
  *********************************
  */
-i32 asset_loadXmlFile(AssetManager *assetManager, MemoryArena *arena,
-                      PlatformFileRead *fileRead);
+const i32 asset_loadXmlFile(AssetManager *const assetManager,
+                            MemoryArena *const arena,
+                            const PlatformFileRead *const fileRead);
 
-AudioVorbis *asset_getVorbis(AssetManager *assetManager,
-                             const enum AudioList type);
-const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
-                           const char *const path, const enum AudioList type);
-
-Shader *asset_getShader(AssetManager *assetManager, const enum ShaderList type);
+Shader *const asset_getShader(AssetManager *assetManager, const enum ShaderList type);
 const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena *arena,
                                 const char *const vertexPath,
                                 const char *const fragmentPath,
@@ -72,7 +79,8 @@ const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena *arena,
 
 const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
                            const char *filePath);
-v2 asset_stringDimInPixels(const Font *const font, const char *const string);
+const v2 asset_stringDimInPixels(const Font *const font,
+                                 const char *const string);
 
 void asset_unitTest(MemoryArena *arena);
 

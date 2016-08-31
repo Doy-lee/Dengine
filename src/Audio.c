@@ -296,13 +296,7 @@ const i32 audio_streamPlayVorbis(MemoryArena *arena, AudioManager *audioManager,
 	// simultaneously, we need unique file pointers into the data to track song
 	// position uniquely
 	AudioVorbis *copyAudio     = PLATFORM_MEM_ALLOC(arena, 1, AudioVorbis);
-	copyAudio->type            = vorbis->type;
-	copyAudio->info            = vorbis->info;
-	copyAudio->lengthInSamples = vorbis->lengthInSamples;
-	copyAudio->lengthInSeconds = vorbis->lengthInSeconds;
-
-	copyAudio->data            = vorbis->data;
-	copyAudio->size            = vorbis->size;
+	*copyAudio                 = *vorbis;
 
 	i32 error;
 	copyAudio->file =

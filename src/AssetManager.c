@@ -231,8 +231,9 @@ Texture *asset_loadTextureImage(AssetManager *assetManager, MemoryArena *arena,
  * Animation Asset Managing
  *********************************
  */
-INTERNAL Animation *getFreeAnimationSlot(AssetManager *assetManager,
-                                         MemoryArena *arena, char *key)
+INTERNAL Animation *getFreeAnimationSlot(AssetManager *const assetManager,
+                                         MemoryArena *const arena,
+                                         const char *const key)
 {
 	HashTableEntry *entry = getFreeHashSlot(&assetManager->anims, arena, key);
 
@@ -248,9 +249,11 @@ INTERNAL Animation *getFreeAnimationSlot(AssetManager *assetManager,
 	}
 }
 
-void asset_addAnimation(AssetManager *assetManager, MemoryArena *arena,
-                        char *animName, TexAtlas *atlas, char **subTextureNames,
-                        i32 numSubTextures, f32 frameDuration)
+void asset_addAnimation(AssetManager *const assetManager,
+                        MemoryArena *const arena, const char *const animName,
+                        TexAtlas *const atlas,
+                        char **const subTextureNames,
+                        const i32 numSubTextures, const f32 frameDuration)
 {
 	Animation *anim = getFreeAnimationSlot(assetManager, arena, animName);
 
@@ -307,8 +310,10 @@ typedef struct XmlToken
 	i32 len;
 } XmlToken;
 
-INTERNAL XmlToken *tokeniseXmlBuffer(MemoryArena *arena, char *buffer,
-                                     i32 bufferSize, int *numTokens)
+INTERNAL XmlToken *const tokeniseXmlBuffer(MemoryArena *const arena,
+                                           const char *const buffer,
+                                           const i32 bufferSize,
+                                           int *const numTokens)
 {
 	XmlToken *xmlTokens = PLATFORM_MEM_ALLOC(arena, 8192, XmlToken);
 	i32 tokenIndex      = 0;
@@ -412,8 +417,9 @@ INTERNAL XmlToken *tokeniseXmlBuffer(MemoryArena *arena, char *buffer,
 	return xmlTokens;
 }
 
-INTERNAL XmlNode *buildXmlTree(MemoryArena *arena, XmlToken *xmlTokens,
-                               i32 numTokens)
+INTERNAL XmlNode *const buildXmlTree(MemoryArena *const arena,
+                                     XmlToken *const xmlTokens,
+                                     const i32 numTokens)
 {
 	XmlNode *root = PLATFORM_MEM_ALLOC(arena, 1, XmlNode);
 	if (!root) return NULL;
@@ -732,7 +738,8 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
 	}
 }
 
-INTERNAL void recursiveFreeXmlTree(MemoryArena *arena, XmlNode *node)
+INTERNAL void recursiveFreeXmlTree(MemoryArena *const arena,
+                                   XmlNode *node)
 {
 	if (!node)
 	{
@@ -759,11 +766,12 @@ INTERNAL void recursiveFreeXmlTree(MemoryArena *arena, XmlNode *node)
 		node->name     = NULL;
 		node->isClosed = FALSE;
 		PLATFORM_MEM_FREE(arena, node, sizeof(XmlNode));
+		node = NULL;
 	}
 }
 
-INTERNAL void freeXmlData(MemoryArena *arena, XmlToken *tokens, i32 numTokens,
-                          XmlNode *tree)
+INTERNAL void freeXmlData(MemoryArena *const arena, XmlToken *tokens,
+                          const i32 numTokens, XmlNode *tree)
 {
 	if (tree) recursiveFreeXmlTree(arena, tree);
 	if (tokens) PLATFORM_MEM_FREE(arena, tokens, numTokens * sizeof(XmlToken));
@@ -774,8 +782,9 @@ INTERNAL void freeXmlData(MemoryArena *arena, XmlToken *tokens, i32 numTokens,
  * Everything else
  *********************************
  */
-i32 asset_loadXmlFile(AssetManager *assetManager, MemoryArena *arena,
-                      PlatformFileRead *fileRead)
+const i32 asset_loadXmlFile(AssetManager *const assetManager,
+                      MemoryArena *const arena,
+                      const PlatformFileRead *const fileRead)
 {
 	i32 result = 0;
 	/* Tokenise buffer */
@@ -802,49 +811,49 @@ i32 asset_loadXmlFile(AssetManager *assetManager, MemoryArena *arena,
 	return result;
 }
 
-// TODO(doyle): Switch to hash based lookup
-// TODO(doyle): Use pointers, so we can forward declare all assets?
-AudioVorbis *asset_getVorbis(AssetManager *assetManager,
-                             const enum AudioList type)
+AudioVorbis *const asset_getVorbis(AssetManager *const assetManager,
+                                   const char *const key)
 {
-	if (type < audiolist_count)
-		return &assetManager->audio[type];
 
-#ifdef DENGINE_DEBUG
-	ASSERT(INVALID_CODE_PATH);
-#endif
+	HashTableEntry *entry = getEntryFromHash(&assetManager->audio, key);
 
-	return NULL;
+	AudioVorbis *result = NULL;
+	if (entry) result = CAST(AudioVorbis *)entry->data;
+
+	return result;
 }
 
 const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
-                     const char *const path, const enum AudioList type)
+                           const char *const path, const char *const key)
 {
+	HashTableEntry *entry = getFreeHashSlot(&assetManager->audio, arena, key);
+	if (!entry) return -1;
+
 	// TODO(doyle): Remember to free vorbis file if we remove from memory
 	PlatformFileRead fileRead = {0};
 	platform_readFileToBuffer(arena, path, &fileRead);
 
+	entry->data        = PLATFORM_MEM_ALLOC(arena, 1, AudioVorbis);
+
 	i32 error;
-	AudioVorbis audio = {0};
-	audio.type = type;
-	audio.file =
+	AudioVorbis *audio = CAST(AudioVorbis *) entry->data;
+	audio->file =
 	    stb_vorbis_open_memory(fileRead.buffer, fileRead.size, &error, NULL);
-	
-	if (!audio.file)
+
+	if (!audio->file)
 	{
 		printf("stb_vorbis_open_memory() failed: Error code %d\n", error);
 		platform_closeFileRead(arena, &fileRead);
-		stb_vorbis_close(audio.file);
+		stb_vorbis_close(audio->file);
 		return 0;
 	}
 
-	audio.info            = stb_vorbis_get_info(audio.file);
-	audio.lengthInSamples = stb_vorbis_stream_length_in_samples(audio.file);
-	audio.lengthInSeconds = stb_vorbis_stream_length_in_seconds(audio.file);
-	audio.data            = CAST(u8 *) fileRead.buffer;
-	audio.size            = fileRead.size;
-
-	assetManager->audio[type] = audio;
+	audio->name            = entry->key;
+	audio->info            = stb_vorbis_get_info(audio->file);
+	audio->lengthInSamples = stb_vorbis_stream_length_in_samples(audio->file);
+	audio->lengthInSeconds = stb_vorbis_stream_length_in_seconds(audio->file);
+	audio->data            = CAST(u8 *) fileRead.buffer;
+	audio->size            = fileRead.size;
 
 	return 0;
 }
@@ -902,7 +911,8 @@ INTERNAL i32 shaderLoadProgram(Shader *const shader, const GLuint vertexShader,
 	return 0;
 }
 
-Shader *asset_getShader(AssetManager *assetManager, const enum ShaderList type)
+Shader *const asset_getShader(AssetManager *assetManager,
+                              const enum ShaderList type)
 {
 	if (type < shaderlist_count)
 		return &assetManager->shaders[type];
@@ -1202,7 +1212,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 	return 0;
 }
 
-v2 asset_stringDimInPixels(const Font *const font, const char *const string)
+const v2 asset_stringDimInPixels(const Font *const font,
+                                 const char *const string)
 {
 	v2 stringDim = V2(0, 0);
 	for (i32 i = 0; i < common_strlen(string); i++)
