@@ -3,7 +3,7 @@
 #include "Dengine/Platform.h"
 #include "Dengine/WorldTraveller.h"
 
-void entity_setActiveAnim(Entity *entity, char *animName)
+void entity_setActiveAnim(Entity *const entity, const char *const animName)
 {
 	/* Reset current anim data */
 	EntityAnim *currEntityAnim   = &entity->animList[entity->currAnimId];
@@ -16,6 +16,7 @@ void entity_setActiveAnim(Entity *entity, char *animName)
 		Animation *anim = entity->animList[i].anim;
 		if (anim)
 		{
+			// TODO(doyle): Linear search, but not a problem if list is small
 			if (common_strcmp(anim->key, animName) == 0)
 			{
 				entity->currAnimId = i;
@@ -31,7 +32,7 @@ void entity_setActiveAnim(Entity *entity, char *animName)
 	DEBUG_LOG("Entity does not have access to desired anim");
 }
 
-void entity_updateAnim(Entity *entity, f32 dt)
+void entity_updateAnim(Entity *const entity, const f32 dt)
 {
 	if (!entity->tex)
 		return;
@@ -55,15 +56,16 @@ void entity_updateAnim(Entity *entity, f32 dt)
 	case entitytype_mob:
 	case entitytype_npc:
 		char *frameName = anim->frameList[currEntityAnim->currFrame];
-		Rect *texRect =
+		Rect texRect =
 		    asset_getAtlasSubTex(anim->atlas, frameName);
-		entity->renderSize = texRect->size;
+		entity->renderSize = texRect.size;
 	default:
 		break;
 	}
 }
 
-void entity_addAnim(AssetManager *assetManager, Entity *entity, char *animName)
+void entity_addAnim(AssetManager *const assetManager, Entity *const entity,
+                    const char *const animName)
 {
 	i32 freeAnimIndex = 0;
 	for (i32 i = 0; i < ARRAY_COUNT(entity->animList); i++)
@@ -81,9 +83,11 @@ void entity_addAnim(AssetManager *assetManager, Entity *entity, char *animName)
 	DEBUG_LOG("No more free entity animation slots");
 }
 
-Entity *entity_add(MemoryArena *arena, World *world, v2 pos, v2 size,
-                   enum EntityType type, enum Direction direction, Texture *tex,
-                   b32 collides)
+Entity *const entity_add(MemoryArena *const arena, World *const world,
+                         const v2 pos, const v2 size,
+                         const enum EntityType type,
+                         const enum Direction direction,
+                         Texture *const tex, const b32 collides)
 {
 
 #ifdef DENGINE_DEBUG
@@ -139,7 +143,8 @@ Entity *entity_add(MemoryArena *arena, World *world, v2 pos, v2 size,
 	return result;
 }
 
-void entity_clearData(MemoryArena *arena, World *world, Entity *entity)
+void entity_clearData(MemoryArena *const arena, World *const world,
+                      Entity *const entity)
 {
 	if (entity->stats)
 		PLATFORM_MEM_FREE(arena, entity->stats, sizeof(EntityStats));
@@ -150,7 +155,7 @@ void entity_clearData(MemoryArena *arena, World *world, Entity *entity)
 	entity->type = entitytype_null;
 }
 
-i32 entity_getIndex(World *world, i32 entityId)
+i32 entity_getIndex(World *const world, const i32 entityId)
 {
 	i32 first = 0;
 	i32 last  = world->freeEntityIndex - 1;

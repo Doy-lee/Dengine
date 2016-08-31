@@ -94,12 +94,16 @@ typedef struct Entity
 	i32 numAudioRenderers;
 } Entity;
 
-void entity_setActiveAnim(Entity *entity, char *animName);
-void entity_updateAnim(Entity *entity, f32 dt);
-void entity_addAnim(AssetManager *assetManager, Entity *entity, char *animName);
-Entity *entity_add(MemoryArena *arena, World *world, v2 pos, v2 size,
-                   enum EntityType type, enum Direction direction, Texture *tex,
-                   b32 collides);
-void entity_clearData(MemoryArena *arena, World *world, Entity *entity);
-i32 entity_getIndex(World *world, i32 entityId);
+void entity_setActiveAnim(Entity *const entity, const char *const animName);
+void entity_updateAnim(Entity *const entity, const f32 dt);
+void entity_addAnim(AssetManager *const assetManager, Entity *const entity,
+                    const char *const animName);
+Entity *const entity_add(MemoryArena *const arena, World *const world,
+                         const v2 pos, const v2 size,
+                         const enum EntityType type,
+                         const enum Direction direction, Texture *const tex,
+                         const b32 collides);
+void entity_clearData(MemoryArena *const arena, World *const world,
+                      Entity *const entity);
+i32 entity_getIndex(World *const world, const i32 entityId);
 #endif

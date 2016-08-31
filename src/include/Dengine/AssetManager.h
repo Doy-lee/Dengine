@@ -28,7 +28,7 @@ typedef struct AssetManager
  * Texture Operations
  *********************************
  */
-Rect *asset_getAtlasSubTex(TexAtlas *const atlas, const char *const key);
+const Rect asset_getAtlasSubTex(TexAtlas *const atlas, const char *const key);
 Texture *asset_getTex(AssetManager *const assetManager, const char *const key);
 TexAtlas *asset_getFreeTexAtlasSlot(AssetManager *const assetManager,
                                     MemoryArena *arena, const char *const key,

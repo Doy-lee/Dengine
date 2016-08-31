@@ -1641,18 +1641,18 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	/* Draw hero avatar */
 	TexAtlas *heroAtlas =
 	    asset_getTexAtlas(assetManager, "ClaudeSprite.png");
-	Rect *heroAvatarRect =
+	Rect heroAvatarRect =
 	    asset_getAtlasSubTex(heroAtlas, "ClaudeSprite_Avatar_01");
 	v2 heroAvatarP =
-	    V2(10.0f, (renderer->size.h * 0.5f) - (0.5f * heroAvatarRect->size.h));
+	    V2(10.0f, (renderer->size.h * 0.5f) - (0.5f * heroAvatarRect.size.h));
 
 	// TODO(doyle): Use rect in rendering not V4
 	v4 heroAvatarTexRect      = {0};
-	heroAvatarTexRect.vec2[0] = heroAvatarRect->pos;
-	heroAvatarTexRect.vec2[1] = v2_add(heroAvatarRect->pos, heroAvatarRect->size);
+	heroAvatarTexRect.vec2[0] = heroAvatarRect.pos;
+	heroAvatarTexRect.vec2[1] = v2_add(heroAvatarRect.pos, heroAvatarRect.size);
 
 	RenderTex heroRenderTex = {hero->tex, heroAvatarTexRect};
-	renderer_staticRect(renderer, heroAvatarP, heroAvatarRect->size, V2(0, 0), 0,
+	renderer_staticRect(renderer, heroAvatarP, heroAvatarRect.size, V2(0, 0), 0,
 	                    heroRenderTex, V4(1, 1, 1, 1));
 
 	char heroAvatarStr[20];
@@ -1661,7 +1661,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	f32 strLenInPixels =
 	    CAST(f32)(font->maxSize.w * common_strlen(heroAvatarStr));
 	v2 strPos =
-	    V2(heroAvatarP.x, heroAvatarP.y - (0.5f * heroAvatarRect->size.h));
+	    V2(heroAvatarP.x, heroAvatarP.y - (0.5f * heroAvatarRect.size.h));
 	renderer_staticString(&state->renderer, &state->arena, font, heroAvatarStr,
 	                      strPos, V2(0, 0), 0, V4(0, 0, 1, 1));
 

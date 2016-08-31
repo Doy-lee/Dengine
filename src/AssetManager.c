@@ -27,9 +27,9 @@
  * Hash Table Operations
  *********************************
  */
-INTERNAL HashTableEntry *getFreeHashSlot(HashTable *const table,
-                                         MemoryArena *arena,
-                                         const char *const key)
+INTERNAL HashTableEntry *const getFreeHashSlot(HashTable *const table,
+                                               MemoryArena *const arena,
+                                               const char *const key)
 {
 	u32 hashIndex = common_getHashIndex(key, table->size);
 	HashTableEntry *result = &table->entries[hashIndex];
@@ -63,7 +63,7 @@ INTERNAL HashTableEntry *getFreeHashSlot(HashTable *const table,
 	return result;
 }
 
-INTERNAL HashTableEntry *getEntryFromHash(HashTable *const table,
+INTERNAL HashTableEntry *const getEntryFromHash(HashTable *const table,
                                           const char *const key)
 {
 	u32 hashIndex = common_getHashIndex(key, table->size);
@@ -83,15 +83,15 @@ INTERNAL HashTableEntry *getEntryFromHash(HashTable *const table,
  *********************************
  */
 INTERNAL Rect *getFreeAtlasSubTexSlot(TexAtlas *const atlas,
-                                      MemoryArena *const arena,
-                                      const char *const key)
+                                     MemoryArena *const arena,
+                                     const char *const key)
 {
 	HashTableEntry *entry = getFreeHashSlot(&atlas->subTex, arena, key);
 
 	if (entry)
 	{
 		entry->data  = PLATFORM_MEM_ALLOC(arena, 1, Rect);
-		Rect *result = CAST(Rect *) entry->data;
+		Rect *result = CAST(Rect *)entry->data;
 		return result;
 	}
 	else
@@ -100,14 +100,19 @@ INTERNAL Rect *getFreeAtlasSubTexSlot(TexAtlas *const atlas,
 	}
 }
 
-Rect *asset_getAtlasSubTex(TexAtlas *const atlas, const char *const key)
+const Rect asset_getAtlasSubTex(TexAtlas *const atlas, const char *const key)
 {
 
 	HashTableEntry *entry = getEntryFromHash(&atlas->subTex, key);
 
-	Rect *result      = NULL;
-	if (entry) result = CAST(Rect *) entry->data;
+	Rect result       = {0};
+	if (entry)
+	{
+		result = *(CAST(Rect *) entry->data);
+		return result;
+	}
 
+	DEBUG_LOG("asset_getAtlasSubTex() failed: Sub texture does not exist");
 	return result;
 }
 

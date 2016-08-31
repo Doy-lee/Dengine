@@ -210,13 +210,13 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 			pos.x += charMetric.advance;
 
 			/* Get texture out */
-			Rect *charTexRect =
+			Rect charTexRect =
 			    asset_getAtlasSubTex(font->atlas, &CAST(char)codepoint);
 
 			v4 deprecatedTexRect = {0};
-			deprecatedTexRect.vec2[0] = charTexRect->pos;
+			deprecatedTexRect.vec2[0] = charTexRect.pos;
 			deprecatedTexRect.vec2[1] =
-			    v2_add(charTexRect->pos, charTexRect->size);
+			    v2_add(charTexRect.pos, charTexRect.size);
 
 			flipTexCoord(&deprecatedTexRect, FALSE, TRUE);
 
@@ -252,12 +252,12 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 		EntityAnim *entityAnim = &entity->animList[entity->currAnimId];
 		Animation *anim        = entityAnim->anim;
 		char *frameName        = anim->frameList[entityAnim->currFrame];
-		Rect *animRect = asset_getAtlasSubTex(anim->atlas, frameName);
+		Rect animRect = asset_getAtlasSubTex(anim->atlas, frameName);
 
 		// TODO(doyle): Switch to rect
 		v4 animTexRect = {0};
-		animTexRect.vec2[0] = animRect->pos;
-		animTexRect.vec2[1] = v2_add(animRect->pos, animRect->size);
+		animTexRect.vec2[0] = animRect.pos;
+		animTexRect.vec2[1] = v2_add(animRect.pos, animRect.size);
 
 		    if (entity->direction == direction_east)
 		{
