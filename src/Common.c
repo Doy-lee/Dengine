@@ -39,7 +39,7 @@ char *common_strncpy(char *dest, const char *src, i32 numChars)
 	return dest;
 }
 
-char *common_memset(char *const ptr, const i32 value, const i32 numBytes)
+u8 *common_memset(u8 *const ptr, const i32 value, const i32 numBytes)
 {
 	for (i32 i = 0; i < numBytes; i++)
 		ptr[i] = value;

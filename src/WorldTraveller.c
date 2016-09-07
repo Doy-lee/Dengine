@@ -3,6 +3,7 @@
 #include "Dengine/Debug.h"
 #include "Dengine/Entity.h"
 #include "Dengine/Platform.h"
+#include "Dengine/String.h"
 #include "Dengine/UserInterface.h"
 
 enum State
@@ -575,6 +576,30 @@ INTERNAL void unitTest(MemoryArena *arena)
 	ASSERT(common_atoi("+32", common_strlen("+32")) == 32);
 	ASSERT(common_atoi("+ 32", common_strlen("+ 32")) == 0);
 	asset_unitTest(arena);
+
+	i32 memBefore  = arena->bytesAllocated;
+	String *hello = string_make(arena, "hello, ");
+	String *world = string_make(arena, "world");
+	ASSERT(string_len(hello) == 7);
+	ASSERT(string_len(world) == 5);
+
+	hello = string_append(arena, hello, world, string_len(world));
+	ASSERT(string_len(hello) == 12);
+	string_free(arena, hello);
+	string_free(arena, world);
+
+	hello = string_make(arena, "");
+	world = string_make(arena, "");
+	hello = string_append(arena, hello, world, string_len(world));
+	ASSERT(string_len(hello) == 0);
+	ASSERT(string_len(world) == 0);
+
+	string_free(arena, hello);
+	string_free(arena, world);
+
+	i32 memAfter = arena->bytesAllocated;
+
+	ASSERT(memBefore == memAfter);
 }
 
 // TODO(doyle): Remove and implement own random generator!

@@ -32,7 +32,7 @@ i32 common_strlen(const char *const string);
 i32 common_strcmp(const char *a, const char *b);
 void common_strncat(char *dest, const char *src, i32 numChars);
 char *common_strncpy(char *dest, const char *src, i32 numChars);
-char *common_memset(char *const ptr, const i32 value, const i32 numBytes);
+u8 *common_memset(u8 *const ptr, const i32 value, const i32 numBytes);
 
 // Max buffer size should be 11 for 32 bit integers
 void common_itoa(i32 value, char *buf, i32 bufSize);
