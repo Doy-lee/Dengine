@@ -11,6 +11,8 @@ typedef struct Texture Texture;
 typedef struct Animation Animation;
 typedef struct World World;
 
+typedef struct Entity Entity;
+
 enum Direction
 {
 	direction_north,
@@ -25,6 +27,8 @@ enum EntityType
 {
 	entitytype_null,
 	entitytype_hero,
+	entitytype_weapon,
+	entitytype_projectile,
 	entitytype_npc,
 	entitytype_mob,
 	entitytype_tile,
@@ -45,6 +49,7 @@ enum EntityState
 enum EntityAttack
 {
 	entityattack_tackle,
+	entityattack_airSlash,
 	entityattack_energySword,
 	entityattack_count,
 	entityattack_invalid,
@@ -62,6 +67,8 @@ typedef struct EntityStats
 	f32 busyDuration;
 	i32 entityIdToAttack;
 	enum EntityAttack queuedAttack;
+
+	Entity *weapon;
 } EntityStats;
 
 typedef struct EntityAnim
@@ -71,7 +78,7 @@ typedef struct EntityAnim
 	f32 currDuration;
 } EntityAnim;
 
-typedef struct Entity
+struct Entity
 {
 	i32 id;
 
@@ -79,13 +86,23 @@ typedef struct Entity
 	v2 dPos; // Velocity
 	v2 hitboxSize;
 	v2 renderSize;
+	f32 rotation;
+
+	b32 invisible;
 
 	enum EntityState state;
 	enum EntityType type;
 	enum Direction direction;
 
 	Texture *tex;
+
+	// TODO(doyle): Two collision flags, we want certain entities to collide
+	// with certain types of entities only (i.e. projectile from hero to enemy,
+	// only collides with enemy). Having two flags is redundant, but! it does
+	// allow for early-exit in collision check if the entity doesn't collide at
+	// all
 	b32 collides;
+	enum EntityType collidesWith[entitytype_count];
 
 	EntityAnim animList[16];
 	i32 currAnimId;
@@ -95,7 +112,7 @@ typedef struct Entity
 	// TODO(doyle): Audio mixing instead of multiple renderers
 	AudioRenderer *audioRenderer;
 	i32 numAudioRenderers;
-} Entity;
+};
 
 void entity_setActiveAnim(Entity *const entity, const char *const animName);
 void entity_updateAnim(Entity *const entity, const f32 dt);

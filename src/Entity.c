@@ -55,6 +55,8 @@ void entity_updateAnim(Entity *const entity, const f32 dt)
 	case entitytype_hero:
 	case entitytype_mob:
 	case entitytype_npc:
+	case entitytype_weapon:
+	case entitytype_projectile:
 		char *frameName = anim->frameList[currEntityAnim->currFrame];
 		Rect texRect =
 		    asset_getAtlasSubTex(anim->atlas, frameName);
@@ -118,6 +120,7 @@ Entity *const entity_add(MemoryArena *const arena, World *const world,
 		entity.stats->entityIdToAttack = -1;
 		entity.stats->queuedAttack     = entityattack_invalid;
 		entity.state                   = entitystate_idle;
+		entity.collidesWith[entitytype_mob] = TRUE;
 		break;
 	case entitytype_mob:
 	{
@@ -130,8 +133,20 @@ Entity *const entity_add(MemoryArena *const arena, World *const world,
 		entity.stats->entityIdToAttack = -1;
 		entity.stats->queuedAttack     = entityattack_invalid;
 		entity.state                   = entitystate_idle;
+		entity.collidesWith[entitytype_hero] = TRUE;
 		break;
 	}
+	case entitytype_projectile:
+		entity.stats               = PLATFORM_MEM_ALLOC(arena, 1, EntityStats);
+		entity.stats->maxHealth    = 100;
+		entity.stats->health       = entity.stats->maxHealth;
+		entity.stats->actionRate   = 100;
+		entity.stats->actionTimer  = entity.stats->actionRate;
+		entity.stats->actionSpdMul = 100;
+		entity.stats->entityIdToAttack = -1;
+		entity.stats->queuedAttack     = entityattack_invalid;
+		entity.state                   = entitystate_idle;
+		break;
 
 	default:
 		break;

@@ -267,6 +267,55 @@ INTERNAL void assetInit(GameState *state)
 			asset_addAnimation(assetManager, arena, "claudeEnergySword",
 			                   claudeAtlas, claudeEnergySword, numRects,
 			                   duration);
+
+			char *claudeAirSlash[7] = {"ClaudeSprite_Attack_AirSlash_01",
+			                           "ClaudeSprite_Attack_AirSlash_02",
+			                           "ClaudeSprite_Attack_AirSlash_03",
+			                           "ClaudeSprite_Attack_AirSlash_04",
+			                           "ClaudeSprite_Attack_AirSlash_05",
+			                           "ClaudeSprite_Attack_AirSlash_06",
+			                           "ClaudeSprite_Attack_AirSlash_07"};
+			numRects = ARRAY_COUNT(claudeAirSlash);
+			duration = 0.075f;
+			asset_addAnimation(assetManager, arena, "claudeAirSlash",
+			                   claudeAtlas, claudeAirSlash, numRects,
+			                   duration);
+
+			char *claudeAirSlashVfx[7] = {"ClaudeSprite_Attack_AirSlash_Vfx_01",
+			                           "ClaudeSprite_Attack_AirSlash_Vfx_02",
+			                           "ClaudeSprite_Attack_AirSlash_Vfx_03",
+			                           "ClaudeSprite_Attack_AirSlash_Vfx_04",
+			                           "ClaudeSprite_Attack_AirSlash_Vfx_05",
+			                           "ClaudeSprite_Attack_AirSlash_Vfx_06",
+			                           "ClaudeSprite_Attack_AirSlash_Vfx_07"};
+			numRects = ARRAY_COUNT(claudeAirSlashVfx);
+			duration = 0.075f;
+			asset_addAnimation(assetManager, arena, "claudeAirSlashVfx",
+			                   claudeAtlas, claudeAirSlashVfx, numRects,
+			                   duration);
+
+			char *claudeSword[1] = {
+			    "ClaudeSprite_Sword_01",
+			};
+
+			numRects = ARRAY_COUNT(claudeSword);
+			duration = 0.4f;
+			asset_addAnimation(assetManager, arena, "claudeSword",
+			                   claudeAtlas, claudeSword, numRects,
+			                   duration);
+
+			char *claudeAttackSlashLeft[4] = {
+			    "ClaudeSprite_Attack_Slash_Left_01",
+			    "ClaudeSprite_Attack_Slash_Left_02",
+			    "ClaudeSprite_Attack_Slash_Left_03",
+			    "ClaudeSprite_Attack_Slash_Left_04",
+			};
+
+			numRects = ARRAY_COUNT(claudeAttackSlashLeft);
+			duration = 0.1f;
+			asset_addAnimation(assetManager, arena, "claudeAttackSlashLeft",
+			                   claudeAtlas, claudeAttackSlashLeft, numRects,
+			                   duration);
 		}
 		else
 		{
@@ -473,6 +522,17 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	Entity *hero =
 	    entity_add(arena, world, pos, size, type, dir, tex, collides);
 
+#if 0
+	Entity *heroWeapon =
+	    entity_add(arena, world, pos, V2(0, 0), entitytype_weapon,
+	               hero->direction, hero->tex, FALSE);
+	heroWeapon->rotation = -90.0f;
+	heroWeapon->invisible = TRUE;
+	entity_addAnim(assetManager, heroWeapon, "claudeSword");
+
+	hero->stats->weapon = heroWeapon;
+#endif
+
 	hero->numAudioRenderers = 4;
 	hero->audioRenderer =
 	    PLATFORM_MEM_ALLOC(arena, hero->numAudioRenderers, AudioRenderer);
@@ -489,6 +549,7 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	entity_addAnim(assetManager, hero, "claudeBattleIdle");
 	entity_addAnim(assetManager, hero, "claudeAttack");
 	entity_addAnim(assetManager, hero, "claudeEnergySword");
+	entity_addAnim(assetManager, hero, "claudeAirSlash");
 	entity_setActiveAnim(hero, "claudeIdle");
 
 	/* Create a NPC */
@@ -992,7 +1053,8 @@ typedef struct AttackSpec
 	i32 damage;
 } AttackSpec;
 
-INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
+INTERNAL void beginAttack(AssetManager *assetManager, MemoryArena *arena,
+                          EventQueue *eventQueue, World *world,
                           Entity *attacker)
 {
 #ifdef DENGINE_DEBUG
@@ -1006,11 +1068,12 @@ INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
 	case entityattack_tackle:
 	{
 		entity_setActiveAnim(attacker, "claudeAttack");
-		EntityAnim attackAnim = attacker->animList[attacker->currAnimId];
-		f32 busyDuration      = attackAnim.anim->frameDuration *
-		                   CAST(f32) attackAnim.anim->numFrames;
-		attacker->stats->busyDuration = busyDuration;
-
+		if (attacker->stats->weapon)
+		{
+			attacker->stats->weapon->invisible = FALSE;
+			entity_setActiveAnim(attacker->stats->weapon,
+			                     "claudeAttackSlashLeft");
+		}
 		if (attacker->direction == direction_east)
 			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
 		else
@@ -1021,10 +1084,22 @@ INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
 	case entityattack_energySword:
 	{
 		entity_setActiveAnim(attacker, "claudeEnergySword");
-		EntityAnim attackAnim = attacker->animList[attacker->currAnimId];
-		f32 busyDuration      = attackAnim.anim->frameDuration *
-		                   CAST(f32) attackAnim.anim->numFrames;
-		attacker->stats->busyDuration = busyDuration;
+		break;
+	}
+
+	case entityattack_airSlash:
+	{
+		entity_setActiveAnim(attacker, "claudeAirSlash");
+		Entity *projectile = entity_add(
+		    arena, world, attacker->pos, V2(20, 20), entitytype_projectile,
+		    attacker->direction, attacker->tex, TRUE);
+
+		projectile->collidesWith[entitytype_hero] = FALSE;
+		projectile->collidesWith[entitytype_mob]  = TRUE;
+
+		projectile->stats->entityIdToAttack = attacker->stats->entityIdToAttack;
+		entity_addAnim(assetManager, projectile, "claudeAirSlashVfx");
+		entity_setActiveAnim(projectile, "claudeAirSlashVfx");
 		break;
 	}
 
@@ -1034,6 +1109,11 @@ INTERNAL void beginAttack(EventQueue *eventQueue, World *world,
 #endif
 		break;
 	}
+
+	EntityAnim attackAnim = attacker->animList[attacker->currAnimId];
+	f32 busyDuration =
+	    attackAnim.anim->frameDuration * CAST(f32) attackAnim.anim->numFrames;
+	attacker->stats->busyDuration = busyDuration;
 }
 
 // TODO(doyle): MemArena here is temporary until we incorporate AttackSpec to
@@ -1050,6 +1130,12 @@ INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
 	{
 	case entityattack_tackle:
 		// TODO(doyle): Move animation offsets out and into animation type
+
+		if (attacker->stats->weapon)
+		{
+			attacker->stats->weapon->invisible = TRUE;
+		}
+
 		if (attacker->direction == direction_east)
 			attacker->dPos.x -= (1.0f * METERS_TO_PIXEL);
 		else
@@ -1057,9 +1143,11 @@ INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
 
 		break;
 
+	case entityattack_airSlash:
+		break;
+
 	case entityattack_energySword:
 		attacker->stats->health += 80;
-
 		AttackSpec *attackSpec = PLATFORM_MEM_ALLOC(arena, 1, AttackSpec);
 		attackSpec->attacker   = attacker;
 		attackSpec->defender   = attacker;
@@ -1110,7 +1198,7 @@ INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
 
 	if (!noMoreValidTargets)
 	{
-		i32 damage = 50;
+		i32 damage = 25;
 
 		AttackSpec *attackSpec = PLATFORM_MEM_ALLOC(arena, 1, AttackSpec);
 		attackSpec->attacker   = attacker;
@@ -1122,13 +1210,13 @@ INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
 		if (attacker->type == entitytype_hero)
 		{
 			defender->stats->health -= damage;
-			if (defender->stats->health <= 0.0f) defender->stats->health = 10.0f;
 		}
 		else if (attacker->type == entitytype_mob)
 		{
 			defender->stats->health -= damage * 0.25f;
-			if (defender->stats->health <= 0.0f) defender->stats->health = 10.0f;
 		}
+
+		if (defender->stats->health <= 0.0f) defender->stats->health = 10.0f;
 
 		if (defender->stats->health <= 0)
 		{
@@ -1171,7 +1259,16 @@ INTERNAL enum EntityAttack selectBestAttack(Entity *entity)
 	}
 	else
 	{
-		return entityattack_tackle;
+		enum EntityAttack attack = entityattack_tackle;;
+		if (entity->type == entitytype_hero)
+		{
+			b32 choice = rand() % 2;
+			attack =
+			    (choice == TRUE) ? entityattack_airSlash : entityattack_tackle;
+			//attack = entityattack_tackle;
+		}
+
+		return attack;
 	}
 }
 
@@ -1203,6 +1300,110 @@ typedef struct BattleState
 } BattleState;
 
 GLOBAL_VAR BattleState battleState = {0};
+
+INTERNAL b32 checkCollision(Entity *a, Entity *b)
+{
+	b32 result = FALSE;
+	if (a->collides && b->collides && a->collidesWith[b->type])
+	{
+		Rect aRect = {a->pos, a->hitboxSize};
+
+		v2 aTopLeftP =
+		    getPosRelativeToRect(aRect, V2(0, 0), rectbaseline_topLeft);
+		v2 aTopRightP =
+		    getPosRelativeToRect(aRect, V2(0, 0), rectbaseline_topRight);
+		v2 aBottomLeftP =
+		    getPosRelativeToRect(aRect, V2(0, 0), rectbaseline_bottomLeft);
+		v2 aBottomRightP =
+		    getPosRelativeToRect(aRect, V2(0, 0), rectbaseline_bottomRight);
+
+		Rect bRect = {b->pos, b->hitboxSize};
+
+		if (math_pointInRect(bRect, aTopLeftP) ||
+		    math_pointInRect(bRect, aTopRightP) ||
+		    math_pointInRect(bRect, aBottomLeftP) ||
+		    math_pointInRect(bRect, aBottomRightP))
+		{
+			result = TRUE;
+			return result;
+		}
+	}
+
+	return result;
+}
+
+INTERNAL b32 moveEntityAndReturnCollision(World *world, Entity *entity,
+                                          v2 ddPos, f32 speedInMs, f32 dt)
+{
+	/*
+	 **************************
+	 * Calculate Hero Speed
+	 **************************
+	 */
+	// NOTE(doyle): Clipping threshold for snapping velocity to 0
+	f32 epsilon = 15.0f;
+	v2 epsilonDpos = v2_sub(V2(epsilon, epsilon),
+	                        V2(ABS(entity->dPos.x), ABS(entity->dPos.y)));
+
+	if (epsilonDpos.x >= 0.0f && epsilonDpos.y >= 0.0f)
+		entity->dPos = V2(0.0f, 0.0f);
+
+	f32 speedInPixels = speedInMs * METERS_TO_PIXEL;
+
+	ddPos = v2_scale(ddPos, speedInPixels);
+	// TODO(doyle): Counteracting force on player's acceleration is
+	// arbitrary
+	ddPos = v2_sub(ddPos, v2_scale(entity->dPos, 5.5f));
+
+	/*
+	   NOTE(doyle): Calculate new position from acceleration with old
+	   velocity
+	   new Position     = (a/2) * (t^2) + (v*t) + p,
+	   acceleration     = (a/2) * (t^2)
+	   old velocity     =                 (v*t)
+	 */
+	v2 ddPosNew = v2_scale(v2_scale(ddPos, 0.5f), SQUARED(dt));
+	v2 dPos     = v2_scale(entity->dPos, dt);
+
+	v2 oldP = entity->pos;
+	v2 newP = v2_add(v2_add(ddPosNew, dPos), entity->pos);
+	entity->pos = newP;
+
+	/*
+	 **************************
+	 * Collision Detection
+	 **************************
+	 */
+	// TODO(doyle): Only check collision for entities within small
+	// bounding box of the hero
+	b32 entityCollided = FALSE;
+	if (entity->collides)
+	{
+		for (i32 i = 0; i < world->maxEntities; i++)
+		{
+			Entity *collider = &world->entities[i];
+			if (collider->state == entitystate_dead) continue;
+			if (collider->id == entity->id) continue;
+
+			entityCollided = checkCollision(entity, collider);
+			if (entityCollided) break;
+		}
+	}
+
+	if (entityCollided)
+	{
+		entity->dPos = V2(0.0f, 0.0f);
+		entity->pos = oldP;
+	}
+	else
+	{
+		// f'(t) = curr velocity = a*t + v, where v is old velocity
+		entity->dPos = v2_add(entity->dPos, v2_scale(ddPos, dt));
+		entity->pos  = newP;
+	}
+
+	return entityCollided;
+}
 
 void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 {
@@ -1325,6 +1526,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		}
 
 		if (entity->state == entitystate_dead) continue;
+		if (entity->invisible == TRUE) continue;
 
 		if (entity->type == entitytype_soundscape)
 		{
@@ -1453,14 +1655,14 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				}
 			}
 		}
-
-		/*
-		 **************************
-		 * Calculate Hero Movement
-		 **************************
-		 */
-		if (entity->type == entitytype_hero)
+		else if (entity->type == entitytype_hero)
 		{
+			/*
+			 **************************
+			 * Calculate Hero Movement
+			 **************************
+			 */
+
 			/*
 			   Equations of Motion
 			   f(t)  = position     m
@@ -1514,111 +1716,71 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				}
 			}
 
-			/*
-			 **************************
-			 * Calculate Hero Speed
-			 **************************
-			 */
-			// NOTE(doyle): Clipping threshold for snapping velocity to 0
-			f32 epsilon    = 15.0f;
-			v2 epsilonDpos = v2_sub(V2(epsilon, epsilon),
-			                        V2(ABS(hero->dPos.x), ABS(hero->dPos.y)));
-
-			char *currAnimName = hero->animList[hero->currAnimId].anim->key;
-			if (epsilonDpos.x >= 0.0f && epsilonDpos.y >= 0.0f)
-			{
-				hero->dPos = V2(0.0f, 0.0f);
-				if (common_strcmp(currAnimName, "claudeRun") == 0)
-				{
-					entity_setActiveAnim(hero, "claudeIdle");
-				}
-			}
-			else if (common_strcmp(currAnimName, "claudeIdle") == 0)
-			{
-				entity_setActiveAnim(hero, "claudeRun");
-			}
-
-			f32 heroSpeed = 6.2f * METERS_TO_PIXEL;
+			f32 heroSpeed = 6.2f;
 			if (getKeyStatus(&state->input.keys[keycode_leftShift],
 			                 readkeytype_repeat, KEY_DELAY_NONE, dt))
 			{
 				// TODO: Context sensitive command separation
 				state->uiState.keyMod = keycode_leftShift;
-				heroSpeed = CAST(f32)(22.0f * 10.0f * METERS_TO_PIXEL);
+				heroSpeed *= 10.0f;
 			}
 			else
 			{
 				state->uiState.keyMod = keycode_null;
 			}
 
-			ddPos = v2_scale(ddPos, heroSpeed);
-			// TODO(doyle): Counteracting force on player's acceleration is
-			// arbitrary
-			ddPos = v2_sub(ddPos, v2_scale(hero->dPos, 5.5f));
+			moveEntityAndReturnCollision(world, hero, ddPos, heroSpeed, dt);
 
-			/*
-			   NOTE(doyle): Calculate new position from acceleration with old
-			   velocity
-			   new Position     = (a/2) * (t^2) + (v*t) + p,
-			   acceleration     = (a/2) * (t^2)
-			   old velocity     =                 (v*t)
-			 */
-			v2 ddPosNew = v2_scale(v2_scale(ddPos, 0.5f), SQUARED(dt));
-			v2 dPos     = v2_scale(hero->dPos, dt);
-			v2 newHeroP = v2_add(v2_add(ddPosNew, dPos), hero->pos);
-
-			/*
-			 **************************
-			 * Collision Detection
-			 **************************
-			 */
-			// TODO(doyle): Only check collision for entities within small
-			// bounding box of the hero
-			b32 heroCollided = FALSE;
-			if (hero->collides == TRUE)
+			char *currAnimName = hero->animList[hero->currAnimId].anim->key;
+			if (ABS(entity->dPos.x) > 0.0f || ABS(entity->dPos.y) > 0.0f)
 			{
-				for (i32 i = 0; i < world->maxEntities; i++)
+				if (common_strcmp(currAnimName, "claudeIdle") == 0)
 				{
-					Entity collider = world->entities[i];
-					if (collider.state == entitystate_dead) continue;
-					if (collider.id == world->heroId) continue;
-
-					if (collider.collides)
-					{
-						Rect heroRect = {newHeroP, hero->hitboxSize};
-
-						v2 heroTopLeftP = getPosRelativeToRect(
-						    heroRect, V2(0, 0), rectbaseline_topLeft);
-						v2 heroTopRightP = getPosRelativeToRect(
-						    heroRect, V2(0, 0), rectbaseline_topRight);
-						v2 heroBottomLeftP = getPosRelativeToRect(
-						    heroRect, V2(0, 0), rectbaseline_bottomLeft);
-						v2 heroBottomRightP = getPosRelativeToRect(
-						    heroRect, V2(0, 0), rectbaseline_bottomRight);
-
-						Rect colliderRect = {collider.pos, collider.hitboxSize};
-
-						if (math_pointInRect(colliderRect, heroTopLeftP) ||
-						    math_pointInRect(colliderRect, heroTopRightP) ||
-						    math_pointInRect(colliderRect, heroBottomLeftP) ||
-						    math_pointInRect(colliderRect, heroBottomRightP))
-						{
-							heroCollided = TRUE;
-							break;
-						}
-					}
+					entity_setActiveAnim(hero, "claudeRun");
 				}
-			}
-
-			if (heroCollided)
-			{
-				hero->dPos = V2(0.0f, 0.0f);
 			}
 			else
 			{
-				// f'(t) = curr velocity = a*t + v, where v is old velocity
-				hero->dPos = v2_add(hero->dPos, v2_scale(ddPos, dt));
-				hero->pos  = newHeroP;
+				if (common_strcmp(currAnimName, "claudeRun") == 0)
+				{
+					entity_setActiveAnim(hero, "claudeIdle");
+				}
+			}
+
+		}
+		else if (entity->type == entitytype_projectile)
+		{
+			Entity *projectile = entity;
+			i32 targetIndex =
+			    entity_getIndex(world, projectile->stats->entityIdToAttack);
+			Entity *target = &world->entities[targetIndex];
+
+			v2 ddPos = V2(0, 0);
+			f32 projectileSpeed = 10.0f;
+
+			v2 difference = v2_sub(projectile->pos, target->pos);
+			f32 longSide  = (ABS(difference.x) > ABS(difference.y))
+			                   ? difference.x
+			                   : difference.y;
+
+			ddPos.x = (difference.x / longSide);
+			ddPos.y = (difference.y / longSide);
+
+			if (ddPos.x != 0.0f && ddPos.y != 0.0f)
+			{
+				// NOTE(doyle): Cheese it and pre-compute the vector for
+				// diagonal using pythagoras theorem on a unit triangle 1^2
+				// + 1^2 = c^2
+				ddPos = v2_scale(ddPos, 0.70710678118f);
+			}
+
+			if (moveEntityAndReturnCollision(world, projectile, ddPos,
+			                                 projectileSpeed, dt))
+			{
+				// TODO(doyle): Unify concept of dead entity for mobs and
+				// projectiles
+				projectile->state = entitystate_dead;
+				registerEvent(&eventQueue, eventtype_entity_died, projectile);
 			}
 		}
 
@@ -1630,6 +1792,12 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		if (entity->type == entitytype_mob || entity->type == entitytype_hero)
 		{
 			EntityStats *stats = entity->stats;
+
+			if (stats->weapon)
+			{
+				stats->weapon->pos = entity->pos;
+			}
+
 			if (entity->state == entitystate_battle)
 			{
 				if (stats->actionTimer > 0)
@@ -1645,7 +1813,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 					}
 
 					/* Launch up attack animation */
-					beginAttack(&eventQueue, world, entity);
+					beginAttack(assetManager, &state->arena, &eventQueue, world,
+					            entity);
 				}
 			}
 			else if (entity->state == entitystate_attack)
@@ -1676,7 +1845,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		{
 			entity_updateAnim(entity, dt);
 			/* Calculate region to render */
-			renderer_entity(renderer, camera, entity, V2(0, 0), 0,
+			renderer_entity(renderer, camera, entity,
+			                v2_scale(entity->renderSize, 0.5f), 0,
 			                V4(1, 1, 1, 1));
 		}
 	}
@@ -1705,25 +1875,11 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				i32 freeAudioIndex = entityGetFreeAudioRendererIndex(attacker);
 				if (freeAudioIndex != -1)
 				{
-					char *attackSfx[19] = {"Attack_1",
-					                       "Attack_2",
-					                       "Attack_3",
-					                       "Attack_4",
-					                       "Attack_5",
-					                       "Attack_6",
-					                       "Attack_7",
-					                       "Attack_hit_it",
-					                       "Attack_take_that",
-					                       "Attack_hya",
-					                       "Attack_air_slash",
-					                       "Attack_Dragon_howl",
-					                       "Attack_burn",
-					                       "Attack_burst_knuckle",
-					                       "Attack_mirror_slice",
-					                       "Attack_shooting_star",
-					                       "Attack_sword_bomber",
-					                       "Attack_tear_into_pieces",
-					                       "Attack_twin_slash"};
+					char *attackSfx[11] = {
+					    "Attack_1",   "Attack_2",      "Attack_3",
+					    "Attack_4",   "Attack_5",      "Attack_6",
+					    "Attack_7",   "Attack_hit_it", "Attack_take_that",
+					    "Attack_hya", "Attack_burn"};
 
 					i32 attackSfxIndex = rand() % ARRAY_COUNT(attackSfx);
 					audio_playVorbis(arena, audioManager,
@@ -1763,9 +1919,21 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 					    1);
 				}
 			}
+			else if (attacker->stats->queuedAttack == entityattack_airSlash)
+			{
+				i32 freeAudioIndex = entityGetFreeAudioRendererIndex(attacker);
+				if (freeAudioIndex != -1)
+				{
+					audio_playVorbis(
+					    arena, audioManager,
+					    &attacker->audioRenderer[freeAudioIndex],
+					    asset_getVorbis(assetManager, "Attack_air_slash"),
+					    1);
+				}
+			}
 			else
 			{
-				ASSERT(INVALID_CODE_PATH);
+				//ASSERT(INVALID_CODE_PATH);
 			}
 
 			attacker->stats->queuedAttack = entityattack_invalid;
@@ -1819,7 +1987,6 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		}
 		}
 	}
-
 
 	/*
 	 ****************************
