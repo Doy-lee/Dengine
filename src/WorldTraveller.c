@@ -1758,10 +1758,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			v2 ddPos = V2(0, 0);
 			f32 projectileSpeed = 10.0f;
 
-			v2 difference = v2_sub(projectile->pos, target->pos);
+			v2 difference = v2_sub(target->pos, projectile->pos);
 			f32 longSide  = (ABS(difference.x) > ABS(difference.y))
-			                   ? difference.x
-			                   : difference.y;
+			                   ? ABS(difference.x)
+			                   : ABS(difference.y);
 
 			ddPos.x = (difference.x / longSide);
 			ddPos.y = (difference.y / longSide);
