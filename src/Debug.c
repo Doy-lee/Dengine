@@ -62,9 +62,6 @@ inline char *debug_entityattack_string(i32 val)
 	char *string;
 	switch(val)
 	{
-		case entityattack_tackle:
-			string = "EntityAttack_Tackle";
-			break;
 		case entityattack_count:
 			string = "EntityAttack_Count (Error!)";
 			break;

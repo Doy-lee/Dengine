@@ -16,6 +16,29 @@
 /* Forward declaration */
 typedef struct Entity Entity;
 
+enum EventType
+{
+	eventtype_null = 0,
+	eventtype_start_attack,
+	eventtype_end_attack,
+	eventtype_start_anim,
+	eventtype_end_anim,
+	eventtype_entity_died,
+	eventtype_count,
+};
+
+typedef struct Event
+{
+	enum EventType type;
+	void *data;
+} Event;
+
+typedef struct EventQueue
+{
+	Event queue[1024];
+	i32 numEvents;
+} EventQueue;
+
 enum RectBaseline
 {
 	rectbaseline_top,
@@ -73,8 +96,11 @@ typedef struct GameState
 	Config config;
 	MemoryArena arena;
 	UiState uiState;
+	EventQueue eventQueue;
 } GameState;
 
 void worldTraveller_gameInit(GameState *state, v2 windowSize);
 void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt);
+void worldTraveller_registerEvent(EventQueue *eventQueue, enum EventType type,
+                                  void *data);
 #endif

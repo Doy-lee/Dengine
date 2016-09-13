@@ -13,37 +13,14 @@ enum State
 	state_win,
 };
 
-enum EventType
-{
-	eventtype_null = 0,
-	eventtype_start_attack,
-	eventtype_end_attack,
-	eventtype_start_anim,
-	eventtype_end_anim,
-	eventtype_entity_died,
-	eventtype_count,
-};
-
-typedef struct Event
-{
-	enum EventType type;
-	void *data;
-} Event;
-
-typedef struct EventQueue
-{
-	Event queue[1024];
-	i32 numEvents;
-} EventQueue;
-
 INTERNAL Entity *getHeroEntity(World *world)
 {
 	Entity *result = &world->entities[entity_getIndex(world, world->heroId)];
 	return result;
 }
 
-INTERNAL void addGenericMob(MemoryArena *arena, AssetManager *assetManager,
-                            World *world, v2 pos)
+INTERNAL void addGenericMob(EventQueue *eventQueue, MemoryArena *arena,
+                            AssetManager *assetManager, World *world, v2 pos)
 {
 #ifdef DENGINE_DEBUG
 	DEBUG_LOG("Mob entity spawned");
@@ -71,8 +48,17 @@ INTERNAL void addGenericMob(MemoryArena *arena, AssetManager *assetManager,
 	entity_addAnim(assetManager, mob, "claudeIdle");
 	entity_addAnim(assetManager, mob, "claudeRun");
 	entity_addAnim(assetManager, mob, "claudeBattleIdle");
+
 	entity_addAnim(assetManager, mob, "claudeAttack");
-	entity_setActiveAnim(mob, "claudeIdle");
+	entity_addAnim(assetManager, mob, "claudeAttackUp");
+	entity_addAnim(assetManager, mob, "claudeAttackDown");
+
+	entity_addAnim(assetManager, mob, "claudeAirSlash");
+	entity_addAnim(assetManager, mob, "claudeDragonHowl");
+	entity_addAnim(assetManager, mob, "claudeEnergySword");
+	entity_addAnim(assetManager, mob, "claudeRipperBlast");
+
+	entity_setActiveAnim(eventQueue, mob, "claudeIdle");
 }
 
 INTERNAL void rendererInit(GameState *state, v2 windowSize)
@@ -244,6 +230,95 @@ INTERNAL void assetInit(GameState *state)
 			asset_addAnimation(assetManager, arena, "claudeAttack", claudeAtlas,
 			                   claudeAttack, numRects, duration);
 
+			char *claudeAttackDown[7] = {
+			    "ClaudeSprite_Attack_Down_01",
+			    "ClaudeSprite_Attack_Down_02",
+			    "ClaudeSprite_Attack_Down_03",
+			    "ClaudeSprite_Attack_Down_04",
+			    "ClaudeSprite_Attack_Down_05",
+			    "ClaudeSprite_Attack_Down_06",
+			    "ClaudeSprite_Attack_Down_07",
+			};
+
+			numRects = ARRAY_COUNT(claudeAttackDown);
+			duration = 0.1f;
+			asset_addAnimation(assetManager, arena, "claudeAttackDown",
+			                   claudeAtlas, claudeAttackDown, numRects,
+			                   duration);
+
+			char *claudeAttackUp[3] = {
+			    "ClaudeSprite_Attack_Up_01",
+			    "ClaudeSprite_Attack_Up_02",
+			    "ClaudeSprite_Attack_Up_03",
+			};
+
+			numRects = ARRAY_COUNT(claudeAttackUp);
+			duration = 0.2f;
+			asset_addAnimation(assetManager, arena, "claudeAttackUp",
+			                   claudeAtlas, claudeAttackUp, numRects,
+			                   duration);
+
+			char *claudeDragonHowl[3] = {
+			    "ClaudeSprite_Attack_DragonHowl_01",
+			    "ClaudeSprite_Attack_DragonHowl_02",
+			    "ClaudeSprite_Attack_DragonHowl_03",
+			};
+
+			numRects = ARRAY_COUNT(claudeDragonHowl);
+			duration = 0.2f;
+			asset_addAnimation(assetManager, arena, "claudeDragonHowl",
+			                   claudeAtlas, claudeDragonHowl, numRects,
+			                   duration);
+
+			char *claudeDragonHowlVfx[7] = {
+			    "ClaudeSprite_Attack_DragonHowl_Vfx_01",
+			    "ClaudeSprite_Attack_DragonHowl_Vfx_02",
+			    "ClaudeSprite_Attack_DragonHowl_Vfx_03",
+			    "ClaudeSprite_Attack_DragonHowl_Vfx_04",
+			    "ClaudeSprite_Attack_DragonHowl_Vfx_05",
+			    "ClaudeSprite_Attack_DragonHowl_Vfx_06",
+			    "ClaudeSprite_Attack_DragonHowl_Vfx_07",
+			};
+
+			numRects = ARRAY_COUNT(claudeDragonHowlVfx);
+			duration = 0.1f;
+			asset_addAnimation(assetManager, arena, "claudeDragonHowlVfx",
+			                   claudeAtlas, claudeDragonHowlVfx, numRects,
+			                   duration);
+
+			char *claudeRipperBlast[6] = {
+			    "ClaudeSprite_Attack_RipperBlast_01",
+			    "ClaudeSprite_Attack_RipperBlast_02",
+			    "ClaudeSprite_Attack_RipperBlast_03",
+			    "ClaudeSprite_Attack_RipperBlast_04",
+			    "ClaudeSprite_Attack_RipperBlast_05",
+			    "ClaudeSprite_Attack_RipperBlast_06",
+			};
+
+			numRects = ARRAY_COUNT(claudeRipperBlast);
+			duration = 0.1f;
+			asset_addAnimation(assetManager, arena, "claudeRipperBlast",
+			                   claudeAtlas, claudeRipperBlast, numRects,
+			                   duration);
+
+			char *claudeRipperBlastVfx[9] = {
+			    "ClaudeSprite_Attack_RipperBlast_Vfx_04",
+			    "ClaudeSprite_Attack_RipperBlast_Vfx_05",
+			    "ClaudeSprite_Attack_RipperBlast_Vfx_06",
+			    "ClaudeSprite_Attack_RipperBlast_Vfx_07",
+			    "ClaudeSprite_Attack_RipperBlast_Vfx_08",
+			    "ClaudeSprite_Attack_RipperBlast_Vfx_09",
+			    "ClaudeSprite_Attack_RipperBlast_Vfx_10",
+			    "ClaudeSprite_Attack_RipperBlast_Vfx_11",
+			    "ClaudeSprite_Attack_RipperBlast_Vfx_12",
+			};
+
+			numRects = ARRAY_COUNT(claudeRipperBlastVfx);
+			duration = 0.1f;
+			asset_addAnimation(assetManager, arena, "claudeRipperBlastVfx",
+			                   claudeAtlas, claudeRipperBlastVfx, numRects,
+			                   duration);
+
 			//  Victory animation
 			char *claudeVictory[8] = {"ClaudeSprite_Battle_Victory_01",
 			                          "ClaudeSprite_Battle_Victory_02",
@@ -318,6 +393,7 @@ INTERNAL void assetInit(GameState *state)
 			asset_addAnimation(assetManager, arena, "claudeAttackSlashLeft",
 			                   claudeAtlas, claudeAttackSlashLeft, numRects,
 			                   duration);
+
 		}
 		else
 		{
@@ -451,6 +527,7 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	        CAST(i32) windowSize.h / state->tileSize);
 #endif
 
+	EventQueue *eventQueue = &state->eventQueue;
 	for (i32 i = 0; i < ARRAY_COUNT(state->world); i++)
 	{
 		World *const world = &state->world[i];
@@ -488,7 +565,7 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 				                          dir, tex, collides);
 
 				entity_addAnim(assetManager, tile, "terrainGrass");
-				entity_setActiveAnim(tile, "terrainGrass");
+				entity_setActiveAnim(eventQueue, tile, "terrainGrass");
 			}
 		}
 #endif
@@ -552,10 +629,17 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	entity_addAnim(assetManager, hero, "claudeIdle");
 	entity_addAnim(assetManager, hero, "claudeRun");
 	entity_addAnim(assetManager, hero, "claudeBattleIdle");
+
 	entity_addAnim(assetManager, hero, "claudeAttack");
+	entity_addAnim(assetManager, hero, "claudeAttackUp");
+	entity_addAnim(assetManager, hero, "claudeAttackDown");
+
+	entity_addAnim(assetManager, hero, "claudeDragonHowl");
 	entity_addAnim(assetManager, hero, "claudeEnergySword");
+	entity_addAnim(assetManager, hero, "claudeRipperBlast");
 	entity_addAnim(assetManager, hero, "claudeAirSlash");
-	entity_setActiveAnim(hero, "claudeIdle");
+
+	entity_setActiveAnim(eventQueue, hero, "claudeIdle");
 
 	/* Create a NPC */
 	pos         = V2(hero->pos.x * 3, CAST(f32) state->tileSize);
@@ -569,12 +653,12 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 
 	/* Populate npc animation references */
 	entity_addAnim(assetManager, npc, "claudeVictory");
-	entity_setActiveAnim(npc, "claudeVictory");
+	entity_setActiveAnim(eventQueue, npc, "claudeVictory");
 
 	/* Create a Mob */
 	pos = V2(renderer->size.w - (renderer->size.w / 3.0f),
 	         CAST(f32) state->tileSize);
-	addGenericMob(arena, assetManager, world, pos);
+	addGenericMob(eventQueue, arena, assetManager, world, pos);
 
 #ifdef DENGINE_DEBUG
 	DEBUG_LOG("World populated");
@@ -923,17 +1007,18 @@ INTERNAL inline void updateWorldBattleEntities(World *world, Entity *entity,
 }
 
 // TODO(doyle): Function too vague
-INTERNAL inline void resetEntityState(World *world, Entity *entity)
+INTERNAL inline void resetEntityState(EventQueue *eventQueue, World *world,
+                                      Entity *entity)
 {
 	updateWorldBattleEntities(world, entity, ENTITY_NOT_IN_BATTLE);
-	entity_setActiveAnim(entity, "claudeIdle");
+	entity_setActiveAnim(eventQueue, entity, "claudeIdle");
 	entity->stats->busyDuration     = 0;
 	entity->stats->actionTimer      = entity->stats->actionRate;
 	entity->stats->queuedAttack     = entityattack_invalid;
 	entity->stats->entityIdToAttack = ENTITY_NULL_ID;
 }
 
-INTERNAL registerEvent(EventQueue *eventQueue, enum EventType type, void *data)
+void worldTraveller_registerEvent(EventQueue *eventQueue, enum EventType type, void *data)
 {
 #ifdef DENGINE_DEBUG
 	ASSERT(eventQueue && type < eventtype_count);
@@ -969,8 +1054,9 @@ INTERNAL void entityStateSwitch(EventQueue *eventQueue, World *world,
 		// attacking it since there's no check before attack if entity is idle
 		// or not (i.e. has moved out of frame last frame).
 		case entitystate_dead:
-			registerEvent(eventQueue, eventtype_entity_died, CAST(void *)entity);
-			entity_setActiveAnim(entity, "claudeIdle");
+			worldTraveller_registerEvent(eventQueue, eventtype_entity_died,
+			                             CAST(void *) entity);
+			entity_setActiveAnim(eventQueue, entity, "claudeIdle");
 			entity->stats->busyDuration     = 0;
 			entity->stats->actionTimer      = entity->stats->actionRate;
 			entity->stats->queuedAttack     = entityattack_invalid;
@@ -993,11 +1079,12 @@ INTERNAL void entityStateSwitch(EventQueue *eventQueue, World *world,
 			break;
 		}
 		case entitystate_idle:
-			resetEntityState(world, entity);
+			resetEntityState(eventQueue, world, entity);
 			break;
 		case entitystate_dead:
-			registerEvent(eventQueue, eventtype_entity_died, CAST(void *)entity);
-			resetEntityState(world, entity);
+			worldTraveller_registerEvent(eventQueue, eventtype_entity_died,
+			                             CAST(void *) entity);
+			resetEntityState(eventQueue, world, entity);
 			break;
 		default:
 #ifdef DENGINE_DEBUG
@@ -1010,17 +1097,18 @@ INTERNAL void entityStateSwitch(EventQueue *eventQueue, World *world,
 		switch (newState)
 		{
 		case entitystate_battle:
-			entity_setActiveAnim(entity, "claudeBattleIdle");
+			entity_setActiveAnim(eventQueue, entity, "claudeBattleIdle");
 			entity->stats->actionTimer  = entity->stats->actionRate;
 			entity->stats->busyDuration = 0;
 			break;
 		// NOTE(doyle): Entity has been forced out of an attack (out of range)
 		case entitystate_idle:
-			resetEntityState(world, entity);
+			resetEntityState(eventQueue, world, entity);
 			break;
 		case entitystate_dead:
-			registerEvent(eventQueue, eventtype_entity_died, CAST(void *)entity);
-			resetEntityState(world, entity);
+			worldTraveller_registerEvent(eventQueue, eventtype_entity_died,
+			                             CAST(void *) entity);
+			resetEntityState(eventQueue, world, entity);
 			break;
 		default:
 #ifdef DENGINE_DEBUG
@@ -1071,13 +1159,13 @@ INTERNAL void beginAttack(AssetManager *assetManager, MemoryArena *arena,
 	entityStateSwitch(eventQueue, world, attacker, entitystate_attack);
 	switch (attacker->stats->queuedAttack)
 	{
-	case entityattack_tackle:
+	case entityattack_claudeAttack:
 	{
-		entity_setActiveAnim(attacker, "claudeAttack");
+		entity_setActiveAnim(eventQueue, attacker, "claudeAttack");
 		if (attacker->stats->weapon)
 		{
 			attacker->stats->weapon->invisible = FALSE;
-			entity_setActiveAnim(attacker->stats->weapon,
+			entity_setActiveAnim(eventQueue, attacker->stats->weapon,
 			                     "claudeAttackSlashLeft");
 		}
 		if (attacker->direction == direction_east)
@@ -1087,27 +1175,106 @@ INTERNAL void beginAttack(AssetManager *assetManager, MemoryArena *arena,
 		break;
 	}
 
-	case entityattack_energySword:
+	case entityattack_claudeAttackUp:
 	{
-		entity_setActiveAnim(attacker, "claudeEnergySword");
+		entity_setActiveAnim(eventQueue, attacker, "claudeAttackUp");
+		if (attacker->stats->weapon)
+		{
+			attacker->stats->weapon->invisible = FALSE;
+			entity_setActiveAnim(eventQueue, attacker->stats->weapon,
+			                     "claudeAttackSlashLeft");
+		}
+		if (attacker->direction == direction_east)
+			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
+		else
+			attacker->dPos.x -= (1.0f * METERS_TO_PIXEL);
 		break;
 	}
 
-	case entityattack_airSlash:
+	case entityattack_claudeAttackDown:
 	{
-		entity_setActiveAnim(attacker, "claudeAirSlash");
+		entity_setActiveAnim(eventQueue, attacker, "claudeAttackDown");
+		if (attacker->stats->weapon)
+		{
+			attacker->stats->weapon->invisible = FALSE;
+			entity_setActiveAnim(eventQueue, attacker->stats->weapon,
+			                     "claudeAttackSlashLeft");
+		}
+		if (attacker->direction == direction_east)
+			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
+		else
+			attacker->dPos.x -= (1.0f * METERS_TO_PIXEL);
+		break;
+	}
+
+	case entityattack_claudeDragonHowl:
+	{
+		entity_setActiveAnim(eventQueue, attacker, "claudeDragonHowl");
+		f32 scale = 1.5f;
+		v2 size = V2(40, 40);
+		Entity *projectile = entity_add(
+		    arena, world, attacker->pos, size, scale,
+		    entitytype_projectile, attacker->direction, attacker->tex, TRUE);
+
+		projectile->collidesWith[entitytype_hero] = TRUE;
+		projectile->collidesWith[entitytype_mob]  = TRUE;
+		projectile->collidesWith[attacker->type]  = FALSE;
+
+		projectile->stats->entityIdToAttack = attacker->stats->entityIdToAttack;
+		entity_addAnim(assetManager, projectile, "claudeDragonHowlVfx");
+		entity_setActiveAnim(eventQueue, projectile, "claudeDragonHowlVfx");
+		break;
+	}
+
+	case entityattack_claudeEnergySword:
+	{
+		entity_setActiveAnim(eventQueue, attacker, "claudeEnergySword");
+		break;
+	}
+
+	case entityattack_claudeRipperBlast:
+	{
+		entity_setActiveAnim(eventQueue, attacker, "claudeRipperBlast");
+		f32 scale = 5.0f;
+		v2 size = V2(20, 20);
+
+		Entity *target = entity_get(world, attacker->stats->entityIdToAttack);
+		v2 targetPos = v2_add(attacker->pos, V2(100, 0));
+		if (target)
+		{
+			targetPos = target->pos;
+		}
+
+		Entity *projectile = entity_add(
+		    arena, world, targetPos, size, scale,
+		    entitytype_attackObject, attacker->direction, attacker->tex, TRUE);
+
+		projectile->collidesWith[entitytype_hero] = TRUE;
+		projectile->collidesWith[entitytype_mob]  = TRUE;
+		projectile->collidesWith[attacker->type]  = FALSE;
+
+		projectile->stats->entityIdToAttack = attacker->stats->entityIdToAttack;
+		entity_addAnim(assetManager, projectile, "claudeRipperBlastVfx");
+		entity_setActiveAnim(eventQueue, projectile, "claudeRipperBlastVfx");
+		break;
+	}
+
+	case entityattack_claudeAirSlash:
+	{
+		entity_setActiveAnim(eventQueue, attacker, "claudeAirSlash");
 		f32 scale = 1.5f;
 		v2 size = V2(20, 20);
 		Entity *projectile = entity_add(
 		    arena, world, attacker->pos, size, scale,
 		    entitytype_projectile, attacker->direction, attacker->tex, TRUE);
 
-		projectile->collidesWith[entitytype_hero] = FALSE;
+		projectile->collidesWith[entitytype_hero] = TRUE;
 		projectile->collidesWith[entitytype_mob]  = TRUE;
+		projectile->collidesWith[attacker->type]  = FALSE;
 
 		projectile->stats->entityIdToAttack = attacker->stats->entityIdToAttack;
 		entity_addAnim(assetManager, projectile, "claudeAirSlashVfx");
-		entity_setActiveAnim(projectile, "claudeAirSlashVfx");
+		entity_setActiveAnim(eventQueue, projectile, "claudeAirSlashVfx");
 
 		v2 initialOffset      = V2(size.x * 0.5f, 0);
 		f32 deltaScale        = 0.3f;
@@ -1128,7 +1295,7 @@ INTERNAL void beginAttack(AssetManager *assetManager, MemoryArena *arena,
 			child->stats->entityIdToAttack =
 			    projectile->stats->entityIdToAttack;
 			entity_addAnim(assetManager, child, "claudeAirSlashVfx");
-			entity_setActiveAnim(child, "claudeAirSlashVfx");
+			entity_setActiveAnim(eventQueue, child, "claudeAirSlashVfx");
 			projectile->childIds[i] = child->id;
 		}
 		break;
@@ -1159,7 +1326,9 @@ INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
 	entityStateSwitch(eventQueue, world, attacker, entitystate_battle);
 	switch (attacker->stats->queuedAttack)
 	{
-	case entityattack_tackle:
+	case entityattack_claudeAttack:
+	case entityattack_claudeAttackUp:
+	case entityattack_claudeAttackDown:
 		// TODO(doyle): Move animation offsets out and into animation type
 
 		if (attacker->stats->weapon)
@@ -1174,16 +1343,19 @@ INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
 
 		break;
 
-	case entityattack_airSlash:
+	case entityattack_claudeAirSlash:
+	case entityattack_claudeRipperBlast:
+	case entityattack_claudeDragonHowl:
 		break;
 
-	case entityattack_energySword:
+	case entityattack_claudeEnergySword:
 		attacker->stats->health += 80;
 		AttackSpec *attackSpec = PLATFORM_MEM_ALLOC(arena, 1, AttackSpec);
 		attackSpec->attacker   = attacker;
 		attackSpec->defender   = attacker;
 		attackSpec->damage     = 30;
-		registerEvent(eventQueue, eventtype_end_attack, attackSpec);
+		worldTraveller_registerEvent(eventQueue, eventtype_end_attack,
+		                             attackSpec);
 		return;
 
 	default:
@@ -1236,7 +1408,8 @@ INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
 		attackSpec->defender   = defender;
 		attackSpec->damage     = damage;
 
-		registerEvent(eventQueue, eventtype_end_attack, attackSpec);
+		worldTraveller_registerEvent(eventQueue, eventtype_end_attack,
+		                             attackSpec);
 		// TODO(doyle): Use attacker stats in battle equations
 		if (attacker->type == entitytype_hero)
 		{
@@ -1286,17 +1459,22 @@ INTERNAL enum EntityAttack selectBestAttack(Entity *entity)
 {
 	if (entity->stats->health <= 50.0f && entity->type == entitytype_hero)
 	{
-		return entityattack_energySword;
+		return entityattack_claudeEnergySword;
 	}
 	else
 	{
-		enum EntityAttack attack = entityattack_tackle;;
-		if (entity->type == entitytype_hero)
+		enum EntityAttack attack = entityattack_claudeAttack;
+		i32 choice               = rand() % 7;
+		switch(choice)
 		{
-			b32 choice = rand() % 2;
-			attack =
-			    (choice == TRUE) ? entityattack_airSlash : entityattack_tackle;
-			//attack = entityattack_tackle;
+			case 0: attack = entityattack_claudeAttack; break;
+			case 1: attack = entityattack_claudeAttackUp; break;
+			case 2: attack = entityattack_claudeAttackDown; break;
+			case 3: attack = entityattack_claudeDragonHowl; break;
+			case 4: attack = entityattack_claudeEnergySword; break;
+			case 5: attack = entityattack_claudeRipperBlast; break;
+			case 6: attack = entityattack_claudeAirSlash; break;
+			default: break;
 		}
 
 		return attack;
@@ -1447,6 +1625,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	World *const world         = &state->world[state->currWorldIndex];
 	Font *font                 = &assetManager->font;
 	MemoryArena *arena         = &state->arena;
+	EventQueue *eventQueue     = &state->eventQueue;
 
 	/*
 	 **********************
@@ -1526,7 +1705,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 			v2 pos =
 			    V2(renderer->size.w - (renderer->size.w / xModifier), yPos);
-			addGenericMob(&state->arena, &state->assetManager, world, pos);
+			addGenericMob(eventQueue, &state->arena, &state->assetManager, world, pos);
 		}
 	}
 
@@ -1535,7 +1714,6 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	 * Update entities and render
 	 ******************************
 	 */
-	EventQueue eventQueue = {0};
 	Rect camera           = createWorldBoundedCamera(world, renderer->size);
 	AudioManager *audioManager = &state->audioManager;
 
@@ -1655,7 +1833,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			}
 
 			i32 numEntitiesInBattleBefore = world->numEntitiesInBattle;
-			entityStateSwitch(&eventQueue, world, entity, newState);
+			entityStateSwitch(eventQueue, world, entity, newState);
 
 			if (numEntitiesInBattleBefore == 0 &&
 			    world->numEntitiesInBattle > 0)
@@ -1767,14 +1945,14 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			{
 				if (common_strcmp(currAnimName, "claudeIdle") == 0)
 				{
-					entity_setActiveAnim(hero, "claudeRun");
+					entity_setActiveAnim(eventQueue, hero, "claudeRun");
 				}
 			}
 			else
 			{
 				if (common_strcmp(currAnimName, "claudeRun") == 0)
 				{
-					entity_setActiveAnim(hero, "claudeIdle");
+					entity_setActiveAnim(eventQueue, hero, "claudeIdle");
 				}
 			}
 
@@ -1813,7 +1991,18 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				// TODO(doyle): Unify concept of dead entity for mobs and
 				// projectiles
 				projectile->state = entitystate_dead;
-				registerEvent(&eventQueue, eventtype_entity_died, projectile);
+				// TODO(doyle): register endattack event
+				worldTraveller_registerEvent(eventQueue, eventtype_entity_died,
+				                             projectile);
+			}
+		}
+		else if (entity->type == entitytype_attackObject)
+		{
+			if (entity->animList[entity->currAnimId].timesCompleted == 1)
+			{
+				entity->state = entitystate_dead;
+				worldTraveller_registerEvent(eventQueue, eventtype_entity_died,
+				                             entity);
 			}
 		}
 
@@ -1846,7 +2035,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 					}
 
 					/* Launch up attack animation */
-					beginAttack(assetManager, &state->arena, &eventQueue, world,
+					beginAttack(assetManager, &state->arena, eventQueue, world,
 					            entity);
 				}
 			}
@@ -1858,7 +2047,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				if (stats->busyDuration <= 0)
 				{
 					/* Apply attack damage */
-					endAttack(&state->arena, &eventQueue, world, entity);
+					endAttack(&state->arena, eventQueue, world, entity);
 				}
 			}
 		}
@@ -1876,7 +2065,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 		if (entity->tex)
 		{
-			entity_updateAnim(entity, dt);
+			entity_updateAnim(eventQueue, entity, dt);
 			/* Calculate region to render */
 			renderer_entity(renderer, camera, entity,
 			                v2_scale(entity->renderSize, 0.5f), 0,
@@ -1890,9 +2079,13 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	 *****************************************
 	 */
 	i32 numDeadEntities = 0;
-	for (i32 i = 0; i < eventQueue.numEvents; i++)
+	for (i32 i = 0; i < eventQueue->numEvents; i++)
 	{
-		Event event = eventQueue.queue[i];
+		Event event = eventQueue->queue[i];
+
+		eventQueue->queue[i].type = eventtype_null;
+		eventQueue->queue[i].data = NULL;
+
 		switch(event.type)
 		{
 		case eventtype_end_attack:
@@ -1903,7 +2096,9 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			Entity *attacker       = attackSpec->attacker;
 			Entity *defender       = attackSpec->defender;
 
-			if (attacker->stats->queuedAttack == entityattack_tackle)
+			if (attacker->stats->queuedAttack == entityattack_claudeAttack ||
+			    attacker->stats->queuedAttack == entityattack_claudeAttackUp ||
+			    attacker->stats->queuedAttack == entityattack_claudeAttackDown)
 			{
 				i32 freeAudioIndex = entityGetFreeAudioRendererIndex(attacker);
 				if (freeAudioIndex != -1)
@@ -1940,7 +2135,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 					    1);
 				}
 			}
-			else if (attacker->stats->queuedAttack == entityattack_energySword)
+			else if (attacker->stats->queuedAttack ==
+			         entityattack_claudeEnergySword)
 			{
 				i32 freeAudioIndex = entityGetFreeAudioRendererIndex(attacker);
 				if (freeAudioIndex != -1)
@@ -1952,7 +2148,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 					    1);
 				}
 			}
-			else if (attacker->stats->queuedAttack == entityattack_airSlash)
+			else if (attacker->stats->queuedAttack ==
+			         entityattack_claudeAirSlash)
 			{
 				i32 freeAudioIndex = entityGetFreeAudioRendererIndex(attacker);
 				if (freeAudioIndex != -1)
@@ -1961,6 +2158,32 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 					    arena, audioManager,
 					    &attacker->audioRenderer[freeAudioIndex],
 					    asset_getVorbis(assetManager, "Attack_air_slash"),
+					    1);
+				}
+			}
+			else if (attacker->stats->queuedAttack ==
+			         entityattack_claudeDragonHowl)
+			{
+				i32 freeAudioIndex = entityGetFreeAudioRendererIndex(attacker);
+				if (freeAudioIndex != -1)
+				{
+					audio_playVorbis(
+					    arena, audioManager,
+					    &attacker->audioRenderer[freeAudioIndex],
+					    asset_getVorbis(assetManager, "Attack_Dragon_howl"),
+					    1);
+				}
+			}
+			else if (attacker->stats->queuedAttack ==
+			         entityattack_claudeRipperBlast)
+			{
+				i32 freeAudioIndex = entityGetFreeAudioRendererIndex(attacker);
+				if (freeAudioIndex != -1)
+				{
+					audio_playVorbis(
+					    arena, audioManager,
+					    &attacker->audioRenderer[freeAudioIndex],
+					    asset_getVorbis(assetManager, "Attack_tear_into_pieces"),
 					    1);
 				}
 			}
@@ -2039,6 +2262,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		}
 		}
 	}
+	eventQueue->numEvents = 0;
 
 	/*
 	 ****************************
@@ -2053,11 +2277,11 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		if (hero->state == entitystate_battle &&
 		    world->numEntitiesInBattle == 1)
 		{
-			entityStateSwitch(&eventQueue, world, hero, entitystate_idle);
+			entityStateSwitch(eventQueue, world, hero, entitystate_idle);
 		}
 		else if (hero->state != entitystate_attack)
 		{
-			entityStateSwitch(&eventQueue, world, hero, entitystate_battle);
+			entityStateSwitch(eventQueue, world, hero, entitystate_battle);
 		}
 	}
 	else
@@ -2066,7 +2290,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		{
 			hero->state                       = entitystate_idle;
 			world->entityIdInBattle[hero->id] = FALSE;
-			entity_setActiveAnim(hero, "claudeIdle");
+			entity_setActiveAnim(eventQueue, hero, "claudeIdle");
 		}
 		hero->stats->entityIdToAttack = -1;
 		hero->stats->actionTimer      = hero->stats->actionRate;

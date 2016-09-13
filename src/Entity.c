@@ -3,12 +3,14 @@
 #include "Dengine/Platform.h"
 #include "Dengine/WorldTraveller.h"
 
-void entity_setActiveAnim(Entity *const entity, const char *const animName)
+void entity_setActiveAnim(EventQueue *eventQueue, Entity *const entity,
+                          const char *const animName)
 {
 	/* Reset current anim data */
-	EntityAnim *currEntityAnim   = &entity->animList[entity->currAnimId];
-	currEntityAnim->currDuration = currEntityAnim->anim->frameDuration;
-	currEntityAnim->currFrame    = 0;
+	EntityAnim *currEntityAnim     = &entity->animList[entity->currAnimId];
+	currEntityAnim->currDuration   = currEntityAnim->anim->frameDuration;
+	currEntityAnim->currFrame      = 0;
+	currEntityAnim->timesCompleted = 0;
 
 	/* Set entity active animation */
 	for (i32 i = 0; i < ARRAY_COUNT(entity->animList); i++)
@@ -24,6 +26,9 @@ void entity_setActiveAnim(Entity *const entity, const char *const animName)
 				newEntityAnim->currDuration =
 				    newEntityAnim->anim->frameDuration;
 				newEntityAnim->currFrame = 0;
+
+				worldTraveller_registerEvent(eventQueue, eventtype_start_anim,
+				                             newEntityAnim);
 				return;
 			}
 		}
@@ -32,7 +37,8 @@ void entity_setActiveAnim(Entity *const entity, const char *const animName)
 	DEBUG_LOG("Entity does not have access to desired anim");
 }
 
-void entity_updateAnim(Entity *const entity, const f32 dt)
+void entity_updateAnim(EventQueue *eventQueue, Entity *const entity,
+                       const f32 dt)
 {
 	if (!entity->tex)
 		return;
@@ -45,6 +51,13 @@ void entity_updateAnim(Entity *const entity, const f32 dt)
 	{
 		currEntityAnim->currFrame++;
 		currEntityAnim->currFrame = currEntityAnim->currFrame % anim->numFrames;
+		if (currEntityAnim->currFrame == 0)
+		{
+			worldTraveller_registerEvent(eventQueue, eventtype_end_anim,
+			                             currEntityAnim);
+			currEntityAnim->timesCompleted++;
+		}
+
 		currEntityAnim->currDuration = anim->frameDuration;
 	}
 
@@ -138,6 +151,7 @@ Entity *const entity_add(MemoryArena *const arena, World *const world,
 		break;
 	}
 	case entitytype_projectile:
+	case entitytype_attackObject:
 		entity.stats               = PLATFORM_MEM_ALLOC(arena, 1, EntityStats);
 		entity.stats->maxHealth    = 100;
 		entity.stats->health       = entity.stats->maxHealth;

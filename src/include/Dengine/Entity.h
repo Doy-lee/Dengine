@@ -10,6 +10,7 @@ typedef struct MemoryArena MemoryArena;
 typedef struct Texture Texture;
 typedef struct Animation Animation;
 typedef struct World World;
+typedef struct EventQueue EventQueue;
 
 typedef struct Entity Entity;
 
@@ -29,6 +30,7 @@ enum EntityType
 	entitytype_hero,
 	entitytype_weapon,
 	entitytype_projectile,
+	entitytype_attackObject,
 	entitytype_npc,
 	entitytype_mob,
 	entitytype_tile,
@@ -48,9 +50,13 @@ enum EntityState
 
 enum EntityAttack
 {
-	entityattack_tackle,
-	entityattack_airSlash,
-	entityattack_energySword,
+	entityattack_claudeAttack,
+	entityattack_claudeAttackUp,
+	entityattack_claudeAttackDown,
+	entityattack_claudeDragonHowl,
+	entityattack_claudeEnergySword,
+	entityattack_claudeRipperBlast,
+	entityattack_claudeAirSlash,
 	entityattack_count,
 	entityattack_invalid,
 };
@@ -76,6 +82,8 @@ typedef struct EntityAnim
 	Animation *anim;
 	i32 currFrame;
 	f32 currDuration;
+
+	u32 timesCompleted;
 } EntityAnim;
 
 struct Entity
@@ -118,8 +126,10 @@ struct Entity
 	i32 numAudioRenderers;
 };
 
-void entity_setActiveAnim(Entity *const entity, const char *const animName);
-void entity_updateAnim(Entity *const entity, const f32 dt);
+void entity_setActiveAnim(EventQueue *eventQueue, Entity *const entity,
+                          const char *const animName);
+void entity_updateAnim(EventQueue *eventQueue, Entity *const entity,
+                       const f32 dt);
 void entity_addAnim(AssetManager *const assetManager, Entity *const entity,
                     const char *const animName);
 Entity *const entity_add(MemoryArena *const arena, World *const world,
