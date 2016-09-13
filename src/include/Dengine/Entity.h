@@ -82,10 +82,14 @@ struct Entity
 {
 	i32 id;
 
+	i32 childIds[8];
+	i32 numChilds;
+
 	v2 pos;  // Position
 	v2 dPos; // Velocity
 	v2 hitboxSize;
 	v2 renderSize;
+	f32 scale;
 	f32 rotation;
 
 	b32 invisible;
@@ -119,11 +123,12 @@ void entity_updateAnim(Entity *const entity, const f32 dt);
 void entity_addAnim(AssetManager *const assetManager, Entity *const entity,
                     const char *const animName);
 Entity *const entity_add(MemoryArena *const arena, World *const world,
-                         const v2 pos, const v2 size,
+                         const v2 pos, const v2 size, const f32 scale,
                          const enum EntityType type,
                          const enum Direction direction, Texture *const tex,
                          const b32 collides);
 void entity_clearData(MemoryArena *const arena, World *const world,
                       Entity *const entity);
+Entity *entity_get(World *const world, const i32 entityId);
 i32 entity_getIndex(World *const world, const i32 entityId);
 #endif

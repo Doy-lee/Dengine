@@ -52,11 +52,13 @@ INTERNAL void addGenericMob(MemoryArena *arena, AssetManager *assetManager,
 	Entity *hero = &world->entities[entity_getIndex(world, world->heroId)];
 
 	v2 size              = V2(58.0f, 98.0f);
+	f32 scale            = 2;
 	enum EntityType type = entitytype_mob;
 	enum Direction dir   = direction_west;
 	Texture *tex         = asset_getTex(assetManager, "ClaudeSprite.png");
 	b32 collides         = TRUE;
-	Entity *mob = entity_add(arena, world, pos, size, type, dir, tex, collides);
+	Entity *mob =
+	    entity_add(arena, world, pos, size, scale, type, dir, tex, collides);
 
 	mob->numAudioRenderers = 4;
 	mob->audioRenderer =
@@ -477,12 +479,13 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 				            CAST(f32) y * state->tileSize);
 				v2 size =
 				    V2(CAST(f32) state->tileSize, CAST(f32) state->tileSize);
+				f32 scale = 1.0f;
 				enum EntityType type = entitytype_tile;
 				enum Direction dir = direction_null;
 				Texture *tex = asset_getTex(assetManager, "terrain.png");
 				b32 collides = FALSE;
-				Entity *tile = entity_add(arena, world, pos, size, type, dir,
-				                          tex, collides);
+				Entity *tile = entity_add(arena, world, pos, size, scale, type,
+				                          dir, tex, collides);
 
 				entity_addAnim(assetManager, tile, "terrainGrass");
 				entity_setActiveAnim(tile, "terrainGrass");
@@ -498,12 +501,13 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	Renderer *renderer   = &state->renderer;
 	v2 size              = V2(10.0f, 10.0f);
 	v2 pos               = V2(0, 0);
+	f32 scale            = 0.0f;
 	enum EntityType type = entitytype_soundscape;
 	enum Direction dir   = direction_null;
 	Texture *tex         = NULL;
 	b32 collides         = FALSE;
 	Entity *soundscape =
-	    entity_add(arena, world, pos, size, type, dir, tex, collides);
+	    entity_add(arena, world, pos, size, scale, type, dir, tex, collides);
 
 	world->soundscape = soundscape;
 	soundscape->numAudioRenderers = 1;
@@ -515,12 +519,13 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	/* Init hero entity */
 	size            = V2(58.0f, 98.0f);
 	pos             = V2(size.x, CAST(f32) state->tileSize);
+	scale           = 2.0f;
 	type            = entitytype_hero;
 	dir             = direction_east;
 	tex             = asset_getTex(assetManager, "ClaudeSprite.png");
 	collides        = TRUE;
 	Entity *hero =
-	    entity_add(arena, world, pos, size, type, dir, tex, collides);
+	    entity_add(arena, world, pos, size, scale, type, dir, tex, collides);
 
 #if 0
 	Entity *heroWeapon =
@@ -559,7 +564,8 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	dir         = direction_null;
 	tex         = hero->tex;
 	collides    = FALSE;
-	Entity *npc = entity_add(arena, world, pos, size, type, dir, tex, collides);
+	Entity *npc =
+	    entity_add(arena, world, pos, size, scale, type, dir, tex, collides);
 
 	/* Populate npc animation references */
 	entity_addAnim(assetManager, npc, "claudeVictory");
@@ -1090,9 +1096,11 @@ INTERNAL void beginAttack(AssetManager *assetManager, MemoryArena *arena,
 	case entityattack_airSlash:
 	{
 		entity_setActiveAnim(attacker, "claudeAirSlash");
+		f32 scale = 1.5f;
+		v2 size = V2(20, 20);
 		Entity *projectile = entity_add(
-		    arena, world, attacker->pos, V2(20, 20), entitytype_projectile,
-		    attacker->direction, attacker->tex, TRUE);
+		    arena, world, attacker->pos, size, scale,
+		    entitytype_projectile, attacker->direction, attacker->tex, TRUE);
 
 		projectile->collidesWith[entitytype_hero] = FALSE;
 		projectile->collidesWith[entitytype_mob]  = TRUE;
@@ -1100,6 +1108,29 @@ INTERNAL void beginAttack(AssetManager *assetManager, MemoryArena *arena,
 		projectile->stats->entityIdToAttack = attacker->stats->entityIdToAttack;
 		entity_addAnim(assetManager, projectile, "claudeAirSlashVfx");
 		entity_setActiveAnim(projectile, "claudeAirSlashVfx");
+
+		v2 initialOffset      = V2(size.x * 0.5f, 0);
+		f32 deltaScale        = 0.3f;
+		projectile->numChilds = 3;
+		for (i32 i = 0; i < projectile->numChilds; i++)
+		{
+			v2 childOffset = v2_scale(initialOffset, CAST(f32) i + 1);
+			scale -= deltaScale;
+
+			Entity *child =
+			    entity_add(arena, world, v2_sub(projectile->pos, childOffset),
+			               V2(20, 20), scale, entitytype_projectile,
+			               projectile->direction, projectile->tex, FALSE);
+
+			child->collidesWith[entitytype_hero] = FALSE;
+			child->collidesWith[entitytype_mob]  = TRUE;
+
+			child->stats->entityIdToAttack =
+			    projectile->stats->entityIdToAttack;
+			entity_addAnim(assetManager, child, "claudeAirSlashVfx");
+			entity_setActiveAnim(child, "claudeAirSlashVfx");
+			projectile->childIds[i] = child->id;
+		}
 		break;
 	}
 
@@ -1774,8 +1805,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				ddPos = v2_scale(ddPos, 0.70710678118f);
 			}
 
-			if (moveEntityAndReturnCollision(world, projectile, ddPos,
-			                                 projectileSpeed, dt))
+			b32 collided = moveEntityAndReturnCollision(
+			    world, projectile, ddPos, projectileSpeed, dt);
+
+			if (collided)
 			{
 				// TODO(doyle): Unify concept of dead entity for mobs and
 				// projectiles
@@ -1979,6 +2012,25 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			}
 			entity_clearData(&state->arena, world, entity);
 			numDeadEntities++;
+
+			for (i32 i = 0; i < entity->numChilds; i++)
+			{
+				Entity *child = entity_get(world, entity->childIds[i]);
+				if (child)
+				{
+					for (i32 i = 0; i < child->numAudioRenderers; i++)
+					{
+						audio_stopVorbis(&state->arena, audioManager,
+						                 &child->audioRenderer[i]);
+					}
+					entity_clearData(&state->arena, world, child);
+					numDeadEntities++;
+				}
+				else
+				{
+					DEBUG_LOG("Entity child expected but not found");
+				}
+			}
 			break;
 		}
 		default:

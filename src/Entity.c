@@ -86,10 +86,10 @@ void entity_addAnim(AssetManager *const assetManager, Entity *const entity,
 }
 
 Entity *const entity_add(MemoryArena *const arena, World *const world,
-                         const v2 pos, const v2 size,
+                         const v2 pos, const v2 size, const f32 scale,
                          const enum EntityType type,
-                         const enum Direction direction,
-                         Texture *const tex, const b32 collides)
+                         const enum Direction direction, Texture *const tex,
+                         const b32 collides)
 {
 
 #ifdef DENGINE_DEBUG
@@ -103,6 +103,7 @@ Entity *const entity_add(MemoryArena *const arena, World *const world,
 	entity.pos        = pos;
 	entity.hitboxSize = size;
 	entity.renderSize = size;
+	entity.scale      = scale;
 	entity.type       = type;
 	entity.direction  = direction;
 	entity.tex        = tex;
@@ -194,3 +195,11 @@ i32 entity_getIndex(World *const world, const i32 entityId)
 	return -1;
 }
 
+Entity *entity_get(World *const world, const i32 entityId)
+{
+	Entity *result = NULL;
+	i32 worldIndex = entity_getIndex(world, entityId);
+	if (worldIndex != -1) result = &world->entities[worldIndex];
+
+	return result;
+}
