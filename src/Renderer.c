@@ -210,13 +210,13 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 			pos.x += charMetric.advance;
 
 			/* Get texture out */
-			Rect charTexRect =
+			SubTexture charTexRect =
 			    asset_getAtlasSubTex(font->atlas, &CAST(char)codepoint);
 
 			v4 deprecatedTexRect = {0};
-			deprecatedTexRect.vec2[0] = charTexRect.pos;
+			deprecatedTexRect.vec2[0] = charTexRect.rect.pos;
 			deprecatedTexRect.vec2[1] =
-			    v2_add(charTexRect.pos, charTexRect.size);
+			    v2_add(charTexRect.rect.pos, charTexRect.rect.size);
 
 			flipTexCoord(&deprecatedTexRect, FALSE, TRUE);
 
@@ -244,7 +244,7 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 	// NOTE(doyle): Pos + Size since the origin of an entity is it's bottom left
 	// corner. Add the two together so that the clipping point is the far right
 	// side of the entity
-	v2 rightAlignedP = v2_add(entity->pos, entity->hitboxSize);
+	v2 rightAlignedP = v2_add(entity->pos, entity->hitbox);
 	v2 leftAlignedP = entity->pos;
 	if (math_pointInRect(camera, leftAlignedP) ||
 	    math_pointInRect(camera, rightAlignedP))
@@ -252,14 +252,16 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 		EntityAnim *entityAnim = &entity->animList[entity->currAnimId];
 		Animation *anim        = entityAnim->anim;
 		char *frameName        = anim->frameList[entityAnim->currFrame];
-		Rect animRect = asset_getAtlasSubTex(anim->atlas, frameName);
+		SubTexture animRect    = asset_getAtlasSubTex(anim->atlas, frameName);
 
 		// TODO(doyle): Switch to rect
 		v4 animTexRect = {0};
-		animTexRect.vec2[0] = animRect.pos;
-		animTexRect.vec2[1] = v2_add(animRect.pos, animRect.size);
+		animTexRect.vec2[0] = animRect.rect.pos;
+		animTexRect.vec2[1] = v2_add(animRect.rect.pos, animRect.rect.size);
 
-		    if (entity->direction == direction_east)
+		flipTexCoord(&animTexRect, entity->flipX, entity->flipY);
+
+		if (entity->direction == direction_east)
 		{
 			flipTexCoord(&animTexRect, TRUE, FALSE);
 		}
@@ -270,9 +272,8 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 		updateBufferObject(renderer, &entityQuad, 1);
 
 		v2 posInCameraSpace = v2_sub(entity->pos, camera.pos);
-		// TODO(doyle): Scale temporarily
 		renderObject(renderer, posInCameraSpace,
-		             v2_scale(entity->renderSize, entity->scale), pivotPoint,
+		             entity->size, pivotPoint,
 		             entity->rotation + rotate, color, entity->tex);
 	}
 }

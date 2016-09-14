@@ -3,12 +3,11 @@
 
 #include "Dengine/Common.h"
 #include "Dengine/Math.h"
+#include "Dengine/Assets.h"
 
 typedef struct AssetManager AssetManager;
 typedef struct AudioRenderer AudioRenderer;
 typedef struct MemoryArena MemoryArena;
-typedef struct Texture Texture;
-typedef struct Animation Animation;
 typedef struct World World;
 typedef struct EventQueue EventQueue;
 
@@ -95,8 +94,9 @@ struct Entity
 
 	v2 pos;  // Position
 	v2 dPos; // Velocity
-	v2 hitboxSize;
-	v2 renderSize;
+	v2 hitbox;
+	v2 size;
+
 	f32 scale;
 	f32 rotation;
 
@@ -107,6 +107,8 @@ struct Entity
 	enum Direction direction;
 
 	Texture *tex;
+	b32 flipX;
+	b32 flipY;
 
 	// TODO(doyle): Two collision flags, we want certain entities to collide
 	// with certain types of entities only (i.e. projectile from hero to enemy,
@@ -126,6 +128,7 @@ struct Entity
 	i32 numAudioRenderers;
 };
 
+SubTexture entity_getActiveSubTexture(Entity *const entity);
 void entity_setActiveAnim(EventQueue *eventQueue, Entity *const entity,
                           const char *const animName);
 void entity_updateAnim(EventQueue *eventQueue, Entity *const entity,

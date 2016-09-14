@@ -82,16 +82,16 @@ INTERNAL HashTableEntry *const getEntryFromHash(HashTable *const table,
  * Texture Operations
  *********************************
  */
-INTERNAL Rect *getFreeAtlasSubTexSlot(TexAtlas *const atlas,
-                                     MemoryArena *const arena,
-                                     const char *const key)
+INTERNAL SubTexture *getFreeAtlasSubTexSlot(TexAtlas *const atlas,
+                                            MemoryArena *const arena,
+                                            const char *const key)
 {
 	HashTableEntry *entry = getFreeHashSlot(&atlas->subTex, arena, key);
 
 	if (entry)
 	{
-		entry->data  = PLATFORM_MEM_ALLOC(arena, 1, Rect);
-		Rect *result = CAST(Rect *)entry->data;
+		entry->data  = PLATFORM_MEM_ALLOC(arena, 1, SubTexture);
+		SubTexture *result = CAST(SubTexture *)entry->data;
 		return result;
 	}
 	else
@@ -100,15 +100,15 @@ INTERNAL Rect *getFreeAtlasSubTexSlot(TexAtlas *const atlas,
 	}
 }
 
-const Rect asset_getAtlasSubTex(TexAtlas *const atlas, const char *const key)
+const SubTexture asset_getAtlasSubTex(TexAtlas *const atlas, const char *const key)
 {
 
 	HashTableEntry *entry = getEntryFromHash(&atlas->subTex, key);
 
-	Rect result       = {0};
+	SubTexture result       = {0};
 	if (entry)
 	{
-		result = *(CAST(Rect *) entry->data);
+		result = *(CAST(SubTexture *) entry->data);
 		return result;
 	}
 
@@ -638,7 +638,7 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
 						XmlAttribute *subTexAttrib = &atlasChildNode->attribute;
 
 						char *key   = NULL;
-						Rect subTex = {0};
+						SubTexture subTex = {0};
 						while (subTexAttrib)
 						{
 
@@ -659,7 +659,7 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
 								i32 valueLen = common_strlen(value);
 								i32 intValue = common_atoi(value, valueLen);
 
-								subTex.pos.x = CAST(f32) intValue;
+								subTex.rect.pos.x = CAST(f32) intValue;
 							}
 							else if (common_strcmp(subTexAttrib->name, "y") ==
 							         0)
@@ -668,7 +668,7 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
 								i32 valueLen = common_strlen(value);
 
 								i32 intValue = common_atoi(value, valueLen);
-								subTex.pos.y = CAST(f32) intValue;
+								subTex.rect.pos.y = CAST(f32) intValue;
 							}
 							else if (common_strcmp(subTexAttrib->name,
 							                       "width") == 0)
@@ -677,7 +677,7 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
 								i32 valueLen = common_strlen(value);
 								i32 intValue = common_atoi(value, valueLen);
 
-								subTex.size.w = CAST(f32) intValue;
+								subTex.rect.size.w = CAST(f32) intValue;
 							}
 							else if (common_strcmp(subTexAttrib->name,
 							                       "height") == 0)
@@ -686,7 +686,25 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
 								i32 valueLen = common_strlen(value);
 								i32 intValue = common_atoi(value, valueLen);
 
-								subTex.size.h = CAST(f32) intValue;
+								subTex.rect.size.h = CAST(f32) intValue;
+							}
+							else if (common_strcmp(subTexAttrib->name,
+							                       "hand_offset_x") == 0)
+							{
+								char *value  = subTexAttrib->value;
+								i32 valueLen = common_strlen(value);
+								i32 intValue = common_atoi(value, valueLen);
+
+								subTex.offset.x = CAST(f32) intValue;
+							}
+							else if (common_strcmp(subTexAttrib->name,
+							                       "hand_offset_y") == 0)
+							{
+								char *value  = subTexAttrib->value;
+								i32 valueLen = common_strlen(value);
+								i32 intValue = common_atoi(value, valueLen);
+
+								subTex.offset.y = CAST(f32) intValue;
 							}
 							else
 							{
@@ -701,13 +719,14 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
 						// TODO(doyle): XML specifies 0,0 top left, we
 						// prefer 0,0 bottom right, so offset by size since 0,0
 						// is top left and size creates a bounding box below it
-						subTex.pos.y = 1024 - subTex.pos.y;
-						subTex.pos.y -= subTex.size.h;
+						subTex.rect.pos.y = 1024 - subTex.rect.pos.y;
+						subTex.rect.pos.y -= subTex.rect.size.h;
+						subTex.offset.y = subTex.rect.size.h - subTex.offset.y;
 
 #ifdef DENGINE_DEBUG
 						ASSERT(key);
 #endif
-						Rect *subTexInHash =
+						SubTexture *subTexInHash =
 						    getFreeAtlasSubTexSlot(atlas, arena, key);
 						*subTexInHash = subTex;
 					}
@@ -1126,8 +1145,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 				// all ascii characters, charToEncode represents the character
 				// 1:1
 				const char key[2] = {charToEncode, 0};
-				Rect *subTex = getFreeAtlasSubTexSlot(fontAtlas, arena, key);
-				*subTex = CAST(Rect){origin, font->maxSize};
+				SubTexture *subTex = getFreeAtlasSubTexSlot(fontAtlas, arena, key);
+				subTex->rect = CAST(Rect){origin, font->maxSize};
 				charToEncode++;
 			}
 

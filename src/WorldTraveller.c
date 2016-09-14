@@ -301,7 +301,10 @@ INTERNAL void assetInit(GameState *state)
 			                   claudeAtlas, claudeRipperBlast, numRects,
 			                   duration);
 
-			char *claudeRipperBlastVfx[9] = {
+			char *claudeRipperBlastVfx[12] = {
+			    "ClaudeSprite_Attack_RipperBlast_Vfx_01",
+			    "ClaudeSprite_Attack_RipperBlast_Vfx_02",
+			    "ClaudeSprite_Attack_RipperBlast_Vfx_03",
 			    "ClaudeSprite_Attack_RipperBlast_Vfx_04",
 			    "ClaudeSprite_Attack_RipperBlast_Vfx_05",
 			    "ClaudeSprite_Attack_RipperBlast_Vfx_06",
@@ -601,19 +604,17 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	dir             = direction_east;
 	tex             = asset_getTex(assetManager, "ClaudeSprite.png");
 	collides        = TRUE;
+
 	Entity *hero =
 	    entity_add(arena, world, pos, size, scale, type, dir, tex, collides);
 
-#if 0
 	Entity *heroWeapon =
-	    entity_add(arena, world, pos, V2(0, 0), entitytype_weapon,
-	               hero->direction, hero->tex, FALSE);
-	heroWeapon->rotation = -90.0f;
-	heroWeapon->invisible = TRUE;
+	    entity_add(arena, world, pos, V2(20, 20), scale, entitytype_weapon,
+	               dir, tex, FALSE);
+	heroWeapon->flipX = TRUE;
 	entity_addAnim(assetManager, heroWeapon, "claudeSword");
 
 	hero->stats->weapon = heroWeapon;
-#endif
 
 	hero->numAudioRenderers = 4;
 	hero->audioRenderer =
@@ -622,8 +623,8 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	for (i32 i = 0; i < hero->numAudioRenderers; i++)
 		hero->audioRenderer[i].sourceIndex = AUDIO_SOURCE_UNASSIGNED;
 
-	world->heroId                    = hero->id;
-	world->cameraFollowingId         = hero->id;
+	world->heroId            = hero->id;
+	world->cameraFollowingId = hero->id;
 
 	/* Populate hero animation references */
 	entity_addAnim(assetManager, hero, "claudeIdle");
@@ -639,11 +640,11 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	entity_addAnim(assetManager, hero, "claudeRipperBlast");
 	entity_addAnim(assetManager, hero, "claudeAirSlash");
 
-	entity_setActiveAnim(eventQueue, hero, "claudeIdle");
+	entity_setActiveAnim(eventQueue, hero, "claudeBattleIdle");
 
 	/* Create a NPC */
 	pos         = V2(hero->pos.x * 3, CAST(f32) state->tileSize);
-	size        = hero->hitboxSize;
+	size        = hero->hitbox;
 	type        = entitytype_npc;
 	dir         = direction_null;
 	tex         = hero->tex;
@@ -855,7 +856,7 @@ void worldTraveller_gameInit(GameState *state, v2 windowSize)
 
 INTERNAL inline v4 getEntityScreenRect(Entity entity)
 {
-	v4 result = math_getRect(entity.pos, entity.hitboxSize);
+	v4 result = math_getRect(entity.pos, entity.hitbox);
 	return result;
 }
 
@@ -1162,12 +1163,6 @@ INTERNAL void beginAttack(AssetManager *assetManager, MemoryArena *arena,
 	case entityattack_claudeAttack:
 	{
 		entity_setActiveAnim(eventQueue, attacker, "claudeAttack");
-		if (attacker->stats->weapon)
-		{
-			attacker->stats->weapon->invisible = FALSE;
-			entity_setActiveAnim(eventQueue, attacker->stats->weapon,
-			                     "claudeAttackSlashLeft");
-		}
 		if (attacker->direction == direction_east)
 			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
 		else
@@ -1178,12 +1173,6 @@ INTERNAL void beginAttack(AssetManager *assetManager, MemoryArena *arena,
 	case entityattack_claudeAttackUp:
 	{
 		entity_setActiveAnim(eventQueue, attacker, "claudeAttackUp");
-		if (attacker->stats->weapon)
-		{
-			attacker->stats->weapon->invisible = FALSE;
-			entity_setActiveAnim(eventQueue, attacker->stats->weapon,
-			                     "claudeAttackSlashLeft");
-		}
 		if (attacker->direction == direction_east)
 			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
 		else
@@ -1194,12 +1183,6 @@ INTERNAL void beginAttack(AssetManager *assetManager, MemoryArena *arena,
 	case entityattack_claudeAttackDown:
 	{
 		entity_setActiveAnim(eventQueue, attacker, "claudeAttackDown");
-		if (attacker->stats->weapon)
-		{
-			attacker->stats->weapon->invisible = FALSE;
-			entity_setActiveAnim(eventQueue, attacker->stats->weapon,
-			                     "claudeAttackSlashLeft");
-		}
 		if (attacker->direction == direction_east)
 			attacker->dPos.x += (1.0f * METERS_TO_PIXEL);
 		else
@@ -1330,12 +1313,6 @@ INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
 	case entityattack_claudeAttackUp:
 	case entityattack_claudeAttackDown:
 		// TODO(doyle): Move animation offsets out and into animation type
-
-		if (attacker->stats->weapon)
-		{
-			attacker->stats->weapon->invisible = TRUE;
-		}
-
 		if (attacker->direction == direction_east)
 			attacker->dPos.x -= (1.0f * METERS_TO_PIXEL);
 		else
@@ -1515,7 +1492,7 @@ INTERNAL b32 checkCollision(Entity *a, Entity *b)
 	b32 result = FALSE;
 	if (a->collides && b->collides && a->collidesWith[b->type])
 	{
-		Rect aRect = {a->pos, a->hitboxSize};
+		Rect aRect = {a->pos, a->hitbox};
 
 		v2 aTopLeftP =
 		    getPosRelativeToRect(aRect, V2(0, 0), rectbaseline_topLeft);
@@ -1526,7 +1503,7 @@ INTERNAL b32 checkCollision(Entity *a, Entity *b)
 		v2 aBottomRightP =
 		    getPosRelativeToRect(aRect, V2(0, 0), rectbaseline_bottomRight);
 
-		Rect bRect = {b->pos, b->hitboxSize};
+		Rect bRect = {b->pos, b->hitbox};
 
 		if (math_pointInRect(bRect, aTopLeftP) ||
 		    math_pointInRect(bRect, aTopRightP) ||
@@ -1730,7 +1707,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			    V2((entity->pos.x - (0.5f * state->renderer.size.w)), (0.0f));
 
 			// NOTE(doyle): Account for the hero's origin being the bottom left
-			offsetFromEntityToCameraOrigin.x += (entity->hitboxSize.x * 0.5f);
+			offsetFromEntityToCameraOrigin.x += (entity->hitbox.w * 0.5f);
 			world->cameraPos = offsetFromEntityToCameraOrigin;
 		}
 
@@ -2017,11 +1994,38 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 			if (stats->weapon)
 			{
-				stats->weapon->pos = entity->pos;
+				Entity *weapon = stats->weapon;
+				weapon->pos    = entity->pos;
+
+				// TODO(doyle): Add concept of entity origin and make all
+				// transform start from that origin point
+				if (entity->direction == direction_east)
+				{
+					weapon->pos.x += entity->size.w;
+					weapon->pos.x -= weapon->size.w;
+				}
+				weapon->direction = entity->direction;
+
+				SubTexture entitySubTexture =
+				    entity_getActiveSubTexture(entity);
+				weapon->pos.y += entitySubTexture.offset.y;
+
+				if (weapon->direction == direction_west)
+				{
+					weapon->pos.x += entitySubTexture.offset.x;
+					// TODO(doyle): Typedef rotation to degrees for type safety
+					weapon->rotation = DEGREES_TO_RADIANS(60.0f);
+				}
+				else
+				{
+					weapon->pos.x -= entitySubTexture.offset.x;
+					weapon->rotation = DEGREES_TO_RADIANS(-60.0f);
+				}
 			}
 
 			if (entity->state == entitystate_battle)
 			{
+
 				if (stats->actionTimer > 0)
 					stats->actionTimer -= dt * stats->actionSpdMul;
 
@@ -2067,9 +2071,19 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		{
 			entity_updateAnim(eventQueue, entity, dt);
 			/* Calculate region to render */
-			renderer_entity(renderer, camera, entity,
-			                v2_scale(entity->renderSize, 0.5f), 0,
-			                V4(1, 1, 1, 1));
+
+			if (entity->type == entitytype_weapon)
+			{
+				renderer_entity(renderer, camera, entity,
+				                v2_scale(entity->size, 0.5f), 0,
+				                V4(1, 1, 1, 1.0f));
+			}
+			else
+			{
+				renderer_entity(renderer, camera, entity,
+				                v2_scale(entity->size, 0.5f), 0,
+				                V4(1, 1, 1, 1));
+			}
 		}
 	}
 
@@ -2372,18 +2386,19 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	/* Draw hero avatar */
 	TexAtlas *heroAtlas =
 	    asset_getTexAtlas(assetManager, "ClaudeSprite.png");
-	Rect heroAvatarRect =
+	SubTexture heroAvatarRect =
 	    asset_getAtlasSubTex(heroAtlas, "ClaudeSprite_Avatar_01");
-	v2 heroAvatarP =
-	    V2(10.0f, (renderer->size.h * 0.5f) - (0.5f * heroAvatarRect.size.h));
+	v2 heroAvatarP = V2(10.0f, (renderer->size.h * 0.5f) -
+	                               (0.5f * heroAvatarRect.rect.size.h));
 
 	// TODO(doyle): Use rect in rendering not V4
 	v4 heroAvatarTexRect      = {0};
-	heroAvatarTexRect.vec2[0] = heroAvatarRect.pos;
-	heroAvatarTexRect.vec2[1] = v2_add(heroAvatarRect.pos, heroAvatarRect.size);
+	heroAvatarTexRect.vec2[0] = heroAvatarRect.rect.pos;
+	heroAvatarTexRect.vec2[1] =
+	    v2_add(heroAvatarRect.rect.pos, heroAvatarRect.rect.size);
 
 	RenderTex heroRenderTex = {hero->tex, heroAvatarTexRect};
-	renderer_staticRect(renderer, heroAvatarP, heroAvatarRect.size, V2(0, 0), 0,
+	renderer_staticRect(renderer, heroAvatarP, heroAvatarRect.rect.size, V2(0, 0), 0,
 	                    heroRenderTex, V4(1, 1, 1, 1));
 
 	char heroAvatarStr[20];
@@ -2392,7 +2407,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	f32 strLenInPixels =
 	    CAST(f32)(font->maxSize.w * common_strlen(heroAvatarStr));
 	v2 strPos =
-	    V2(heroAvatarP.x, heroAvatarP.y - (0.5f * heroAvatarRect.size.h));
+	    V2(heroAvatarP.x, heroAvatarP.y - (0.5f * heroAvatarRect.rect.size.h));
 	renderer_staticString(&state->renderer, &state->arena, font, heroAvatarStr,
 	                      strPos, V2(0, 0), 0, V4(0, 0, 1, 1));
 
@@ -2410,9 +2425,8 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		{
 			v2 difference    = v2_sub(entity->pos, hero->pos);
 			f32 angle        = math_atan2f(difference.y, difference.x);
-			f32 angleDegrees = RADIANS_TO_DEGREES(angle);
 
-			v2 heroCenter = v2_add(hero->pos, v2_scale(hero->hitboxSize, 0.5f));
+			v2 heroCenter = v2_add(hero->pos, v2_scale(hero->hitbox, 0.5f));
 			RenderTex renderTex = renderer_createNullRenderTex(assetManager);
 			f32 distance        = v2_magnitude(hero->pos, entity->pos);
 			renderer_rect(&state->renderer, camera, heroCenter,

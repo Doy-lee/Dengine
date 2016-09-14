@@ -94,6 +94,13 @@ typedef struct AudioVorbis
  * Texture Assets
  *********************************
  */
+
+typedef struct SubTexture
+{
+	Rect rect;
+	v2 offset;
+} SubTexture;
+
 typedef struct TexAtlas
 {
 	Texture *tex;

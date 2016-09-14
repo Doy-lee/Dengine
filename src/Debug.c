@@ -377,7 +377,7 @@ void debug_drawUi(GameState *state, f32 dt)
 
 		if (debugString)
 		{
-			v2 strPos = v2_add(entity->pos, entity->hitboxSize);
+			v2 strPos = v2_add(entity->pos, entity->hitbox);
 			i32 indexOfLowerAInMetrics = 'a' - CAST(i32) font->codepointRange.x;
 			strPos.y += font->charMetrics[indexOfLowerAInMetrics].offset.y;
 

@@ -3,6 +3,16 @@
 #include "Dengine/Platform.h"
 #include "Dengine/WorldTraveller.h"
 
+SubTexture entity_getActiveSubTexture(Entity *const entity)
+{
+	EntityAnim *entityAnim = &entity->animList[entity->currAnimId];
+	Animation *anim        = entityAnim->anim;
+	char *frameName        = anim->frameList[entityAnim->currFrame];
+
+	SubTexture result = asset_getAtlasSubTex(anim->atlas, frameName);
+	return result;
+}
+
 void entity_setActiveAnim(EventQueue *eventQueue, Entity *const entity,
                           const char *const animName)
 {
@@ -71,9 +81,9 @@ void entity_updateAnim(EventQueue *eventQueue, Entity *const entity,
 	case entitytype_weapon:
 	case entitytype_projectile:
 		char *frameName = anim->frameList[currEntityAnim->currFrame];
-		Rect texRect =
+		SubTexture texRect =
 		    asset_getAtlasSubTex(anim->atlas, frameName);
-		entity->renderSize = texRect.size;
+		entity->size = v2_scale(texRect.rect.size, entity->scale);
 	default:
 		break;
 	}
@@ -114,8 +124,8 @@ Entity *const entity_add(MemoryArena *const arena, World *const world,
 	Entity entity     = {0};
 	entity.id         = world->uniqueIdAccumulator++;
 	entity.pos        = pos;
-	entity.hitboxSize = size;
-	entity.renderSize = size;
+	entity.size       = size;
+	entity.hitbox     = size;
 	entity.scale      = scale;
 	entity.type       = type;
 	entity.direction  = direction;
