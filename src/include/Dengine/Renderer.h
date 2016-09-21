@@ -12,13 +12,22 @@ typedef struct MemoryArena MemoryArena;
 typedef struct Shader Shader;
 typedef struct Texture Texture;
 
+typedef union Vertex
+{
+
+	struct
+	{
+		v2 pos;
+		v2 texCoords;
+	};
+
+	v4 e;
+} Vertex;
+
 typedef struct RenderQuad
 {
-	// Vertex composition
-	// x, y: Coordinates - of entity on screen
-	// z, w: Texture Coords - of texture for this quad
-	v4 vertex[4];
-} RenderQuad;
+	Vertex vertex[4];
+} RenderQuad_;
 
 typedef struct RenderTex
 {
@@ -30,8 +39,9 @@ typedef struct RenderTex
 typedef struct RenderGroup
 {
 	Texture *tex;
-	RenderQuad quads[100];
-	i32 quadIndex;
+
+	Vertex *vertexList;
+	i32 vertexIndex;
 } RenderGroup;
 
 typedef struct Renderer
@@ -43,7 +53,8 @@ typedef struct Renderer
 	v2 vertexNdcFactor;
 	v2 size;
 
-	RenderGroup groups[100];
+	RenderGroup groups[16];
+	i32 groupCapacity;
 } Renderer;
 
 #define RENDERER_USE_RENDER_GROUPS TRUE

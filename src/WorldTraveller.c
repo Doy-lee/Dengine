@@ -88,7 +88,7 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 
 	/* Configure VAO */
 	const GLuint numVertexElements = 4;
-	const GLuint vertexSize        = sizeof(v4);
+	const GLuint vertexSize        = sizeof(Vertex);
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, numVertexElements, GL_FLOAT, GL_FALSE, vertexSize,
 	                      (GLvoid *)0);
@@ -98,6 +98,14 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 	GL_CHECK_ERROR();
+
+	// TODO(doyle): Lazy allocate render group capacity
+	renderer->groupCapacity = 1024;
+	for (i32 i = 0; i < ARRAY_COUNT(renderer->groups); i++)
+	{
+		renderer->groups[i].vertexList =
+		    PLATFORM_MEM_ALLOC(&state->arena, renderer->groupCapacity, Vertex);
+	}
 
 #ifdef DENGINE_DEBUG
 	DEBUG_LOG("Renderer initialised");
@@ -1673,7 +1681,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		}
 
 		if (getKeyStatus(&keys[keycode_left_square_bracket],
-		                 readkeytype_delayedRepeat, 0.25f, dt))
+		                 readkeytype_delayedRepeat, 0.0f, dt))
 		{
 
 			Renderer *renderer = &state->renderer;
