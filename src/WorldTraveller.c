@@ -640,7 +640,7 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	entity_addAnim(assetManager, hero, "claudeRipperBlast");
 	entity_addAnim(assetManager, hero, "claudeAirSlash");
 
-	entity_setActiveAnim(eventQueue, hero, "claudeBattleIdle");
+	entity_setActiveAnim(eventQueue, hero, "claudeIdle");
 
 	/* Create a NPC */
 	pos         = V2(hero->pos.x * 3, CAST(f32) state->tileSize);
@@ -2071,21 +2071,14 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		{
 			entity_updateAnim(eventQueue, entity, dt);
 			/* Calculate region to render */
-
-			if (entity->type == entitytype_weapon)
-			{
-				renderer_entity(renderer, camera, entity,
-				                v2_scale(entity->size, 0.5f), 0,
-				                V4(1, 1, 1, 1.0f));
-			}
-			else
-			{
-				renderer_entity(renderer, camera, entity,
-				                v2_scale(entity->size, 0.5f), 0,
-				                V4(1, 1, 1, 1));
-			}
+			renderer_entity(renderer, camera, entity,
+			                v2_scale(entity->size, 0.5f), 0, V4(1, 1, 1, 1.0f));
 		}
 	}
+
+#if RENDERER_USE_RENDER_GROUPS
+	renderer_renderGroups(renderer);
+#endif
 
 	/*
 	 *****************************************

@@ -10,13 +10,39 @@
 
 #define RENDER_BOUNDING_BOX FALSE
 
-typedef struct RenderQuad
+INTERNAL addToRenderGroup(Renderer *renderer, Texture *texture,
+                          RenderQuad renderQuad)
 {
-	// Vertex composition
-	// x, y: Coordinates
-	// z, w: Texture Coords
-	v4 vertex[4];
-} RenderQuad;
+	/* Find vacant/matching render group */
+	RenderGroup *targetGroup = NULL;
+	for (i32 i = 0; i < ARRAY_COUNT(renderer->groups); i++)
+	{
+		RenderGroup *group = &renderer->groups[i];
+		if (group->tex == NULL || group->tex->id == texture->id)
+		{
+			if (!group->tex) group->tex = texture;
+			targetGroup = &renderer->groups[i];
+			break;
+		}
+	}
+
+	/* Valid group, add to the render group for rendering */
+	if (targetGroup)
+	{
+		if (targetGroup->quadIndex < ARRAY_COUNT(targetGroup->quads))
+		{
+			targetGroup->quads[targetGroup->quadIndex++] = renderQuad;
+		}
+		else
+		{
+			// TODO(doyle): Log no remaining render quad slots in group
+		}
+	}
+	else
+	{
+		// TODO(doyle): Log no remaining render groups
+	}
+}
 
 INTERNAL inline void flipTexCoord(v4 *texCoords, b32 flipX, b32 flipY)
 {
@@ -46,6 +72,11 @@ INTERNAL void updateBufferObject(Renderer *const renderer,
 	glBufferData(GL_ARRAY_BUFFER, numQuads * sizeof(RenderQuad), quads,
 	             GL_STREAM_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+INTERNAL void bufferRenderGroupToGL(Renderer *renderer, RenderGroup *group)
+{
+	updateBufferObject(renderer, group->quads, group->quadIndex);
 }
 
 INTERNAL RenderQuad createTexQuad(Renderer *renderer, v4 quadRect,
@@ -204,9 +235,7 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 			pos.y                  = baseline - (charMetric.offset.y);
 
 			const v4 charRectOnScreen =
-			    math_getRect(pos, V2(CAST(f32) font->maxSize.w,
-			                         CAST(f32) font->maxSize.h));
-
+			    math_getRect(pos, font->maxSize);
 			pos.x += charMetric.advance;
 
 			/* Get texture out */
@@ -254,7 +283,6 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 		char *frameName        = anim->frameList[entityAnim->currFrame];
 		SubTexture animRect    = asset_getAtlasSubTex(anim->atlas, frameName);
 
-		// TODO(doyle): Switch to rect
 		v4 animTexRect = {0};
 		animTexRect.vec2[0] = animRect.rect.pos;
 		animTexRect.vec2[1] = v2_add(animRect.rect.pos, animRect.rect.size);
@@ -267,13 +295,44 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 		}
 
 		RenderTex renderTex = {entity->tex, animTexRect};
-		RenderQuad entityQuad =
-		    createDefaultTexQuad(renderer, renderTex);
-		updateBufferObject(renderer, &entityQuad, 1);
 
+#if RENDERER_USE_RENDER_GROUPS
+		// TODO(doyle): getRect needs a better name
+		v2 posInCameraSpace     = v2_sub(entity->pos, camera.pos);
+		v4 entityVertexOnScreen = math_getRect(posInCameraSpace, entity->size);
+		RenderQuad entityQuad =
+		    createTexQuad(renderer, entityVertexOnScreen, renderTex);
+
+		addToRenderGroup(renderer, entity->tex, entityQuad);
+#else
+		RenderQuad entityQuad = createDefaultTexQuad(renderer, renderTex);
+		// TODO(doyle): getRect needs a better name
+		updateBufferObject(renderer, &entityQuad, 1);
 		v2 posInCameraSpace = v2_sub(entity->pos, camera.pos);
 		renderObject(renderer, posInCameraSpace,
 		             entity->size, pivotPoint,
 		             entity->rotation + rotate, color, entity->tex);
+#endif
+	}
+}
+
+void renderer_renderGroups(Renderer *renderer)
+{
+	for (i32 i = 0; i < ARRAY_COUNT(renderer->groups); i++)
+	{
+		RenderGroup *currGroup = &renderer->groups[i];
+		if (currGroup->tex)
+		{
+			bufferRenderGroupToGL(renderer, currGroup);
+
+			v2 pivotPoint = V2(0, 0);
+			f32 rotate    = 0;
+			v4 color      = V4(1, 1, 1, 1);
+			renderObject(renderer, V2(0.0f, 0.0f), renderer->size, pivotPoint,
+			             rotate, color, currGroup->tex);
+
+			RenderGroup clear = {0};
+			*currGroup = clear;
+		}
 	}
 }
