@@ -27,13 +27,12 @@ INTERNAL void addToRenderGroup(Renderer *renderer, Texture *texture,
 				{
 					// NOTE(doyle): Mark first vertex as degenerate vertex
 					group->vertexIndex++;
-
 					group->tex = texture;
 				}
 
 				targetGroup = &renderer->groups[i];
+				break;
 			}
-			break;
 		}
 	}
 
@@ -222,11 +221,47 @@ void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
 {
 	// TODO(doyle): Use render groups
 	v2 posInCameraSpace = v2_sub(pos, camera.pos);
+#if RENDERER_USE_RENDER_GROUPS
+	v4 entityVertexOnScreen = math_getRect(posInCameraSpace, size);
+	RenderQuad_ entityQuad =
+	    createTexQuad(renderer, entityVertexOnScreen, renderTex);
+
+	/*
+	   NOTE(doyle): Entity rendering is always done in two pairs of
+	   triangles, i.e. quad. To batch render quads as a triangle strip, we
+	   need to create zero-area triangles which OGL will omit from
+	   rendering. Render groups are initialised with 1 degenerate vertex and
+	   then the first two vertexes sent to the render group are the same to
+	   form 1 zero-area triangle strip.
+
+	   A degenerate vertex has to be copied from the last vertex in the
+	   rendering quad, to repeat this process as more entities are
+	   renderered.
+
+	   Alternative implementation is recognising if the rendered
+	   entity is the first in its render group, then we don't need to init
+	   a degenerate vertex, and only at the end of its vertex list. But on
+	   subsequent renders, we need a degenerate vertex at the front to
+	   create the zero-area triangle strip.
+
+	   The first has been chosen for simplicity of code, at the cost of
+	   1 degenerate vertex at the start of each render group.
+   */
+	Vertex degenerateVertexes[2] = {entityQuad.vertex[0], entityQuad.vertex[3]};
+
+	Vertex vertexList[6] = {degenerateVertexes[0], entityQuad.vertex[0],
+	                        entityQuad.vertex[1],  entityQuad.vertex[2],
+	                        entityQuad.vertex[3],  degenerateVertexes[1]};
+
+	addToRenderGroup(renderer, renderTex.tex, vertexList,
+	                 ARRAY_COUNT(vertexList));
+#else
 	RenderQuad_ quad = createDefaultTexQuad(renderer, renderTex);
 	updateBufferObject(renderer, quad.vertex, ARRAY_COUNT(quad.vertex));
 
 	renderObject(renderer, posInCameraSpace, size, pivotPoint, rotate,
 	             color, renderTex.tex);
+#endif
 }
 
 void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
@@ -246,16 +281,13 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 	    math_pointInRect(camera, rightAlignedP))
 	{
 
-#define DISABLE_TEXT_RENDER_GROUPS TRUE
-#if RENDERER_USE_RENDER_GROUPS && !DISABLE_TEXT_RENDER_GROUPS
-		// NOTE(doyle): 2 degenerate vertexes, at start and end of string since-
-		// chars are rendered side by side. Reserve first vertex as degenerate.
-		i32 vertexIndex              = 1;
-		const i32 numVertexPerQuad   = 4;
-		const i32 numVertexesToAlloc = (strLen * numVertexPerQuad) + 2;
-#else
 		i32 vertexIndex              = 0;
 		const i32 numVertexPerQuad   = 4;
+
+#define DISABLE_TEXT_RENDER_GROUPS FALSE
+#if RENDERER_USE_RENDER_GROUPS && !DISABLE_TEXT_RENDER_GROUPS
+		const i32 numVertexesToAlloc = (strLen * (numVertexPerQuad + 2));
+#else
 		const i32 numVertexesToAlloc = (strLen * numVertexPerQuad);
 #endif
 		Vertex *vertexList =
@@ -294,10 +326,14 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 			RenderQuad_ charQuad =
 			    createTexQuad(renderer, charRectOnScreen, renderTex);
 
+			Vertex degenerateVertexes[2] = {charQuad.vertex[0],
+			                                charQuad.vertex[3]};
+
+			vertexList[vertexIndex++] = degenerateVertexes[0];
 			for (i32 i = 0; i < ARRAY_COUNT(charQuad.vertex); i++)
-			{
 				vertexList[vertexIndex++] = charQuad.vertex[i];
-			}
+
+			vertexList[vertexIndex++] = degenerateVertexes[1];
 		}
 
         // NOTE(doyle): We render at the renderer's size because we create quads
@@ -306,8 +342,6 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 
 // TODO(doyle): Render group differentiate between null tex and colors
 #if RENDERER_USE_RENDER_GROUPS && !DISABLE_TEXT_RENDER_GROUPS
-		// NOTE(doyle): Degenerate vertex at end of string
-		vertexList[vertexIndex++] = vertexList[vertexIndex - 1];
 		addToRenderGroup(renderer, tex, vertexList, numVertexesToAlloc);
 #else
 		updateBufferObject(renderer, vertexList, vertexIndex);
@@ -361,11 +395,11 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 
 		/*
 		   NOTE(doyle): Entity rendering is always done in two pairs of
-		   triangles, i.e. quad. To batch render quads as a triangle strip, we
-		   need to create zero-area triangles which OGL will omit from
-		   rendering. Render groups are initialised with 1 degenerate vertex and
-		   then the first two vertexes sent to the render group are the same to
-		   form 1 zero-area triangle strip.
+		   triangles, i.e. quad since we render sprites. To batch render quads
+		   as a triangle strip, we need to create zero-area triangles which OGL
+		   will omit from rendering. Render groups are initialised with
+		   1 degenerate vertex and then the first two vertexes sent to the
+		   render group are the same to form 1 zero-area triangle strip.
 
 		   A degenerate vertex has to be copied from the last vertex in the
 		   rendering quad, to repeat this process as more entities are

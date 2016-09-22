@@ -2084,10 +2084,6 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		}
 	}
 
-#if RENDERER_USE_RENDER_GROUPS
-	renderer_renderGroups(renderer);
-#endif
-
 	/*
 	 *****************************************
 	 * Process Events From Entity Update Loop
@@ -2461,4 +2457,9 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		debug_drawUi(state, dt);
 	}
 #endif
+
+#if RENDERER_USE_RENDER_GROUPS
+	renderer_renderGroups(renderer);
+#endif
+
 }
