@@ -219,9 +219,10 @@ RenderTex renderer_createNullRenderTex(AssetManager *const assetManager)
 void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
                    v2 pivotPoint, f32 rotate, RenderTex renderTex, v4 color)
 {
-	// TODO(doyle): Use render groups
 	v2 posInCameraSpace = v2_sub(pos, camera.pos);
+
 #if RENDERER_USE_RENDER_GROUPS
+	// TODO(doyle): getRect needs a better name
 	v4 entityVertexOnScreen = math_getRect(posInCameraSpace, size);
 	RenderQuad_ entityQuad =
 	    createTexQuad(renderer, entityVertexOnScreen, renderTex);
@@ -284,8 +285,7 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 		i32 vertexIndex              = 0;
 		const i32 numVertexPerQuad   = 4;
 
-#define DISABLE_TEXT_RENDER_GROUPS FALSE
-#if RENDERER_USE_RENDER_GROUPS && !DISABLE_TEXT_RENDER_GROUPS
+#if RENDERER_USE_RENDER_GROUPS
 		const i32 numVertexesToAlloc = (strLen * (numVertexPerQuad + 2));
 #else
 		const i32 numVertexesToAlloc = (strLen * numVertexPerQuad);
@@ -312,17 +312,17 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 			pos.x += charMetric.advance;
 
 			/* Get texture out */
-			SubTexture charTexRect =
+			SubTexture charSubTexture =
 			    asset_getAtlasSubTex(font->atlas, &CAST(char)codepoint);
 
-			v4 deprecatedTexRect = {0};
-			deprecatedTexRect.vec2[0] = charTexRect.rect.pos;
-			deprecatedTexRect.vec2[1] =
-			    v2_add(charTexRect.rect.pos, charTexRect.rect.size);
+			v4 charTexRect = {0};
+			charTexRect.vec2[0] = charSubTexture.rect.pos;
+			charTexRect.vec2[1] =
+			    v2_add(charSubTexture.rect.pos, charSubTexture.rect.size);
 
-			flipTexCoord(&deprecatedTexRect, FALSE, TRUE);
+			flipTexCoord(&charTexRect, FALSE, TRUE);
 
-			RenderTex renderTex = {tex, deprecatedTexRect};
+			RenderTex renderTex = {tex, charTexRect};
 			RenderQuad_ charQuad =
 			    createTexQuad(renderer, charRectOnScreen, renderTex);
 
@@ -385,53 +385,9 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 
 		RenderTex renderTex = {entity->tex, animTexRect};
 
-		// TODO(doyle): getRect needs a better name
-		v2 posInCameraSpace     = v2_sub(entity->pos, camera.pos);
-
-#if RENDERER_USE_RENDER_GROUPS
-		v4 entityVertexOnScreen = math_getRect(posInCameraSpace, entity->size);
-		RenderQuad_ entityQuad =
-		    createTexQuad(renderer, entityVertexOnScreen, renderTex);
-
-		/*
-		   NOTE(doyle): Entity rendering is always done in two pairs of
-		   triangles, i.e. quad since we render sprites. To batch render quads
-		   as a triangle strip, we need to create zero-area triangles which OGL
-		   will omit from rendering. Render groups are initialised with
-		   1 degenerate vertex and then the first two vertexes sent to the
-		   render group are the same to form 1 zero-area triangle strip.
-
-		   A degenerate vertex has to be copied from the last vertex in the
-		   rendering quad, to repeat this process as more entities are
-		   renderered.
-
-		   Alternative implementation is recognising if the rendered
-		   entity is the first in its render group, then we don't need to init
-		   a degenerate vertex, and only at the end of its vertex list. But on
-		   subsequent renders, we need a degenerate vertex at the front to
-		   create the zero-area triangle strip.
-
-		   The first has been chosen for simplicity of code, at the cost of
-		   2 degenerate vertexes at the start of each render group.
-	   */
-		Vertex degenerateVertexes[2] = {entityQuad.vertex[0],
-		                                entityQuad.vertex[3]};
-
-		Vertex vertexList[6] = {degenerateVertexes[0], entityQuad.vertex[0],
-		                        entityQuad.vertex[1],  entityQuad.vertex[2],
-		                        entityQuad.vertex[3],  degenerateVertexes[1]};
-
-		addToRenderGroup(renderer, entity->tex, vertexList,
-		                 ARRAY_COUNT(vertexList));
-#else
-		RenderQuad_ entityQuad = createDefaultTexQuad(renderer, renderTex);
-		// TODO(doyle): getRect needs a better name
-		updateBufferObject(renderer, entityQuad.vertex,
-		                   ARRAY_COUNT(entityQuad.vertex));
-		renderObject(renderer, posInCameraSpace,
-		             entity->size, pivotPoint,
-		             entity->rotation + rotate, color, entity->tex);
-#endif
+		// TODO(doyle): Rotation is lost since rotation transformations aren't stored into vertex data when put into render group
+		renderer_rect(renderer, camera, entity->pos, entity->size, pivotPoint,
+		              entity->rotation + rotate, renderTex, color);
 	}
 }
 
