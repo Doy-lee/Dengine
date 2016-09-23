@@ -188,6 +188,8 @@ INTERNAL inline v3 v3_cross(const v3 a, const v3 b)
 typedef union mat4
 {
     v4 col[4];
+
+	// Column/row
     f32 e[4][4];
 } mat4;
 
@@ -279,14 +281,15 @@ INTERNAL inline mat4 mat4_mul(const mat4 a, const mat4 b)
 INTERNAL inline v4 mat4_mul_v4(const mat4 a, const v4 b)
 {
 	v4 result = {0};
-	result.x =
-	    a.e[0][0] * b.x + a.e[0][1] * b.y + a.e[0][2] * b.z + a.e[0][3] * b.w;
-	result.y =
-	    a.e[1][0] * b.x + a.e[1][1] * b.y + a.e[1][2] * b.z + a.e[1][3] * b.w;
-	result.z =
-	    a.e[2][0] * b.x + a.e[2][1] * b.y + a.e[2][2] * b.z + a.e[2][3] * b.w;
-	result.w =
-	    a.e[3][0] * b.x + a.e[3][1] * b.y + a.e[3][2] * b.z + a.e[3][3] * b.w;
+
+	result.x = (a.e[0][0] * b.x) + (a.e[1][0] * b.y) + (a.e[2][0] * b.z) +
+	           (a.e[3][0] * b.w);
+	result.y = (a.e[0][1] * b.x) + (a.e[1][1] * b.y) + (a.e[2][1] * b.z) +
+	           (a.e[3][1] * b.w);
+	result.z = (a.e[0][2] * b.x) + (a.e[1][2] * b.y) + (a.e[2][2] * b.z) +
+	           (a.e[3][2] * b.w);
+	result.w = (a.e[0][3] * b.x) + (a.e[1][3] * b.y) + (a.e[2][3] * b.z) +
+	           (a.e[3][3] * b.w);
 
 	return result;
 }

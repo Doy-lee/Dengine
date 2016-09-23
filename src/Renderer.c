@@ -8,10 +8,10 @@
 #include "Dengine/Shader.h"
 #include "Dengine/Texture.h"
 
-#define RENDER_BOUNDING_BOX FALSE
+#define RENDER_BOUNDING_BOX TRUE
 
-INTERNAL void addToRenderGroup(Renderer *renderer, Texture *texture,
-                               Vertex *vertexList, i32 numVertexes)
+INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *texture,
+                                     Vertex *vertexList, i32 numVertexes)
 {
 	/* Find vacant/matching render group */
 	RenderGroup *targetGroup = NULL;
@@ -57,6 +57,37 @@ INTERNAL void addToRenderGroup(Renderer *renderer, Texture *texture,
 	}
 }
 
+INTERNAL inline void addRenderQuadToRenderGroup(Renderer *renderer,
+                                                RenderQuad_ quad,
+                                                RenderTex renderTex)
+{
+	/*
+	   NOTE(doyle): Entity rendering is always done in two pairs of
+	   triangles, i.e. quad. To batch render quads as a triangle strip, we
+	   need to create zero-area triangles which OGL will omit from
+	   rendering. Render groups are initialised with 1 degenerate vertex and
+	   then the first two vertexes sent to the render group are the same to
+	   form 1 zero-area triangle strip.
+
+	   A degenerate vertex has to be copied from the last vertex in the
+	   rendering quad, to repeat this process as more entities are
+	   renderered.
+
+	   Alternative implementation is recognising if the rendered
+	   entity is the first in its render group, then we don't need to init
+	   a degenerate vertex, and only at the end of its vertex list. But on
+	   subsequent renders, we need a degenerate vertex at the front to
+	   create the zero-area triangle strip.
+
+	   The first has been chosen for simplicity of code, at the cost of
+	   1 degenerate vertex at the start of each render group.
+   */
+	Vertex vertexList[6] = {quad.vertex[0], quad.vertex[0], quad.vertex[1],
+	                        quad.vertex[2], quad.vertex[3], quad.vertex[3]};
+	addVertexToRenderGroup(renderer, renderTex.tex, vertexList,
+	                       ARRAY_COUNT(vertexList));
+};
+
 INTERNAL inline void flipTexCoord(v4 *texCoords, b32 flipX, b32 flipY)
 {
 	if (flipX)
@@ -92,8 +123,9 @@ INTERNAL void bufferRenderGroupToGL(Renderer *renderer, RenderGroup *group)
 	updateBufferObject(renderer, group->vertexList, group->vertexIndex);
 }
 
-INTERNAL RenderQuad_ createTexQuad(Renderer *renderer, v4 quadRect,
-                                   RenderTex renderTex)
+INTERNAL RenderQuad_ createRenderQuad(Renderer *renderer, v2 pos, v2 size,
+                                      v2 pivotPoint, f32 rotate,
+                                      RenderTex renderTex)
 {
 	/*
 	 * Rendering order
@@ -108,16 +140,9 @@ INTERNAL RenderQuad_ createTexQuad(Renderer *renderer, v4 quadRect,
 	 *
 	 */
 
-	// NOTE(doyle): Draws a series of triangles using vertices v0, v1, v2, then
-	// v2, v1, v3 (note the order)
-	RenderQuad_ result = {0};
-
-	/* Convert screen coordinates to normalised device coordinates */
-	v4 quadRectNdc = quadRect;
-	quadRectNdc.e[0] *= renderer->vertexNdcFactor.w;
-	quadRectNdc.e[1] *= renderer->vertexNdcFactor.h;
-	quadRectNdc.e[2] *= renderer->vertexNdcFactor.w;
-	quadRectNdc.e[3] *= renderer->vertexNdcFactor.h;
+	v4 vertexPair       = {0};
+	vertexPair.vec2[0]  = pos;
+	vertexPair.vec2[1]  = v2_add(pos, size);
 
 	/* Convert texture coordinates to normalised texture coordinates */
 	v4 texRectNdc = renderTex.texRect;
@@ -131,15 +156,51 @@ INTERNAL RenderQuad_ createTexQuad(Renderer *renderer, v4 quadRect,
 		texRectNdc.e[3] *= texNdcFactor.h;
 	}
 
-	/* Form the quad */
-	result.vertex[0].e = V4(quadRectNdc.x, quadRectNdc.w, texRectNdc.x,
-	                        texRectNdc.w); // Top left
-	result.vertex[1].e = V4(quadRectNdc.x, quadRectNdc.y, texRectNdc.x,
-	                        texRectNdc.y); // Bottom left
-	result.vertex[2].e = V4(quadRectNdc.z, quadRectNdc.w, texRectNdc.z,
-	                        texRectNdc.w); // Top right
-	result.vertex[3].e = V4(quadRectNdc.z, quadRectNdc.y, texRectNdc.z,
-	                        texRectNdc.y); // Bottom right
+	// NOTE(doyle): Create a quad composed of 4 vertexes to be rendered as
+	// a triangle strip using vertices v0, v1, v2, then v2, v1, v3 (note the
+	// order)
+	RenderQuad_ result = {0};
+	result.vertex[0].pos      = V2(vertexPair.x, vertexPair.w); // Top left
+	result.vertex[0].texCoord = V2(texRectNdc.x, texRectNdc.w);
+
+	result.vertex[1].pos      = V2(vertexPair.x, vertexPair.y); // Bottom left
+	result.vertex[1].texCoord = V2(texRectNdc.x, texRectNdc.y);
+
+	result.vertex[2].pos      = V2(vertexPair.z, vertexPair.w); // Top right
+	result.vertex[2].texCoord = V2(texRectNdc.z, texRectNdc.w);
+
+	result.vertex[3].pos      = V2(vertexPair.z, vertexPair.y); // Bottom right
+	result.vertex[3].texCoord = V2(texRectNdc.z, texRectNdc.y);
+	if (rotate == 0) return result;
+
+	// NOTE(doyle): Precalculate rotation on vertex positions
+	// NOTE(doyle): No translation/scale matrix as we pre-calculate it from
+	// entity data and work in world space until GLSL uses the projection matrix
+
+	// NOTE(doyle): Move the world origin to the base position of the object.
+	// Then move the origin to the pivot point (e.g. center of object) and
+	// rotate from that point.
+	v2 pointOfRotation = v2_add(pivotPoint, pos);
+
+	mat4 rotateMat = mat4_translate(pointOfRotation.x, pointOfRotation.y, 0.0f);
+	rotateMat      = mat4_mul(rotateMat, mat4_rotate(rotate, 0.0f, 0.0f, 1.0f));
+	rotateMat      = mat4_mul(rotateMat, mat4_translate(-pointOfRotation.x,
+	                                               -pointOfRotation.y, 0.0f));
+	for (i32 i = 0; i < ARRAY_COUNT(result.vertex); i++)
+	{
+		// NOTE(doyle): Manual matrix multiplication since vertex pos is 2D and
+		// matrix is 4D
+		v2 oldP = result.vertex[i].pos;
+		v2 newP = {0};
+
+		newP.x = (oldP.x * rotateMat.e[0][0]) + (oldP.y * rotateMat.e[1][0]) +
+		         (rotateMat.e[3][0]);
+		newP.y = (oldP.x * rotateMat.e[0][1]) + (oldP.y * rotateMat.e[1][1]) +
+		         (rotateMat.e[3][1]);
+
+		result.vertex[i].pos = newP;
+	}
+
 	return result;
 }
 
@@ -147,28 +208,16 @@ INTERNAL inline RenderQuad_
 createDefaultTexQuad(Renderer *renderer, RenderTex renderTex)
 {
 	RenderQuad_ result = {0};
-	v4 defaultQuad    = V4(0.0f, 0.0f, renderer->size.w, renderer->size.h);
-	result            = createTexQuad(renderer, defaultQuad, renderTex);
+	result = createRenderQuad(renderer, V2(0, 0), V2(0, 0), V2(0, 0),
+	                          0.0f, renderTex);
 	return result;
 }
 
 INTERNAL void renderObject(Renderer *renderer, v2 pos, v2 size, v2 pivotPoint,
                            f32 rotate, v4 color, Texture *tex)
 {
-	mat4 transMatrix  = mat4_translate(pos.x, pos.y, 0.0f);
-	// NOTE(doyle): Rotate from pivot point of the object, (0, 0) is bottom left
-	mat4 rotateMatrix = mat4_translate(pivotPoint.x, pivotPoint.y, 0.0f);
-	rotateMatrix = mat4_mul(rotateMatrix, mat4_rotate(rotate, 0.0f, 0.0f, 1.0f));
-	rotateMatrix = mat4_mul(rotateMatrix,
-	                        mat4_translate(-pivotPoint.x, -pivotPoint.y, 0.0f));
-
-	// NOTE(doyle): We draw everything as a unit square in OGL. Scale it to size
-	mat4 scaleMatrix = mat4_scale(size.x, size.y, 1.0f);
-	mat4 model = mat4_mul(transMatrix, mat4_mul(rotateMatrix, scaleMatrix));
-
 	/* Load transformation matrix */
 	shader_use(renderer->shader);
-	shader_uniformSetMat4fv(renderer->shader, "model", model);
 	GL_CHECK_ERROR();
 
 	/* Set color modulation value */
@@ -201,14 +250,6 @@ INTERNAL void renderObject(Renderer *renderer, v2 pos, v2 size, v2 pivotPoint,
 	GL_CHECK_ERROR();
 }
 
-INTERNAL v2 mapWorldToCameraSpace(v2 worldPos, v4 cameraBounds)
-{
-	// Convert the world position to the camera coordinate system
-	v2 cameraBottomLeftBound  = V2(cameraBounds.x, cameraBounds.w);
-	v2 posInCameraSpace       = v2_sub(worldPos, cameraBottomLeftBound);
-	return posInCameraSpace;
-}
-
 RenderTex renderer_createNullRenderTex(AssetManager *const assetManager)
 {
 	Texture *emptyTex = asset_getTex(assetManager, "nullTex");
@@ -219,50 +260,11 @@ RenderTex renderer_createNullRenderTex(AssetManager *const assetManager)
 void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
                    v2 pivotPoint, f32 rotate, RenderTex renderTex, v4 color)
 {
+	// NOTE(doyle): Bottom left and top right position of quad in world space
 	v2 posInCameraSpace = v2_sub(pos, camera.pos);
-
-#if RENDERER_USE_RENDER_GROUPS
-	// TODO(doyle): getRect needs a better name
-	v4 entityVertexOnScreen = math_getRect(posInCameraSpace, size);
-	RenderQuad_ entityQuad =
-	    createTexQuad(renderer, entityVertexOnScreen, renderTex);
-
-	/*
-	   NOTE(doyle): Entity rendering is always done in two pairs of
-	   triangles, i.e. quad. To batch render quads as a triangle strip, we
-	   need to create zero-area triangles which OGL will omit from
-	   rendering. Render groups are initialised with 1 degenerate vertex and
-	   then the first two vertexes sent to the render group are the same to
-	   form 1 zero-area triangle strip.
-
-	   A degenerate vertex has to be copied from the last vertex in the
-	   rendering quad, to repeat this process as more entities are
-	   renderered.
-
-	   Alternative implementation is recognising if the rendered
-	   entity is the first in its render group, then we don't need to init
-	   a degenerate vertex, and only at the end of its vertex list. But on
-	   subsequent renders, we need a degenerate vertex at the front to
-	   create the zero-area triangle strip.
-
-	   The first has been chosen for simplicity of code, at the cost of
-	   1 degenerate vertex at the start of each render group.
-   */
-	Vertex degenerateVertexes[2] = {entityQuad.vertex[0], entityQuad.vertex[3]};
-
-	Vertex vertexList[6] = {degenerateVertexes[0], entityQuad.vertex[0],
-	                        entityQuad.vertex[1],  entityQuad.vertex[2],
-	                        entityQuad.vertex[3],  degenerateVertexes[1]};
-
-	addToRenderGroup(renderer, renderTex.tex, vertexList,
-	                 ARRAY_COUNT(vertexList));
-#else
-	RenderQuad_ quad = createDefaultTexQuad(renderer, renderTex);
-	updateBufferObject(renderer, quad.vertex, ARRAY_COUNT(quad.vertex));
-
-	renderObject(renderer, posInCameraSpace, size, pivotPoint, rotate,
-	             color, renderTex.tex);
-#endif
+	RenderQuad_ quad    = createRenderQuad(renderer, posInCameraSpace, size,
+	                                    pivotPoint, rotate, renderTex);
+	addRenderQuadToRenderGroup(renderer, quad, renderTex);
 }
 
 void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
@@ -277,24 +279,17 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 	v2 rightAlignedP =
 	    v2_add(pos, V2((CAST(f32) font->maxSize.w * CAST(f32) strLen),
 	                   CAST(f32) font->maxSize.h));
-	v2 leftAlignedP  = pos;
+	v2 leftAlignedP = pos;
 	if (math_pointInRect(camera, leftAlignedP) ||
 	    math_pointInRect(camera, rightAlignedP))
 	{
-
-		i32 vertexIndex              = 0;
-		const i32 numVertexPerQuad   = 4;
-
-#if RENDERER_USE_RENDER_GROUPS
-		const i32 numVertexesToAlloc = (strLen * (numVertexPerQuad + 2));
-#else
-		const i32 numVertexesToAlloc = (strLen * numVertexPerQuad);
-#endif
+		i32 vertexIndex        = 0;
+		i32 numVertexPerQuad   = 4;
+		i32 numVertexesToAlloc = (strLen * (numVertexPerQuad + 2));
 		Vertex *vertexList =
 		    PLATFORM_MEM_ALLOC(arena, numVertexesToAlloc, Vertex);
 
 		v2 posInCameraSpace = v2_sub(pos, camera.pos);
-
 		pos = posInCameraSpace;
 
 		// TODO(doyle): Find why font is 1px off, might be arial font semantics
@@ -304,51 +299,33 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 		{
 			i32 codepoint     = string[i];
 			i32 relativeIndex = CAST(i32)(codepoint - font->codepointRange.x);
-			CharMetrics charMetric = font->charMetrics[relativeIndex];
-			pos.y                  = baseline - (charMetric.offset.y);
-
-			const v4 charRectOnScreen =
-			    math_getRect(pos, font->maxSize);
-			pos.x += charMetric.advance;
+			CharMetrics metric = font->charMetrics[relativeIndex];
+			pos.y              = baseline - (metric.offset.y);
 
 			/* Get texture out */
-			SubTexture charSubTexture =
+			SubTexture subTexture =
 			    asset_getAtlasSubTex(font->atlas, &CAST(char)codepoint);
 
-			v4 charTexRect = {0};
-			charTexRect.vec2[0] = charSubTexture.rect.pos;
+			v4 charTexRect      = {0};
+			charTexRect.vec2[0] = subTexture.rect.pos;
 			charTexRect.vec2[1] =
-			    v2_add(charSubTexture.rect.pos, charSubTexture.rect.size);
-
+			    v2_add(subTexture.rect.pos, subTexture.rect.size);
 			flipTexCoord(&charTexRect, FALSE, TRUE);
 
 			RenderTex renderTex = {tex, charTexRect};
-			RenderQuad_ charQuad =
-			    createTexQuad(renderer, charRectOnScreen, renderTex);
+			RenderQuad_ quad    = createRenderQuad(renderer, pos, font->maxSize,
+			                                    pivotPoint, rotate, renderTex);
 
-			Vertex degenerateVertexes[2] = {charQuad.vertex[0],
-			                                charQuad.vertex[3]};
-
-			vertexList[vertexIndex++] = degenerateVertexes[0];
-			for (i32 i = 0; i < ARRAY_COUNT(charQuad.vertex); i++)
-				vertexList[vertexIndex++] = charQuad.vertex[i];
-
-			vertexList[vertexIndex++] = degenerateVertexes[1];
+			vertexList[vertexIndex++] = quad.vertex[0];
+			for (i32 i = 0; i < ARRAY_COUNT(quad.vertex); i++)
+			{
+				vertexList[vertexIndex++] = quad.vertex[i];
+			}
+			vertexList[vertexIndex++] = quad.vertex[3];
+			pos.x += metric.advance;
 		}
 
-        // NOTE(doyle): We render at the renderer's size because we create quads
-		// relative to the window size, hence we also render at the origin since
-		// we're rendering a window sized buffer
-
-// TODO(doyle): Render group differentiate between null tex and colors
-#if RENDERER_USE_RENDER_GROUPS && !DISABLE_TEXT_RENDER_GROUPS
-		addToRenderGroup(renderer, tex, vertexList, numVertexesToAlloc);
-#else
-		updateBufferObject(renderer, vertexList, vertexIndex);
-		renderObject(renderer, V2(0.0f, 0.0f), renderer->size, pivotPoint,
-		             rotate, color, tex);
-#endif
-
+		addVertexToRenderGroup(renderer, tex, vertexList, numVertexesToAlloc);
 		PLATFORM_MEM_FREE(arena, vertexList,
 		                  sizeof(Vertex) * numVertexesToAlloc);
 	}
@@ -384,8 +361,6 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 		}
 
 		RenderTex renderTex = {entity->tex, animTexRect};
-
-		// TODO(doyle): Rotation is lost since rotation transformations aren't stored into vertex data when put into render group
 		renderer_rect(renderer, camera, entity->pos, entity->size, pivotPoint,
 		              entity->rotation + rotate, renderTex, color);
 	}
@@ -399,12 +374,8 @@ void renderer_renderGroups(Renderer *renderer)
 		if (currGroup->tex)
 		{
 			bufferRenderGroupToGL(renderer, currGroup);
-
-			v2 pivotPoint = V2(0, 0);
-			f32 rotate    = 0;
-			v4 color      = V4(1, 1, 1, 1);
-			renderObject(renderer, V2(0.0f, 0.0f), renderer->size, pivotPoint,
-			             rotate, color, currGroup->tex);
+			renderObject(renderer, V2(0.0f, 0.0f), renderer->size, V2(0, 0),
+			             0, V4(1, 1, 1, 1), currGroup->tex);
 
 			RenderGroup cleanGroup = {0};
 			cleanGroup.vertexList = currGroup->vertexList;

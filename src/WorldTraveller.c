@@ -87,11 +87,12 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 	glBindVertexArray(renderer->vao);
 
 	/* Configure VAO */
-	const GLuint numVertexElements = 4;
-	const GLuint vertexSize        = sizeof(Vertex);
+	u32 numVertexElements = 4;
+	u32 stride            = sizeof(Vertex);
+	glVertexAttribPointer(0, numVertexElements, GL_FLOAT, GL_FALSE,
+	                      stride, (GLvoid *)0);
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, numVertexElements, GL_FLOAT, GL_FALSE, vertexSize,
-	                      (GLvoid *)0);
+
 	GL_CHECK_ERROR();
 
 	/* Unbind */
@@ -589,7 +590,7 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	Renderer *renderer   = &state->renderer;
 	v2 size              = V2(10.0f, 10.0f);
 	v2 pos               = V2(0, 0);
-	f32 scale            = 0.0f;
+	f32 scale            = 1.0f;
 	enum EntityType type = entitytype_soundscape;
 	enum Direction dir   = direction_null;
 	Texture *tex         = NULL;
@@ -2022,12 +2023,14 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				{
 					weapon->pos.x += entitySubTexture.offset.x;
 					// TODO(doyle): Typedef rotation to degrees for type safety
-					weapon->rotation = DEGREES_TO_RADIANS(60.0f);
+					weapon->rotation = DEGREES_TO_RADIANS(30.0f);
 				}
 				else
 				{
+					LOCAL_PERSIST f32 rotation = -30.0f;
+					rotation -= 1.5f;
 					weapon->pos.x -= entitySubTexture.offset.x;
-					weapon->rotation = DEGREES_TO_RADIANS(-60.0f);
+					weapon->rotation = DEGREES_TO_RADIANS(rotation);
 				}
 			}
 
@@ -2426,8 +2429,9 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			v2 heroCenter = v2_add(hero->pos, v2_scale(hero->hitbox, 0.5f));
 			RenderTex renderTex = renderer_createNullRenderTex(assetManager);
 			f32 distance        = v2_magnitude(hero->pos, entity->pos);
+			v2 size             = V2(distance, 2.0f);
 			renderer_rect(&state->renderer, camera, heroCenter,
-			              V2(distance, 2.0f), V2(0, 0), angle, renderTex,
+			              size, V2(0, 0), angle, renderTex,
 			              V4(1, 0, 0, 1.0f));
 		}
 	}
@@ -2458,8 +2462,5 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	}
 #endif
 
-#if RENDERER_USE_RENDER_GROUPS
 	renderer_renderGroups(renderer);
-#endif
-
 }

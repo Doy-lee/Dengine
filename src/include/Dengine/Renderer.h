@@ -12,16 +12,10 @@ typedef struct MemoryArena MemoryArena;
 typedef struct Shader Shader;
 typedef struct Texture Texture;
 
-typedef union Vertex
+typedef struct Vertex
 {
-
-	struct
-	{
-		v2 pos;
-		v2 texCoords;
-	};
-
-	v4 e;
+	v2 pos;
+	v2 texCoord;
 } Vertex;
 
 typedef struct RenderQuad
@@ -56,8 +50,6 @@ typedef struct Renderer
 	RenderGroup groups[16];
 	i32 groupCapacity;
 } Renderer;
-
-#define RENDERER_USE_RENDER_GROUPS TRUE
 
 // TODO(doyle): Use z-index occluding for rendering
 RenderTex renderer_createNullRenderTex(AssetManager *const assetManager);
