@@ -69,10 +69,9 @@ i32 userInterface_button(UiState *const uiState,
 	if (uiState->kbdItem == id)
 	{
 		// Draw outline
-		renderer_staticRect(renderer,
-		                    v2_add(V2(-2, -2), v2_add(buttonOffset, rect.pos)),
-		                    v2_add(V2(4, 4), rect.size), V2(0, 0), 0, renderTex,
-		                    V4(1.0f, 0, 0, 1));
+		renderer_staticRect(
+		    renderer, v2_add(V2(-2, -2), v2_add(buttonOffset, rect.pos)),
+		    v2_add(V2(4, 4), rect.size), V2(0, 0), 0, renderTex, buttonColor);
 	}
 
 	renderer_staticRect(renderer, v2_add(buttonOffset, rect.pos), rect.size,
@@ -172,7 +171,7 @@ i32 userInterface_scrollbar(UiState *const uiState,
 		// Draw outline
 		renderer_staticRect(renderer, v2_add(V2(-2, -2), scrollBarRect.pos),
 		                    v2_add(V2(4, 4), scrollBarRect.size), V2(0, 0), 0,
-		                    renderTex, V4(1.0f, 0, 0, 1));
+		                    renderTex, V4(1, 0, 0, 1));
 	}
 
 	// Render scroll bar background

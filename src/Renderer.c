@@ -8,29 +8,45 @@
 #include "Dengine/Shader.h"
 #include "Dengine/Texture.h"
 
-#define RENDER_BOUNDING_BOX TRUE
+#define RENDER_BOUNDING_BOX FALSE
 
-INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *texture,
+INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
                                      Vertex *vertexList, i32 numVertexes)
 {
 	/* Find vacant/matching render group */
 	RenderGroup *targetGroup = NULL;
 	for (i32 i = 0; i < ARRAY_COUNT(renderer->groups); i++)
 	{
-		RenderGroup *group = &renderer->groups[i];
-		if (group->tex == NULL || group->tex->id == texture->id)
+		RenderGroup *group        = &renderer->groups[i];
+		b32 groupIsValid = FALSE;
+		if (group->tex)
+		{
+			/* If the textures match and have the same color modulation, we can
+			 * add these vertices to the current group */
+			if (group->tex->id == tex->id &&
+			    v4_equals(group->color, color))
+			{
+				groupIsValid = TRUE;
+			}
+		}
+		else
+		{
+			/* New group, unused so initialise it */
+			groupIsValid = TRUE;
+
+			// NOTE(doyle): Mark first vertex as degenerate vertex
+			group->vertexIndex++;
+			group->tex   = tex;
+			group->color = color;
+
+		}
+
+		if (groupIsValid)
 		{
 			i32 freeVertexSlots = renderer->groupCapacity - group->vertexIndex;
 			if (numVertexes < freeVertexSlots)
 			{
-				if (!group->tex)
-				{
-					// NOTE(doyle): Mark first vertex as degenerate vertex
-					group->vertexIndex++;
-					group->tex = texture;
-				}
-
-				targetGroup = &renderer->groups[i];
+				targetGroup  = &renderer->groups[i];
 				break;
 			}
 		}
@@ -59,7 +75,7 @@ INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *texture,
 
 INTERNAL inline void addRenderQuadToRenderGroup(Renderer *renderer,
                                                 RenderQuad_ quad,
-                                                RenderTex renderTex)
+                                                Texture *tex, v4 color)
 {
 	/*
 	   NOTE(doyle): Entity rendering is always done in two pairs of
@@ -84,7 +100,7 @@ INTERNAL inline void addRenderQuadToRenderGroup(Renderer *renderer,
    */
 	Vertex vertexList[6] = {quad.vertex[0], quad.vertex[0], quad.vertex[1],
 	                        quad.vertex[2], quad.vertex[3], quad.vertex[3]};
-	addVertexToRenderGroup(renderer, renderTex.tex, vertexList,
+	addVertexToRenderGroup(renderer, tex, color, vertexList,
 	                       ARRAY_COUNT(vertexList));
 };
 
@@ -213,23 +229,24 @@ createDefaultTexQuad(Renderer *renderer, RenderTex renderTex)
 	return result;
 }
 
-INTERNAL void renderObject(Renderer *renderer, v2 pos, v2 size, v2 pivotPoint,
-                           f32 rotate, v4 color, Texture *tex)
+INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *renderGroup)
 {
 	/* Load transformation matrix */
 	shader_use(renderer->shader);
 	GL_CHECK_ERROR();
 
 	/* Set color modulation value */
-	shader_uniformSetVec4f(renderer->shader, "spriteColor", color);
+	shader_uniformSetVec4f(renderer->shader, "spriteColor",
+	                       renderGroup->color);
 
-	/* Send draw calls */
+    /* Send draw calls */
 #if RENDER_BOUNDING_BOX
 	glBindVertexArray(renderer->vao);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
 	glBindVertexArray(0);
 #endif
 
+	Texture *tex = renderGroup->tex;
 	if (tex)
 	{
 		glActiveTexture(GL_TEXTURE0);
@@ -264,7 +281,7 @@ void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
 	v2 posInCameraSpace = v2_sub(pos, camera.pos);
 	RenderQuad_ quad    = createRenderQuad(renderer, posInCameraSpace, size,
 	                                    pivotPoint, rotate, renderTex);
-	addRenderQuadToRenderGroup(renderer, quad, renderTex);
+	addRenderQuadToRenderGroup(renderer, quad, renderTex.tex, color);
 }
 
 void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
@@ -325,7 +342,8 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 			pos.x += metric.advance;
 		}
 
-		addVertexToRenderGroup(renderer, tex, vertexList, numVertexesToAlloc);
+		addVertexToRenderGroup(renderer, tex, color, vertexList,
+		                       numVertexesToAlloc);
 		PLATFORM_MEM_FREE(arena, vertexList,
 		                  sizeof(Vertex) * numVertexesToAlloc);
 	}
@@ -374,12 +392,15 @@ void renderer_renderGroups(Renderer *renderer)
 		if (currGroup->tex)
 		{
 			bufferRenderGroupToGL(renderer, currGroup);
-			renderObject(renderer, V2(0.0f, 0.0f), renderer->size, V2(0, 0),
-			             0, V4(1, 1, 1, 1), currGroup->tex);
+			renderGLBufferedData(renderer, currGroup);
 
 			RenderGroup cleanGroup = {0};
 			cleanGroup.vertexList = currGroup->vertexList;
 			*currGroup = cleanGroup;
+		}
+		else
+		{
+			break;
 		}
 	}
 }

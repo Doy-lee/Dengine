@@ -18,21 +18,21 @@ typedef struct Vertex
 	v2 texCoord;
 } Vertex;
 
+typedef struct RenderTex
+{
+	Texture *tex;
+	v4 texRect;
+} RenderTex;
+
 typedef struct RenderQuad
 {
 	Vertex vertex[4];
 } RenderQuad_;
 
-typedef struct RenderTex
-{
-	Texture *tex;
-	// TODO(doyle): Switch to rect
-	v4 texRect;
-} RenderTex;
-
 typedef struct RenderGroup
 {
 	Texture *tex;
+	v4 color;
 
 	Vertex *vertexList;
 	i32 vertexIndex;
@@ -47,7 +47,7 @@ typedef struct Renderer
 	v2 vertexNdcFactor;
 	v2 size;
 
-	RenderGroup groups[16];
+	RenderGroup groups[128];
 	i32 groupCapacity;
 } Renderer;
 
