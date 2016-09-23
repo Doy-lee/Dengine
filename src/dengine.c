@@ -224,9 +224,14 @@ i32 main(void)
 			f32 msPerFrame      = secondsElapsed * 1000.0f;
 			f32 framesPerSecond = 1.0f / secondsElapsed;
 
+			i32 entityCount =
+			    worldTraveller.world[worldTraveller.currWorldIndex]
+			        .freeEntityIndex;
+
 			char textBuffer[256];
 			snprintf(textBuffer, ARRAY_COUNT(textBuffer),
-			         "Dengine | %f ms/f | %f fps", msPerFrame, framesPerSecond);
+			         "Dengine | %f ms/f | %f fps | Entity Count: %d",
+			         msPerFrame, framesPerSecond, entityCount);
 
 			glfwSetWindowTitle(window, textBuffer);
 			titleUpdateFrequencyInSeconds = 0.5f;

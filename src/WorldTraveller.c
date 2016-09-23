@@ -101,7 +101,7 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 	GL_CHECK_ERROR();
 
 	// TODO(doyle): Lazy allocate render group capacity
-	renderer->groupCapacity = 1024;
+	renderer->groupCapacity = 4096;
 	for (i32 i = 0; i < ARRAY_COUNT(renderer->groups); i++)
 	{
 		renderer->groups[i].vertexList =

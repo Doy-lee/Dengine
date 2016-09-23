@@ -13,6 +13,11 @@
 INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
                                      Vertex *vertexList, i32 numVertexes)
 {
+
+#ifdef DENGINE_DEBUG
+	ASSERT(numVertexes > 0);
+#endif
+
 	/* Find vacant/matching render group */
 	RenderGroup *targetGroup = NULL;
 	for (i32 i = 0; i < ARRAY_COUNT(renderer->groups); i++)
@@ -46,7 +51,13 @@ INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
 			i32 freeVertexSlots = renderer->groupCapacity - group->vertexIndex;
 			if (numVertexes < freeVertexSlots)
 			{
-				targetGroup  = &renderer->groups[i];
+				if (i != 0)
+				{
+					RenderGroup tmp     = renderer->groups[0];
+					renderer->groups[0] = renderer->groups[i];
+					renderer->groups[i] = tmp;
+				}
+				targetGroup = &renderer->groups[0];
 				break;
 			}
 		}
@@ -289,6 +300,7 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
                      v2 pivotPoint, f32 rotate, v4 color)
 {
 	i32 strLen = common_strlen(string);
+	if (strLen <= 0) return;
 
 	// TODO(doyle): Slightly incorrect string length in pixels calculation,
 	// because we use the advance metric of each character for length not
