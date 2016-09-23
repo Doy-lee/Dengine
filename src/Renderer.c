@@ -16,13 +16,16 @@ INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
 
 #ifdef DENGINE_DEBUG
 	ASSERT(numVertexes > 0);
+
+	for (i32 i = 0; i < numVertexes; i++)
+		debug_countIncrement(debugcount_numVertex);
 #endif
 
 	/* Find vacant/matching render group */
 	RenderGroup *targetGroup = NULL;
 	for (i32 i = 0; i < ARRAY_COUNT(renderer->groups); i++)
 	{
-		RenderGroup *group        = &renderer->groups[i];
+		RenderGroup *group = &renderer->groups[i];
 		b32 groupIsValid = FALSE;
 		if (group->tex)
 		{
@@ -44,6 +47,9 @@ INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
 			group->tex   = tex;
 			group->color = color;
 
+#ifdef DENGINE_DEBUG
+			debug_countIncrement(debugcount_renderGroups);
+#endif
 		}
 
 		if (groupIsValid)
@@ -269,7 +275,7 @@ INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *renderGroup)
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
 
 #ifdef DENGINE_DEBUG
-	debug_callCountIncrement(debugcallcount_drawArrays);
+	debug_countIncrement(debugcount_drawArrays);
 #endif
 
 	/* Unbind */

@@ -10,10 +10,14 @@ typedef struct GameState GameState;
 typedef struct MemoryArena MemoryArena;
 
 #define INVALID_CODE_PATH 0
-enum DebugCallCount
+enum DebugCount
 {
-	debugcallcount_drawArrays,
-	debugcallcount_num,
+	debugcount_drawArrays,
+	debugcount_platformMemAlloc,
+	debugcount_platformMemFree,
+	debugcount_numVertex,
+	debugcount_renderGroups,
+	debugcount_num,
 };
 
 void debug_init(MemoryArena *arena, v2 windowSize, Font font);
@@ -21,8 +25,8 @@ void debug_init(MemoryArena *arena, v2 windowSize, Font font);
 #define DEBUG_RECURSIVE_PRINT_XML_TREE(sig) debug_recursivePrintXmlTree(sig, 1)
 void debug_recursivePrintXmlTree(XmlNode *root, i32 levelsDeep);
 
-void debug_callCountIncrement(enum DebugCallCount id);
-void debug_clearCallCounter();
+void debug_countIncrement(enum DebugCount id);
+void debug_clearCounter();
 #define DEBUG_LOG(string) debug_consoleLog(string, __FILE__, __LINE__);
 void debug_consoleLog(char *string, char *file, int lineNum);
 

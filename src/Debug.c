@@ -8,6 +8,7 @@
 
 typedef struct DebugState
 {
+	b32 init;
 	Font font;
 	i32 *callCount;
 	f32 stringLineGap;
@@ -76,9 +77,9 @@ inline char *debug_entityattack_string(i32 val)
 
 void debug_init(MemoryArena *arena, v2 windowSize, Font font)
 {
-	GLOBAL_debug.font                 = font;
-	GLOBAL_debug.callCount = PLATFORM_MEM_ALLOC(arena, debugcallcount_num, i32);
-	GLOBAL_debug.stringLineGap = CAST(f32)font.verticalSpacing;
+	GLOBAL_debug.font          = font;
+	GLOBAL_debug.callCount     = PLATFORM_MEM_ALLOC(arena, debugcount_num, i32);
+	GLOBAL_debug.stringLineGap = CAST(f32) font.verticalSpacing;
 
 	/* Init debug string stack */
 	GLOBAL_debug.numDebugStrings   = 0;
@@ -98,6 +99,8 @@ void debug_init(MemoryArena *arena, v2 windowSize, Font font)
 	f32 consoleXPos = font.maxSize.w * 20;
 	f32 consoleYPos = windowSize.h - 1.8f * GLOBAL_debug.stringLineGap;
 	GLOBAL_debug.initialConsoleP = V2(consoleXPos, consoleYPos);
+
+	GLOBAL_debug.init = TRUE;
 }
 
 void debug_recursivePrintXmlTree(XmlNode *root, i32 levelsDeep)
@@ -130,15 +133,17 @@ void debug_recursivePrintXmlTree(XmlNode *root, i32 levelsDeep)
 	}
 }
 
-void debug_callCountIncrement(i32 id)
+void debug_countIncrement(i32 id)
 {
-	ASSERT(id < debugcallcount_num);
+	if (GLOBAL_debug.init == FALSE) return;
+
+	ASSERT(id < debugcount_num);
 	GLOBAL_debug.callCount[id]++;
 }
 
-void debug_clearCallCounter()
+void debug_clearCounter()
 {
-	for (i32 i = 0; i < debugcallcount_num; i++)
+	for (i32 i = 0; i < debugcount_num; i++)
 		GLOBAL_debug.callCount[i] = 0;
 }
 
@@ -471,8 +476,26 @@ void debug_drawUi(GameState *state, f32 dt)
 
 	DEBUG_PUSH_STRING("== State Properties == ");
 	DEBUG_PUSH_VAR("FreeEntityIndex: %d", world->freeEntityIndex, "i32");
-	DEBUG_PUSH_VAR("glDrawArray Calls: %d",
-	               GLOBAL_debug.callCount[debugcallcount_drawArrays], "i32");
+	DEBUG_PUSH_VAR("GLDrawArray Calls: %d",
+	               GLOBAL_debug.callCount[debugcount_drawArrays], "i32");
+	DEBUG_PUSH_VAR("PlatformMemAlloc Calls: %d",
+	               GLOBAL_debug.callCount[debugcount_platformMemAlloc], "i32");
+	DEBUG_PUSH_VAR("PlatformMemFree Calls: %d",
+	               GLOBAL_debug.callCount[debugcount_platformMemFree], "i32");
+
+	i32 vertexesUsed = GLOBAL_debug.callCount[debugcount_numVertex];
+	i32 vertexesAvail =
+	    (ARRAY_COUNT(state->renderer.groups) * state->renderer.groupCapacity);
+	i32 vertexesLeft = vertexesAvail - vertexesUsed;
+	v2 vertexData    = V2i(vertexesUsed, vertexesAvail);
+	DEBUG_PUSH_VAR("Vertexes Rendered: %1.0f/%1.0f", vertexData, "v2");
+	DEBUG_PUSH_VAR("Vertexes Left: %d", vertexesLeft, "i32");
+
+	i32 groupsUsed  = GLOBAL_debug.callCount[debugcount_renderGroups];
+	i32 groupsAvail = ARRAY_COUNT(state->renderer.groups);
+	v2 groupData    = V2i(groupsUsed, groupsAvail);
+	DEBUG_PUSH_VAR("Render Groups Used: %1.0f/%1.0f", groupData, "v2");
+
 	DEBUG_PUSH_VAR("Mouse Pos: %06.2f, %06.2f", state->input.mouseP, "v2");
 
 	i32 debug_bAllocated = state->arena.bytesAllocated;
@@ -512,5 +535,5 @@ void debug_drawUi(GameState *state, f32 dt)
 
 	updateAndRenderDebugStack(&state->renderer, &state->arena, dt);
 	renderConsole(&state->renderer, &state->arena);
-	debug_clearCallCounter();
+	debug_clearCounter();
 }

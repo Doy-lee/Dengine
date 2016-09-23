@@ -4,12 +4,14 @@
 
 #include "Dengine/Platform.h"
 #include "Dengine/MemoryArena.h"
+#include "Dengine/Debug.h"
 
 void platform_memoryFree(MemoryArena *arena, void *data, i32 numBytes)
 {
 	if (data) free(data);
 
 #ifdef DENGINE_DEBUG
+	debug_countIncrement(debugcount_platformMemFree);
 	arena->bytesAllocated -= numBytes;
 #endif
 }
@@ -19,6 +21,7 @@ void *platform_memoryAlloc(MemoryArena *arena, i32 numBytes)
 	void *result = calloc(1, numBytes);
 
 #ifdef DENGINE_DEBUG
+	debug_countIncrement(debugcount_platformMemAlloc);
 	if (result)
 		arena->bytesAllocated += numBytes;
 #endif
