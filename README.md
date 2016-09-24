@@ -1,6 +1,35 @@
 # Dengine
 Dengine is a 2d game engine developed with OpenGL and low-level libraries in C. The main goal of Dengine is to facilitate learning from many aspects of Computer Science. Alongside Dengine a game is being built which guides the development of features for the game. Dengine is inspired by Handmade Hero, with a focus on developing as many features with minimal libraries, such that it is not too time-consuming and counter-productive to do so.
 
+## Milestones
+Milestones/features/capabilities that have been added to the engine.
+
+### "Handmade" API
+- Custom Standard Library: (improved as is required) (e.g. strlen, atoi, itoa)
+- Custom Math Library: (improved as is required)
+- Custom String Library
+- Custom Memory Allocator: alloc memory from preallocated blocks
+- Custom XML Parser: for reading game data config
+
+### Rendering
+- Animation playback: from spritesheets
+- Batched rendering: minimise draw calls grouped on texture & color modulation
+- Generate on runtime bitmap font sheet from font file
+- Rendering sprites: through GLEW and GLFW to OpenGL programmable pipeline
+- Rendering rects and text
+
+### Other
+- Audio API: through OpenAL and STB Vorbis for audio functionality
+- Audio streaming
+- Asset loading system using hashtables
+- Collision using AABB
+- Debug services/display
+- Input parsing, delayed, raw read
+- IMGUI style GUI: Buttons, textfields, scroll bars
+- Moveable windows
+- Primitive entity system
+- Primitive battle system
+
 ## Building
 Dengine is currently being developed using Visual Studio 2015. You can build the project by executing the (preferred) **build.bat** in the src folder, or simply opening the project in Visual Studio and compiling. 
 
