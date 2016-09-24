@@ -7,7 +7,6 @@
 #include "Dengine/Audio.h"
 #include "Dengine/Debug.h"
 #include "Dengine/MemoryArena.h"
-#include "dengine/Platform.h"
 
 #define AL_CHECK_ERROR() alCheckError_(__FILE__, __LINE__);
 void alCheckError_(const char *file, int line)
@@ -116,7 +115,7 @@ INTERNAL inline u32 getSourceId(AudioManager *audioManager,
 	return result;
 }
 
-INTERNAL i32 rendererAcquire(MemoryArena *arena, AudioManager *audioManager,
+INTERNAL i32 rendererAcquire(MemoryArena_ *arena, AudioManager *audioManager,
                              AudioRenderer *audioRenderer)
 {
 #ifdef DENGINE_DEBUG
@@ -162,7 +161,7 @@ INTERNAL i32 rendererAcquire(MemoryArena *arena, AudioManager *audioManager,
 	return 0;
 }
 
-INTERNAL const i32 rendererRelease(MemoryArena *arena, AudioManager *audioManager,
+INTERNAL const i32 rendererRelease(MemoryArena_ *arena, AudioManager *audioManager,
                                    AudioRenderer *audioRenderer)
 {
 
@@ -212,7 +211,9 @@ INTERNAL const i32 rendererRelease(MemoryArena *arena, AudioManager *audioManage
 	if (audioRenderer->isStreaming)
 	{
 		stb_vorbis_close(audioRenderer->audio->file);
-		PLATFORM_MEM_FREE(arena, audioRenderer->audio, sizeof(AudioVorbis));
+
+		// TODO(doyle): Mem free
+		// PLATFORM_MEM_FREE(arena, audioRenderer->audio, sizeof(AudioVorbis));
 	}
 
 	u32 sourceIndexToFree      = audioRenderer->sourceIndex;
@@ -229,7 +230,7 @@ INTERNAL const i32 rendererRelease(MemoryArena *arena, AudioManager *audioManage
 	return result;
 }
 
-INTERNAL i32 initRendererForPlayback(MemoryArena *arena,
+INTERNAL i32 initRendererForPlayback(MemoryArena_ *arena,
                                      AudioManager *audioManager,
                                      AudioRenderer *audioRenderer,
                                      AudioVorbis *vorbis, i32 numPlays)
@@ -267,7 +268,7 @@ INTERNAL i32 initRendererForPlayback(MemoryArena *arena,
 }
 
 #include <stdlib.h>
-const i32 audio_playVorbis(MemoryArena *arena, AudioManager *audioManager,
+const i32 audio_playVorbis(MemoryArena_ *arena, AudioManager *audioManager,
                            AudioRenderer *audioRenderer, AudioVorbis *vorbis,
                            i32 numPlays)
 {
@@ -293,7 +294,7 @@ const i32 audio_playVorbis(MemoryArena *arena, AudioManager *audioManager,
 	return result;
 }
 
-const i32 audio_streamPlayVorbis(MemoryArena *arena, AudioManager *audioManager,
+const i32 audio_streamPlayVorbis(MemoryArena_ *arena, AudioManager *audioManager,
                                  AudioRenderer *audioRenderer,
                                  AudioVorbis *vorbis, i32 numPlays)
 {
@@ -304,7 +305,7 @@ const i32 audio_streamPlayVorbis(MemoryArena *arena, AudioManager *audioManager,
 	// data except the file pointer. If the same sound is playing twice
 	// simultaneously, we need unique file pointers into the data to track song
 	// position uniquely
-	AudioVorbis *copyAudio     = PLATFORM_MEM_ALLOC(arena, 1, AudioVorbis);
+	AudioVorbis *copyAudio     = MEMORY_PUSH_STRUCT(arena, AudioVorbis);
 	*copyAudio                 = *vorbis;
 
 	i32 error;
@@ -318,7 +319,7 @@ const i32 audio_streamPlayVorbis(MemoryArena *arena, AudioManager *audioManager,
 	return result;
 }
 
-const i32 audio_stopVorbis(MemoryArena *arena, AudioManager *audioManager,
+const i32 audio_stopVorbis(MemoryArena_ *arena, AudioManager *audioManager,
                            AudioRenderer *audioRenderer)
 {
 	i32 result     = 0;
@@ -388,20 +389,11 @@ const i32 audio_resumeVorbis(AudioManager *audioManager,
 }
 
 #define AUDIO_CHUNK_SIZE_ 65536
-const i32 audio_updateAndPlay(MemoryArena *arena, AudioManager *audioManager,
+const i32 audio_updateAndPlay(MemoryArena_ *arena, AudioManager *audioManager,
                               AudioRenderer *audioRenderer)
 {
 	AudioVorbis *audio = audioRenderer->audio;
 	if (!audio) return 0;
-
-#if 0
-	if (audioRenderer->numPlays != AUDIO_REPEAT_INFINITE &&
-	    audioRenderer->numPlays <= 0)
-	{
-		i32 result = rendererRelease(arena, audioManager, audioRenderer);
-		return result;
-	}
-#endif
 
 	u32 alSourceId = getSourceId(audioManager, audioRenderer);
 	if (alIsSource(alSourceId) == AL_FALSE)

@@ -1,16 +1,14 @@
 #include "Dengine/UserInterface.h"
 #include "Dengine/AssetManager.h"
 #include "Dengine/Assets.h"
-#include "Dengine/Renderer.h"
 #include "Dengine/Debug.h"
+#include "Dengine/Renderer.h"
 
-i32 userInterface_button(UiState *const uiState,
-                         MemoryArena *const arena,
+i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
                          AssetManager *const assetManager,
-                         Renderer *const renderer,
-                         Font *const font,
-                         const KeyInput input,
-                         const i32 id, const Rect rect, const char *const label)
+                         Renderer *const renderer, Font *const font,
+                         const KeyInput input, const i32 id, const Rect rect,
+                         const char *const label)
 {
 	if (math_pointInRect(rect, input.mouseP))
 	{
@@ -251,7 +249,7 @@ i32 userInterface_scrollbar(UiState *const uiState,
 	return 0;
 }
 
-i32 userInterface_textField(UiState *const uiState, MemoryArena *const arena,
+i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
                             AssetManager *const assetManager,
                             Renderer *const renderer, Font *const font,
                             KeyInput input, const i32 id, const Rect rect,
@@ -352,7 +350,7 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena *const arena,
 	return 0;
 }
 
-i32 userInterface_window(UiState *const uiState, MemoryArena *const arena,
+i32 userInterface_window(UiState *const uiState, MemoryArena_ *const arena,
                          AssetManager *const assetManager,
                          Renderer *const renderer, Font *const font,
                          const KeyInput input, WindowState *window)

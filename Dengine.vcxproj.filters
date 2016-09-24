@@ -54,6 +54,9 @@
     <ClCompile Include="src\String.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\MemoryArena.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="data\shaders\default.vert.glsl" />

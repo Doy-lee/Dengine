@@ -81,6 +81,10 @@ typedef struct World
 
 typedef struct GameState
 {
+	Memory *memory;
+	MemoryArena_ arena_;
+	MemoryArena_ transientArena;
+
 	enum State state;
 	KeyInput input;
 	v2 mouse;
@@ -94,12 +98,11 @@ typedef struct GameState
 	AssetManager assetManager;
 	AudioManager audioManager;
 	Config config;
-	MemoryArena arena;
 	UiState uiState;
 	EventQueue eventQueue;
 } GameState;
 
-void worldTraveller_gameInit(GameState *state, v2 windowSize);
+void worldTraveller_gameInit(GameState *state, v2 windowSize, Memory *memory);
 void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt);
 void worldTraveller_registerEvent(EventQueue *eventQueue, enum EventType type,
                                   void *data);

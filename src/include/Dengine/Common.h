@@ -26,6 +26,10 @@ typedef double f64;
 #define ASSERT(expr) if (!(expr)) { *(int *)0 = 0; }
 #define IS_EVEN(value) (((value) & 1) == 0)
 
+#define KILOBYTES(val) (val * 1024)
+#define MEGABYTES(val) ((KILOBYTES(val)) * 1024)
+#define GIGABYTES(val) ((MEGABYTES(val)) * 1024)
+
 #define DENGINE_DEBUG
 
 i32 common_strlen(const char *const string);

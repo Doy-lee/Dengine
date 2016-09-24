@@ -8,7 +8,7 @@
 /* Forward Declaration */
 typedef struct AssetManager AssetManager;
 typedef struct Font Font;
-typedef struct MemoryArena MemoryArena;
+typedef struct MemoryArena MemoryArena_;
 typedef struct Renderer Renderer;
 
 enum UiType
@@ -76,17 +76,13 @@ inline i32 userInterface_generateId(UiState *const uiState)
 	return result;
 }
 
-i32 userInterface_button(UiState *const uiState,
-                         MemoryArena *const arena,
+i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
                          AssetManager *const assetManager,
-                         Renderer *const renderer,
-                         Font *const font,
-                         const KeyInput input,
-                         const i32 id, const Rect rect,
+                         Renderer *const renderer, Font *const font,
+                         const KeyInput input, const i32 id, const Rect rect,
                          const char *const label);
 
-i32 userInterface_textField(UiState *const uiState,
-                            MemoryArena *const arena,
+i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
                             AssetManager *const assetManager,
                             Renderer *const renderer, Font *const font,
                             KeyInput input, const i32 id, const Rect rect,
@@ -98,7 +94,7 @@ i32 userInterface_scrollbar(UiState *const uiState,
                             const i32 id, const Rect scrollBarRect,
                             i32 *const value, const i32 maxValue);
 
-i32 userInterface_window(UiState *const uiState, MemoryArena *const arena,
+i32 userInterface_window(UiState *const uiState, MemoryArena_ *const arena,
                          AssetManager *const assetManager,
                          Renderer *const renderer, Font *const font,
                          const KeyInput input, WindowState *window);

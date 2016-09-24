@@ -1,6 +1,7 @@
 #include "Dengine/Entity.h"
+#include "Dengine/AssetManager.h"
 #include "Dengine/Debug.h"
-#include "Dengine/Platform.h"
+#include "Dengine/MemoryArena.h"
 #include "Dengine/WorldTraveller.h"
 
 SubTexture entity_getActiveSubTexture(Entity *const entity)
@@ -108,7 +109,7 @@ void entity_addAnim(AssetManager *const assetManager, Entity *const entity,
 	DEBUG_LOG("No more free entity animation slots");
 }
 
-Entity *const entity_add(MemoryArena *const arena, World *const world,
+Entity *const entity_add(MemoryArena_ *const arena, World *const world,
                          const v2 pos, const v2 size, const f32 scale,
                          const enum EntityType type,
                          const enum Direction direction, Texture *const tex,
@@ -135,7 +136,7 @@ Entity *const entity_add(MemoryArena *const arena, World *const world,
 	switch (type)
 	{
 	case entitytype_hero:
-		entity.stats               = PLATFORM_MEM_ALLOC(arena, 1, EntityStats);
+		entity.stats               = MEMORY_PUSH_STRUCT(arena, EntityStats);
 		entity.stats->maxHealth    = 100;
 		entity.stats->health       = entity.stats->maxHealth;
 		entity.stats->actionRate   = 100;
@@ -148,7 +149,7 @@ Entity *const entity_add(MemoryArena *const arena, World *const world,
 		break;
 	case entitytype_mob:
 	{
-		entity.stats               = PLATFORM_MEM_ALLOC(arena, 1, EntityStats);
+		entity.stats               = MEMORY_PUSH_STRUCT(arena, EntityStats);
 		entity.stats->maxHealth    = 100;
 		entity.stats->health       = entity.stats->maxHealth;
 		entity.stats->actionRate   = 80;
@@ -162,12 +163,12 @@ Entity *const entity_add(MemoryArena *const arena, World *const world,
 	}
 	case entitytype_projectile:
 	case entitytype_attackObject:
-		entity.stats               = PLATFORM_MEM_ALLOC(arena, 1, EntityStats);
-		entity.stats->maxHealth    = 100;
-		entity.stats->health       = entity.stats->maxHealth;
-		entity.stats->actionRate   = 100;
-		entity.stats->actionTimer  = entity.stats->actionRate;
-		entity.stats->actionSpdMul = 100;
+		entity.stats                   = MEMORY_PUSH_STRUCT(arena, EntityStats);
+		entity.stats->maxHealth        = 100;
+		entity.stats->health           = entity.stats->maxHealth;
+		entity.stats->actionRate       = 100;
+		entity.stats->actionTimer      = entity.stats->actionRate;
+		entity.stats->actionSpdMul     = 100;
 		entity.stats->entityIdToAttack = -1;
 		entity.stats->queuedAttack     = entityattack_invalid;
 		entity.state                   = entitystate_idle;
@@ -183,15 +184,19 @@ Entity *const entity_add(MemoryArena *const arena, World *const world,
 	return result;
 }
 
-void entity_clearData(MemoryArena *const arena, World *const world,
+void entity_clearData(MemoryArena_ *const arena, World *const world,
                       Entity *const entity)
 {
+	// TODO(doyle): Mem free// memory leak!!
+
+	/*
 	if (entity->stats)
-		PLATFORM_MEM_FREE(arena, entity->stats, sizeof(EntityStats));
+	    PLATFORM_MEM_FREE(arena, entity->stats, sizeof(EntityStats));
 
 	if (entity->audioRenderer)
-		PLATFORM_MEM_FREE(arena, entity->audioRenderer,
-		                  sizeof(AudioRenderer) * entity->numAudioRenderers);
+	    PLATFORM_MEM_FREE(arena, entity->audioRenderer,
+	                      sizeof(AudioRenderer) * entity->numAudioRenderers);
+	*/
 
 	entity->type = entitytype_null;
 }

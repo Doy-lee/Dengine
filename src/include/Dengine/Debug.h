@@ -7,7 +7,7 @@
 
 /* Forward Declaration */
 typedef struct GameState GameState;
-typedef struct MemoryArena MemoryArena;
+typedef struct MemoryArena MemoryArena_;
 
 #define INVALID_CODE_PATH 0
 enum DebugCount
@@ -20,7 +20,7 @@ enum DebugCount
 	debugcount_num,
 };
 
-void debug_init(MemoryArena *arena, v2 windowSize, Font font);
+void debug_init(MemoryArena_ *arena, v2 windowSize, Font font);
 
 #define DEBUG_RECURSIVE_PRINT_XML_TREE(sig) debug_recursivePrintXmlTree(sig, 1)
 void debug_recursivePrintXmlTree(XmlNode *root, i32 levelsDeep);

@@ -19,7 +19,7 @@ INTERNAL Entity *getHeroEntity(World *world)
 	return result;
 }
 
-INTERNAL void addGenericMob(EventQueue *eventQueue, MemoryArena *arena,
+INTERNAL void addGenericMob(EventQueue *eventQueue, MemoryArena_ *arena,
                             AssetManager *assetManager, World *world, v2 pos)
 {
 #ifdef DENGINE_DEBUG
@@ -39,7 +39,7 @@ INTERNAL void addGenericMob(EventQueue *eventQueue, MemoryArena *arena,
 
 	mob->numAudioRenderers = 4;
 	mob->audioRenderer =
-	    PLATFORM_MEM_ALLOC(arena, mob->numAudioRenderers, AudioRenderer);
+	    memory_pushBytes(arena, mob->numAudioRenderers * sizeof(AudioRenderer));
 
 	for (i32 i = 0; i < mob->numAudioRenderers; i++)
 		mob->audioRenderer[i].sourceIndex = AUDIO_SOURCE_UNASSIGNED;
@@ -104,8 +104,8 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 	renderer->groupCapacity = 4096;
 	for (i32 i = 0; i < ARRAY_COUNT(renderer->groups); i++)
 	{
-		renderer->groups[i].vertexList =
-		    PLATFORM_MEM_ALLOC(&state->arena, renderer->groupCapacity, Vertex);
+		renderer->groups[i].vertexList = memory_pushBytes(
+		    &state->arena_, renderer->groupCapacity * sizeof(Vertex));
 	}
 
 #ifdef DENGINE_DEBUG
@@ -116,27 +116,27 @@ INTERNAL void rendererInit(GameState *state, v2 windowSize)
 INTERNAL void assetInit(GameState *state)
 {
 	AssetManager *assetManager = &state->assetManager;
-	MemoryArena *arena         = &state->arena;
+	MemoryArena_ *arena         = &state->arena_;
 
 	i32 audioEntries         = 32;
 	assetManager->audio.size = audioEntries;
 	assetManager->audio.entries =
-	    PLATFORM_MEM_ALLOC(arena, audioEntries, HashTableEntry);
+	    memory_pushBytes(arena, audioEntries * sizeof(HashTableEntry));
 
 	i32 texAtlasEntries         = 8;
 	assetManager->texAtlas.size = texAtlasEntries;
 	assetManager->texAtlas.entries =
-	    PLATFORM_MEM_ALLOC(arena, texAtlasEntries, HashTableEntry);
+	    memory_pushBytes(arena, texAtlasEntries * sizeof(HashTableEntry));
 
 	i32 texEntries          = 32;
 	assetManager->textures.size = texEntries;
 	assetManager->textures.entries =
-	    PLATFORM_MEM_ALLOC(arena, texEntries, HashTableEntry);
+	    memory_pushBytes(arena, texEntries * sizeof(HashTableEntry));
 
 	i32 animEntries          = 1024;
 	assetManager->anims.size = animEntries;
 	assetManager->anims.entries =
-	    PLATFORM_MEM_ALLOC(arena, animEntries, HashTableEntry);
+	    memory_pushBytes(arena, animEntries * sizeof(HashTableEntry));
 
 	/* Create empty 1x1 4bpp black texture */
 	u32 bitmap   = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
@@ -438,7 +438,7 @@ INTERNAL void assetInit(GameState *state)
 
 	/* Load sound */
 
-	i32 before = arena->bytesAllocated;
+	i32 before = arena->used;
 
 	char *sfxListPath = "data/audio/sfx/sfx.txt";
 	PlatformFileRead sfxList = {0};
@@ -459,7 +459,7 @@ INTERNAL void assetInit(GameState *state)
 				{
 				    i32 actualStrLen = common_strlen(string) + 1;
 				    sfxAudioNames[sfxAudioIndex] =
-				        PLATFORM_MEM_ALLOC(arena, actualStrLen, char);
+				        memory_pushBytes(arena, actualStrLen * sizeof(char));
 				    common_strncpy(sfxAudioNames[sfxAudioIndex++], string,
 				                   actualStrLen);
 
@@ -490,7 +490,8 @@ INTERNAL void assetInit(GameState *state)
 		i32 sfxNameLen = common_strlen(sfxName);
 
 		i32 sfxFullPathLen = sfxDirLen + sfxExtensionLen + sfxNameLen + 1;
-		char *sfxFullPath  = PLATFORM_MEM_ALLOC(arena, sfxFullPathLen, char);
+		char *sfxFullPath =
+		    memory_pushBytes(arena, sfxFullPathLen * sizeof(char));
 
 		common_strncat(sfxFullPath, sfxDir, sfxDirLen);
 		common_strncat(sfxFullPath, sfxName, sfxNameLen);
@@ -503,11 +504,13 @@ INTERNAL void assetInit(GameState *state)
 		// character, having to remember to +1 on allocation AND freeing since
 		// strlen only counts until null char is going to leave memory leaks
 		// everywhere
-		PLATFORM_MEM_FREE(arena, sfxName, sfxNameLen * sizeof(char) + 1);
-		PLATFORM_MEM_FREE(arena, sfxFullPath, sfxFullPathLen * sizeof(char));
+		// TODO(doyle): Free mem
+		// PLATFORM_MEM_FREE(arena, sfxName, sfxNameLen * sizeof(char) + 1);
+		// PLATFORM_MEM_FREE(arena, sfxFullPath, sfxFullPathLen * sizeof(char));
 	}
 
-	platform_closeFileRead(arena, &sfxList);
+	// TODO(doyle): Free mem
+	// platform_closeFileRead(arena, &sfxList);
 
 	char *audioPath =
 	    "data/audio/Motoi Sakuraba - Stab the sword of justice.ogg";
@@ -525,7 +528,7 @@ INTERNAL void assetInit(GameState *state)
 INTERNAL void entityInit(GameState *state, v2 windowSize)
 {
 	AssetManager *assetManager = &state->assetManager;
-	MemoryArena *arena = &state->arena;
+	MemoryArena_ *arena = &state->arena_;
 
 	/* Init world */
 	const i32 targetWorldWidth  = 100 * METERS_TO_PIXEL;
@@ -544,9 +547,10 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	{
 		World *const world = &state->world[i];
 		world->maxEntities = 16384;
-		world->entities = PLATFORM_MEM_ALLOC(arena, world->maxEntities, Entity);
+		world->entities =
+		    memory_pushBytes(arena, world->maxEntities * sizeof(Entity));
 		world->entityIdInBattle =
-		    PLATFORM_MEM_ALLOC(arena, world->maxEntities, i32);
+		    memory_pushBytes(arena, world->maxEntities * sizeof(i32));
 		world->numEntitiesInBattle = 0;
 		world->bounds =
 		    math_getRect(V2(0, 0), v2_scale(worldDimensionInTiles,
@@ -600,8 +604,8 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 
 	world->soundscape = soundscape;
 	soundscape->numAudioRenderers = 1;
-	soundscape->audioRenderer =
-	    PLATFORM_MEM_ALLOC(arena, soundscape->numAudioRenderers, AudioRenderer);
+	soundscape->audioRenderer     = memory_pushBytes(
+	    arena, soundscape->numAudioRenderers * sizeof(AudioRenderer));
 	for (i32 i = 0; i < soundscape->numAudioRenderers; i++)
 		soundscape->audioRenderer[i].sourceIndex = AUDIO_SOURCE_UNASSIGNED;
 
@@ -626,8 +630,8 @@ INTERNAL void entityInit(GameState *state, v2 windowSize)
 	hero->stats->weapon = heroWeapon;
 
 	hero->numAudioRenderers = 4;
-	hero->audioRenderer =
-	    PLATFORM_MEM_ALLOC(arena, hero->numAudioRenderers, AudioRenderer);
+	hero->audioRenderer     = memory_pushBytes(arena, hero->numAudioRenderers *
+	                                                  sizeof(AudioRenderer));
 
 	for (i32 i = 0; i < hero->numAudioRenderers; i++)
 		hero->audioRenderer[i].sourceIndex = AUDIO_SOURCE_UNASSIGNED;
@@ -725,7 +729,7 @@ INTERNAL v2 getPosRelativeToRect(Rect rect, v2 offset,
 	return result;
 }
 
-INTERNAL void unitTest(MemoryArena *arena)
+INTERNAL void unitTest(MemoryArena_ *arena)
 {
 	ASSERT(common_atoi("-2", common_strlen("-2")) == -2);
 	ASSERT(common_atoi("100", common_strlen("100")) == 100);
@@ -738,7 +742,7 @@ INTERNAL void unitTest(MemoryArena *arena)
 	ASSERT(common_atoi("+ 32", common_strlen("+ 32")) == 0);
 	asset_unitTest(arena);
 
-	i32 memBefore  = arena->bytesAllocated;
+	i32 memBefore  = arena->used;
 	String *hello = string_make(arena, "hello, ");
 	String *world = string_make(arena, "world");
 	ASSERT(string_len(hello) == 7);
@@ -758,18 +762,23 @@ INTERNAL void unitTest(MemoryArena *arena)
 	string_free(arena, hello);
 	string_free(arena, world);
 
-	i32 memAfter = arena->bytesAllocated;
-
-	ASSERT(memBefore == memAfter);
+	i32 memAfter = arena->used;
 }
 
 // TODO(doyle): Remove and implement own random generator!
 #include <time.h>
 #include <stdlib.h>
-void worldTraveller_gameInit(GameState *state, v2 windowSize)
+void worldTraveller_gameInit(GameState *state, v2 windowSize, Memory *memory)
 {
+	state->memory = memory;
+	memory_arenaInit(&state->arena_, memory->persistent,
+	                 memory->persistentSize);
+
+	memory_arenaInit(&state->transientArena, memory->transient,
+	                 memory->transientSize);
+
 #ifdef DENGINE_DEBUG
-	unitTest(&state->arena);
+	unitTest(&state->arena_);
 #endif
 
 	i32 result = audio_init(&state->audioManager);
@@ -1157,7 +1166,7 @@ typedef struct AttackSpec
 	i32 damage;
 } AttackSpec;
 
-INTERNAL void beginAttack(AssetManager *assetManager, MemoryArena *arena,
+INTERNAL void beginAttack(AssetManager *assetManager, MemoryArena_ *arena,
                           EventQueue *eventQueue, World *world,
                           Entity *attacker)
 {
@@ -1308,7 +1317,7 @@ INTERNAL void beginAttack(AssetManager *assetManager, MemoryArena *arena,
 
 // TODO(doyle): MemArena here is temporary until we incorporate AttackSpec to
 // battle in general!
-INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
+INTERNAL void endAttack(MemoryArena_ *arena, EventQueue *eventQueue,
                         World *world, Entity *attacker)
 {
 #ifdef DENGINE_DEBUG
@@ -1336,7 +1345,7 @@ INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
 
 	case entityattack_claudeEnergySword:
 		attacker->stats->health += 80;
-		AttackSpec *attackSpec = PLATFORM_MEM_ALLOC(arena, 1, AttackSpec);
+		AttackSpec *attackSpec = MEMORY_PUSH_STRUCT(arena, AttackSpec);
 		attackSpec->attacker   = attacker;
 		attackSpec->defender   = attacker;
 		attackSpec->damage     = 30;
@@ -1389,7 +1398,7 @@ INTERNAL void endAttack(MemoryArena *arena, EventQueue *eventQueue,
 	{
 		i32 damage = 25;
 
-		AttackSpec *attackSpec = PLATFORM_MEM_ALLOC(arena, 1, AttackSpec);
+		AttackSpec *attackSpec = MEMORY_PUSH_STRUCT(arena, AttackSpec);
 		attackSpec->attacker   = attacker;
 		attackSpec->defender   = defender;
 		attackSpec->damage     = damage;
@@ -1606,12 +1615,16 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	if (dt >= 1.0f) dt = 1.0f;
 	GL_CHECK_ERROR();
 
-	AssetManager *assetManager = &state->assetManager;
-	Renderer *renderer         = &state->renderer;
-	World *const world         = &state->world[state->currWorldIndex];
-	Font *font                 = &assetManager->font;
-	MemoryArena *arena         = &state->arena;
-	EventQueue *eventQueue     = &state->eventQueue;
+	memory_arenaInit(&state->transientArena, state->memory->transient,
+	                 state->memory->transientSize);
+
+	AssetManager *assetManager   = &state->assetManager;
+	Renderer *renderer           = &state->renderer;
+	World *const world           = &state->world[state->currWorldIndex];
+	Font *font                   = &assetManager->font;
+	MemoryArena_ *arena          = &state->arena_;
+	MemoryArena_ *transientArena = &state->transientArena;
+	EventQueue *eventQueue       = &state->eventQueue;
 
 	/*
 	 **********************
@@ -1691,7 +1704,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 			v2 pos =
 			    V2(renderer->size.w - (renderer->size.w / xModifier), yPos);
-			addGenericMob(eventQueue, &state->arena, &state->assetManager, world, pos);
+			addGenericMob(eventQueue, &state->arena_, &state->assetManager, world, pos);
 		}
 	}
 
@@ -2050,7 +2063,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 					}
 
 					/* Launch up attack animation */
-					beginAttack(assetManager, &state->arena, eventQueue, world,
+					beginAttack(assetManager, &state->arena_, eventQueue, world,
 					            entity);
 				}
 			}
@@ -2062,7 +2075,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				if (stats->busyDuration <= 0)
 				{
 					/* Apply attack damage */
-					endAttack(&state->arena, eventQueue, world, entity);
+					endAttack(transientArena, eventQueue, world, entity);
 				}
 			}
 		}
@@ -2074,7 +2087,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 		 */
 		for (i32 i = 0; i < entity->numAudioRenderers; i++)
 		{
-			audio_updateAndPlay(&state->arena, &state->audioManager,
+			audio_updateAndPlay(&state->arena_, &state->audioManager,
 			                    &entity->audioRenderer[i]);
 		}
 
@@ -2227,8 +2240,6 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 					break;
 				}
 			}
-
-			PLATFORM_MEM_FREE(&state->arena, attackSpec, sizeof(AttackSpec));
 			break;
 		}
 		// NOTE(doyle): We delete dead entities at the end of the update
@@ -2244,10 +2255,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 			Entity *entity = (CAST(Entity *) event.data);
 			for (i32 i = 0; i < entity->numAudioRenderers; i++)
 			{
-				audio_stopVorbis(&state->arena, audioManager,
+				audio_stopVorbis(&state->arena_, audioManager,
 				                 &entity->audioRenderer[i]);
 			}
-			entity_clearData(&state->arena, world, entity);
+			entity_clearData(&state->arena_, world, entity);
 			numDeadEntities++;
 
 			for (i32 i = 0; i < entity->numChilds; i++)
@@ -2257,10 +2268,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 				{
 					for (i32 i = 0; i < child->numAudioRenderers; i++)
 					{
-						audio_stopVorbis(&state->arena, audioManager,
+						audio_stopVorbis(&state->arena_, audioManager,
 						                 &child->audioRenderer[i]);
 					}
-					entity_clearData(&state->arena, world, child);
+					entity_clearData(&state->arena_, world, child);
 					numDeadEntities++;
 				}
 				else
@@ -2332,7 +2343,7 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 
 			// TODO(doyle): Incorporate UI into entity list or it's own list
 			// with a rendering lifetime value
-			renderer_string(renderer, &state->arena, camera, font,
+			renderer_string(renderer, transientArena, camera, font,
 			                damageString, damagePos, V2(0, 0), 0,
 			                V4(1, 1, 1, lifetime));
 		}
@@ -2351,14 +2362,14 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	if (state->config.showStatMenu)
 	{
 		WindowState *statWindow = &state->uiState.statWindow;
-		userInterface_window(&state->uiState, &state->arena, assetManager,
+		userInterface_window(&state->uiState, transientArena, assetManager,
 		                     renderer, font, state->input, statWindow);
 	}
 
 	/* Draw debug window */
 	WindowState *debugWindow = &state->uiState.debugWindow;
 	i32 activeId =
-	    userInterface_window(&state->uiState, &state->arena, assetManager,
+	    userInterface_window(&state->uiState, transientArena, assetManager,
 	                         renderer, font, state->input, debugWindow);
 
 	// TODO(doyle): Name lookup to user interface id
@@ -2408,10 +2419,10 @@ void worldTraveller_gameUpdateAndRender(GameState *state, f32 dt)
 	    CAST(f32)(font->maxSize.w * common_strlen(heroAvatarStr));
 	v2 strPos =
 	    V2(heroAvatarP.x, heroAvatarP.y - (0.5f * heroAvatarRect.rect.size.h));
-	renderer_staticString(&state->renderer, &state->arena, font, heroAvatarStr,
+	renderer_staticString(&state->renderer, transientArena, font, heroAvatarStr,
 	                      strPos, V2(0, 0), 0, V4(0, 0, 1, 1));
 
-	renderer_staticString(&state->renderer, &state->arena, font, heroAvatarStr,
+	renderer_staticString(&state->renderer, transientArena, font, heroAvatarStr,
 	                      strPos, V2(0, 0), 0, V4(0, 0, 1, 1));
 
 	for (i32 i = 0; i < world->maxEntities; i++)

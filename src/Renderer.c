@@ -3,8 +3,8 @@
 #include "Dengine/Assets.h"
 #include "Dengine/Debug.h"
 #include "Dengine/Entity.h"
+#include "Dengine/MemoryArena.h"
 #include "Dengine/OpenGL.h"
-#include "Dengine/Platform.h"
 #include "Dengine/Shader.h"
 #include "Dengine/Texture.h"
 
@@ -301,7 +301,7 @@ void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
 	addRenderQuadToRenderGroup(renderer, quad, renderTex.tex, color);
 }
 
-void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
+void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
                      Font *const font, const char *const string, v2 pos,
                      v2 pivotPoint, f32 rotate, v4 color)
 {
@@ -322,7 +322,7 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 		i32 numVertexPerQuad   = 4;
 		i32 numVertexesToAlloc = (strLen * (numVertexPerQuad + 2));
 		Vertex *vertexList =
-		    PLATFORM_MEM_ALLOC(arena, numVertexesToAlloc, Vertex);
+		    memory_pushBytes(arena, numVertexesToAlloc * sizeof(Vertex));
 
 		v2 posInCameraSpace = v2_sub(pos, camera.pos);
 		pos = posInCameraSpace;
@@ -362,8 +362,9 @@ void renderer_string(Renderer *const renderer, MemoryArena *arena, Rect camera,
 
 		addVertexToRenderGroup(renderer, tex, color, vertexList,
 		                       numVertexesToAlloc);
-		PLATFORM_MEM_FREE(arena, vertexList,
-		                  sizeof(Vertex) * numVertexesToAlloc);
+		// TODO(doyle): Mem free
+		// PLATFORM_MEM_FREE(arena, vertexList,
+		//                  sizeof(Vertex) * numVertexesToAlloc);
 	}
 }
 

@@ -1,5 +1,5 @@
 #include "Dengine/String.h"
-#include "Dengine/Platform.h"
+#include "Dengine/MemoryArena.h"
 
 /*
  * +-------------------------------------+
@@ -51,7 +51,7 @@ i32 string_len(String *const string)
 	return result;
 }
 
-String *const string_append(MemoryArena *const arena, String *oldString,
+String *const string_append(MemoryArena_ *const arena, String *oldString,
                             char *appendString, i32 appendLen)
 
 {
@@ -74,7 +74,7 @@ String *const string_append(MemoryArena *const arena, String *oldString,
 	return newString;
 }
 
-void string_free(MemoryArena *arena, String *string)
+void string_free(MemoryArena_ *arena, String *string)
 {
 	if (!string || !arena) return;
 
@@ -82,11 +82,14 @@ void string_free(MemoryArena *arena, String *string)
 	i32 bytesToFree = sizeof(StringHeader) + header->len;
 
 	common_memset((u8 *)header, 0, bytesToFree);
-	PLATFORM_MEM_FREE(arena, header, bytesToFree);
+
+	// TODO(doyle): Mem free
+	// PLATFORM_MEM_FREE(arena, header, bytesToFree);
+
 	string = NULL;
 }
 
-String *const string_make(MemoryArena *const arena, char *string)
+String *const string_make(MemoryArena_ *const arena, char *string)
 {
 	if (!arena) return NULL;
 
@@ -97,7 +100,7 @@ String *const string_make(MemoryArena *const arena, char *string)
 	return result;
 }
 
-String *const string_makeLen(MemoryArena *const arena, i32 len)
+String *const string_makeLen(MemoryArena_ *const arena, i32 len)
 {
 	if (!arena) return NULL;
 
@@ -107,7 +110,7 @@ String *const string_makeLen(MemoryArena *const arena, i32 len)
 	// character. Whilst the len of a string counts up to the last character
 	// _not_ including null-terminator.
 	i32 bytesToAllocate = sizeof(StringHeader) + len;
-	void *chunk         = PLATFORM_MEM_ALLOC(arena, bytesToAllocate, u8);
+	void *chunk         = memory_pushBytes(arena, bytesToAllocate * sizeof(u8));
 	if (!chunk) return NULL;
 
 	StringHeader *header   = CAST(StringHeader *) chunk;

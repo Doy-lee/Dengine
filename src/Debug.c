@@ -75,10 +75,11 @@ inline char *debug_entityattack_string(i32 val)
 	return string;
 }
 
-void debug_init(MemoryArena *arena, v2 windowSize, Font font)
+void debug_init(MemoryArena_ *arena, v2 windowSize, Font font)
 {
 	GLOBAL_debug.font          = font;
-	GLOBAL_debug.callCount     = PLATFORM_MEM_ALLOC(arena, debugcount_num, i32);
+	GLOBAL_debug.callCount =
+	    memory_pushBytes(arena, debugcount_num * sizeof(i32));
 	GLOBAL_debug.stringLineGap = CAST(f32) font.verticalSpacing;
 
 	/* Init debug string stack */
@@ -268,7 +269,7 @@ void debug_pushString(char *formatString, void *data, char *dataType)
 	}
 }
 
-INTERNAL void updateAndRenderDebugStack(Renderer *renderer, MemoryArena *arena,
+INTERNAL void updateAndRenderDebugStack(Renderer *renderer, MemoryArena_ *arena,
                                         f32 dt)
 {
 	for (i32 i = 0; i < GLOBAL_debug.numDebugStrings; i++)
@@ -299,7 +300,7 @@ INTERNAL void updateAndRenderDebugStack(Renderer *renderer, MemoryArena *arena,
 
 }
 
-INTERNAL void renderConsole(Renderer *renderer, MemoryArena *arena)
+INTERNAL void renderConsole(Renderer *renderer, MemoryArena_ *arena)
 {
 	i32 maxConsoleLines = ARRAY_COUNT(GLOBAL_debug.console);
 	v2 consoleStrP = GLOBAL_debug.initialConsoleP;
@@ -320,6 +321,7 @@ void debug_drawUi(GameState *state, f32 dt)
 	Renderer *renderer         = &state->renderer;
 	World *const world         = &state->world[state->currWorldIndex];
 	Entity *hero = &world->entities[entity_getIndex(world, world->heroId)];
+	MemoryArena_ *transientArena = &state->transientArena;
 
 	// TODO(doyle): Dumb copy function from game so we don't expose api
 	Rect camera = {world->cameraPos, renderer->size};
@@ -347,7 +349,7 @@ void debug_drawUi(GameState *state, f32 dt)
 		    CAST(f32)(font->maxSize.w * common_strlen(battleStr));
 		v2 strPos = V2((renderer->size.w * 0.5f) - (strLenInPixels * 0.5f),
 		               renderer->size.h - 300.0f);
-		renderer_staticString(&state->renderer, &state->arena, font, battleStr,
+		renderer_staticString(&state->renderer, transientArena, font, battleStr,
 		                      strPos, V2(0, 0), 0, color);
 	}
 
@@ -386,7 +388,7 @@ void debug_drawUi(GameState *state, f32 dt)
 			i32 indexOfLowerAInMetrics = 'a' - CAST(i32) font->codepointRange.x;
 			strPos.y += font->charMetrics[indexOfLowerAInMetrics].offset.y;
 
-			renderer_string(&state->renderer, &state->arena, camera, font,
+			renderer_string(&state->renderer, transientArena, camera, font,
 			                debugString, strPos, V2(0, 0), 0, color);
 
 			f32 stringLineGap = 1.1f * font->verticalSpacing;
@@ -395,14 +397,14 @@ void debug_drawUi(GameState *state, f32 dt)
 			char entityPosStr[128];
 			snprintf(entityPosStr, ARRAY_COUNT(entityPosStr), "%06.2f, %06.2f",
 			         entity->pos.x, entity->pos.y);
-			renderer_string(&state->renderer, &state->arena, camera, font,
+			renderer_string(&state->renderer, transientArena, camera, font,
 			                entityPosStr, strPos, V2(0, 0), 0, color);
 
 			strPos.y -= GLOBAL_debug.stringLineGap;
 			char entityIDStr[32];
 			snprintf(entityIDStr, ARRAY_COUNT(entityIDStr), "ID: %4d/%d", entity->id,
 			         world->uniqueIdAccumulator-1);
-			renderer_string(&state->renderer, &state->arena, camera, font,
+			renderer_string(&state->renderer, transientArena, camera, font,
 			                entityIDStr, strPos, V2(0, 0), 0, color);
 
 			if (entity->stats)
@@ -411,27 +413,27 @@ void debug_drawUi(GameState *state, f32 dt)
 				char entityHealth[32];
 				snprintf(entityHealth, ARRAY_COUNT(entityHealth), "HP: %3.0f/%3.0f",
 				         entity->stats->health, entity->stats->maxHealth);
-				renderer_string(&state->renderer, &state->arena, camera,
+				renderer_string(&state->renderer, transientArena, camera,
 				                font, entityHealth, strPos, V2(0, 0), 0, color);
 
 				strPos.y -= GLOBAL_debug.stringLineGap;
 				char entityTimer[32];
 				snprintf(entityTimer, ARRAY_COUNT(entityTimer), "ATB: %3.0f/%3.0f",
 				         entity->stats->actionTimer, entity->stats->actionRate);
-				renderer_string(&state->renderer, &state->arena, camera,
+				renderer_string(&state->renderer, transientArena, camera,
 				                font, entityTimer, strPos, V2(0, 0), 0, color);
 
 				strPos.y -= GLOBAL_debug.stringLineGap;
 				char entityIdTarget[32];
 				snprintf(entityIdTarget, ARRAY_COUNT(entityIdTarget),
 				         "Targetting ID: %d", entity->stats->entityIdToAttack);
-				renderer_string(&state->renderer, &state->arena, camera,
+				renderer_string(&state->renderer, transientArena, camera,
 				                font, entityIdTarget, strPos, V2(0, 0), 0, color);
 			}
 
 			strPos.y -= GLOBAL_debug.stringLineGap;
 			char *entityStateStr = debug_entitystate_string(entity->state);
-			renderer_string(&state->renderer, &state->arena, camera, font,
+			renderer_string(&state->renderer, transientArena, camera, font,
 			                entityStateStr, strPos, V2(0, 0), 0, color);
 
 			if (entity->audioRenderer)
@@ -442,7 +444,7 @@ void debug_drawUi(GameState *state, f32 dt)
 				         ARRAY_COUNT(entityAudioSourceIndex),
 				         "AudioSource Index: %d",
 				         entity->audioRenderer->sourceIndex);
-				renderer_string(&state->renderer, &state->arena, camera,
+				renderer_string(&state->renderer, transientArena, camera,
 				                font, entityAudioSourceIndex, strPos, V2(0, 0),
 				                0, color);
 			}
@@ -498,12 +500,25 @@ void debug_drawUi(GameState *state, f32 dt)
 
 	DEBUG_PUSH_VAR("Mouse Pos: %06.2f, %06.2f", state->input.mouseP, "v2");
 
-	i32 debug_bAllocated = state->arena.bytesAllocated;
-	DEBUG_PUSH_VAR("TotalMemoryAllocated: %db", debug_bAllocated, "i32");
-	i32 debug_kbAllocated = state->arena.bytesAllocated / 1024;
+	/*
+	 *****************
+	 * MEMORY DISPLAY
+	 *****************
+	 */
+	i32 debug_bAllocated  = transientArena->used;
+	i32 debug_kbAllocated = debug_bAllocated / 1024;
 	i32 debug_mbAllocated = debug_kbAllocated / 1024;
-	DEBUG_PUSH_VAR("TotalMemoryAllocated: %dkb", debug_kbAllocated, "i32");
-	DEBUG_PUSH_VAR("TotalMemoryAllocated: %dmb", debug_mbAllocated, "i32");
+	DEBUG_PUSH_VAR("TransientArena Used: %db", debug_bAllocated, "i32");
+	DEBUG_PUSH_VAR("TransientArena Used: %dkb", debug_kbAllocated, "i32");
+	DEBUG_PUSH_VAR("TransientArena Used: %dmb", debug_mbAllocated, "i32");
+	DEBUG_PUSH_STRING("");
+
+	debug_bAllocated  = state->arena_.used;
+	debug_kbAllocated = debug_bAllocated / 1024;
+	debug_mbAllocated = debug_kbAllocated / 1024;
+	DEBUG_PUSH_VAR("PersistentArena Used: %db", debug_bAllocated, "i32");
+	DEBUG_PUSH_VAR("PersistentArena Used: %dkb", debug_kbAllocated, "i32");
+	DEBUG_PUSH_VAR("PersistentArena Used: %dmb", debug_mbAllocated, "i32");
 	DEBUG_PUSH_STRING("");
 
 	AudioManager *audioManager = &state->audioManager;
@@ -533,7 +548,7 @@ void debug_drawUi(GameState *state, f32 dt)
 		DEBUG_PUSH_STRING("-none-");
 	}
 
-	updateAndRenderDebugStack(&state->renderer, &state->arena, dt);
-	renderConsole(&state->renderer, &state->arena);
+	updateAndRenderDebugStack(&state->renderer, transientArena, dt);
+	renderConsole(&state->renderer, transientArena);
 	debug_clearCounter();
 }

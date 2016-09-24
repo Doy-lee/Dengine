@@ -28,7 +28,7 @@
  *********************************
  */
 INTERNAL HashTableEntry *const getFreeHashSlot(HashTable *const table,
-                                               MemoryArena *const arena,
+                                               MemoryArena_ *const arena,
                                                const char *const key)
 {
 	u32 hashIndex = common_getHashIndex(key, table->size);
@@ -45,7 +45,7 @@ INTERNAL HashTableEntry *const getFreeHashSlot(HashTable *const table,
 			result = result->next;
 		}
 
-		result->next = PLATFORM_MEM_ALLOC(arena, 1, HashTableEntry);
+		result->next = MEMORY_PUSH_STRUCT(arena, HashTableEntry);
 		result       = result->next;
 
 	}
@@ -56,7 +56,7 @@ INTERNAL HashTableEntry *const getFreeHashSlot(HashTable *const table,
 	{
 		// +1 Null terminator
 		i32 keyLen  = common_strlen(key) + 1;
-		result->key = PLATFORM_MEM_ALLOC(arena, keyLen, char);
+		result->key = memory_pushBytes(arena, keyLen * sizeof(char));
 		common_strncpy(result->key, key, keyLen);
 	}
 
@@ -83,14 +83,14 @@ INTERNAL HashTableEntry *const getEntryFromHash(HashTable *const table,
  *********************************
  */
 INTERNAL SubTexture *getFreeAtlasSubTexSlot(TexAtlas *const atlas,
-                                            MemoryArena *const arena,
+                                            MemoryArena_ *const arena,
                                             const char *const key)
 {
 	HashTableEntry *entry = getFreeHashSlot(&atlas->subTex, arena, key);
 
 	if (entry)
 	{
-		entry->data  = PLATFORM_MEM_ALLOC(arena, 1, SubTexture);
+		entry->data  = MEMORY_PUSH_STRUCT(arena, SubTexture);
 		SubTexture *result = CAST(SubTexture *)entry->data;
 		return result;
 	}
@@ -127,7 +127,7 @@ Texture *asset_getTex(AssetManager *const assetManager, const char *const key)
 }
 
 TexAtlas *asset_getFreeTexAtlasSlot(AssetManager *const assetManager,
-                                    MemoryArena *arena, const char *const key,
+                                    MemoryArena_ *arena, const char *const key,
                                     i32 numSubTex)
 {
 
@@ -136,19 +136,22 @@ TexAtlas *asset_getFreeTexAtlasSlot(AssetManager *const assetManager,
 
 	if (entry)
 	{
-		entry->data      = PLATFORM_MEM_ALLOC(arena, 1, TexAtlas);
+		entry->data      = MEMORY_PUSH_STRUCT(arena, TexAtlas);
 		TexAtlas *result = CAST(TexAtlas *) entry->data;
 
 		if (result)
 		{
 			result->subTex.size = numSubTex;
 			result->subTex.entries =
-			    PLATFORM_MEM_ALLOC(arena, numSubTex, HashTableEntry);
+			    memory_pushBytes(arena, numSubTex * sizeof(HashTableEntry));
 
 			if (!result->subTex.entries)
 			{
+				// TODO(doyle): Mem free
+				/*
 				PLATFORM_MEM_FREE(arena, result, sizeof(TexAtlas));
 				result = NULL;
+				*/
 			}
 		}
 
@@ -174,7 +177,7 @@ TexAtlas *asset_getTexAtlas(AssetManager *const assetManager,
 
 
 Texture *asset_getFreeTexSlot(AssetManager *const assetManager,
-                              MemoryArena *const arena, const char *const key)
+                              MemoryArena_ *const arena, const char *const key)
 {
 
 	HashTableEntry *const entry =
@@ -182,7 +185,7 @@ Texture *asset_getFreeTexSlot(AssetManager *const assetManager,
 
 	if (entry)
 	{
-		entry->data     = PLATFORM_MEM_ALLOC(arena, 1, Texture);
+		entry->data     = MEMORY_PUSH_STRUCT(arena, Texture);
 		Texture *result = CAST(Texture *) entry->data;
 		return result;
 	}
@@ -192,7 +195,7 @@ Texture *asset_getFreeTexSlot(AssetManager *const assetManager,
 	}
 }
 
-Texture *asset_loadTextureImage(AssetManager *assetManager, MemoryArena *arena,
+Texture *asset_loadTextureImage(AssetManager *assetManager, MemoryArena_ *arena,
                                 const char *const path, const char *const key)
 {
 	/* Open the texture image */
@@ -232,14 +235,14 @@ Texture *asset_loadTextureImage(AssetManager *assetManager, MemoryArena *arena,
  *********************************
  */
 INTERNAL Animation *getFreeAnimationSlot(AssetManager *const assetManager,
-                                         MemoryArena *const arena,
+                                         MemoryArena_ *const arena,
                                          const char *const key)
 {
 	HashTableEntry *entry = getFreeHashSlot(&assetManager->anims, arena, key);
 
 	if (entry)
 	{
-		entry->data       = PLATFORM_MEM_ALLOC(arena, 1, Animation);
+		entry->data       = MEMORY_PUSH_STRUCT(arena, Animation);
 		Animation *result = CAST(Animation *) entry->data;
 		return result;
 	}
@@ -250,7 +253,7 @@ INTERNAL Animation *getFreeAnimationSlot(AssetManager *const assetManager,
 }
 
 void asset_addAnimation(AssetManager *const assetManager,
-                        MemoryArena *const arena, const char *const animName,
+                        MemoryArena_ *const arena, const char *const animName,
                         TexAtlas *const atlas,
                         char **const subTextureNames,
                         const i32 numSubTextures, const f32 frameDuration)
@@ -265,7 +268,7 @@ void asset_addAnimation(AssetManager *const assetManager,
 	anim->frameDuration = frameDuration;
 	anim->numFrames     = numSubTextures;
 
-	anim->frameList = PLATFORM_MEM_ALLOC(arena, numSubTextures, char*);
+	anim->frameList = memory_pushBytes(arena, numSubTextures * sizeof(char *));
 	for (i32 i = 0; i < numSubTextures; i++)
 	{
 		anim->frameList[i] = subTextureNames[i];
@@ -310,12 +313,12 @@ typedef struct XmlToken
 	i32 len;
 } XmlToken;
 
-INTERNAL XmlToken *const tokeniseXmlBuffer(MemoryArena *const arena,
+INTERNAL XmlToken *const tokeniseXmlBuffer(MemoryArena_ *const arena,
                                            const char *const buffer,
                                            const i32 bufferSize,
                                            int *const numTokens)
 {
-	XmlToken *xmlTokens = PLATFORM_MEM_ALLOC(arena, 8192, XmlToken);
+	XmlToken *xmlTokens = memory_pushBytes(arena, 8192 * sizeof(XmlToken));
 	i32 tokenIndex      = 0;
 	for (i32 i = 0; i < bufferSize; i++)
 	{
@@ -417,11 +420,11 @@ INTERNAL XmlToken *const tokeniseXmlBuffer(MemoryArena *const arena,
 	return xmlTokens;
 }
 
-INTERNAL XmlNode *const buildXmlTree(MemoryArena *const arena,
+INTERNAL XmlNode *const buildXmlTree(MemoryArena_ *const arena,
                                      XmlToken *const xmlTokens,
                                      const i32 numTokens)
 {
-	XmlNode *root = PLATFORM_MEM_ALLOC(arena, 1, XmlNode);
+	XmlNode *root = MEMORY_PUSH_STRUCT(arena, XmlNode);
 	if (!root) return NULL;
 
 	XmlNode *node = root;
@@ -457,7 +460,8 @@ INTERNAL XmlNode *const buildXmlTree(MemoryArena *const arena,
 					}
 
 					XmlNode *parent = node->parent;
-					PLATFORM_MEM_FREE(arena, node, sizeof(XmlNode));
+					// TODO(doyle): Mem free
+					//PLATFORM_MEM_FREE(arena, node, sizeof(XmlNode));
 					node            = node->parent;
 				}
 				else
@@ -496,7 +500,7 @@ INTERNAL XmlNode *const buildXmlTree(MemoryArena *const arena,
 				while (attribute->next)
 					attribute = attribute->next;
 
-				attribute->next = PLATFORM_MEM_ALLOC(arena, 1, XmlAttribute);
+				attribute->next = MEMORY_PUSH_STRUCT(arena, XmlAttribute);
 				attribute       = attribute->next;
 			}
 
@@ -531,7 +535,7 @@ INTERNAL XmlNode *const buildXmlTree(MemoryArena *const arena,
 				if (!node->child)
 				{
 					// TODO(doyle): Mem alloc error checking
-					node->child         = PLATFORM_MEM_ALLOC(arena, 1, XmlNode);
+					node->child         = MEMORY_PUSH_STRUCT(arena, XmlNode);
 					node->child->parent = node;
 					node                = node->child;
 				}
@@ -541,7 +545,7 @@ INTERNAL XmlNode *const buildXmlTree(MemoryArena *const arena,
 					while (nodeToCheck->next)
 						nodeToCheck = nodeToCheck->next;
 
-					nodeToCheck->next = PLATFORM_MEM_ALLOC(arena, 1, XmlNode);
+					nodeToCheck->next = MEMORY_PUSH_STRUCT(arena, XmlNode);
 					nodeToCheck->next->parent = node;
 					node                      = nodeToCheck->next;
 				}
@@ -560,7 +564,7 @@ INTERNAL XmlNode *const buildXmlTree(MemoryArena *const arena,
 	return root;
 }
 
-INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
+INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena_ *arena,
                                  XmlNode *root)
 {
 	XmlNode *node = root;
@@ -606,7 +610,8 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
 				i32 imageNameLen = common_strlen(imageName);
 				i32 totalPathLen = (dataDirLen + imageNameLen) + 1;
 
-				char *imagePath = PLATFORM_MEM_ALLOC(arena, totalPathLen, char);
+				char *imagePath =
+				    memory_pushBytes(arena, totalPathLen * sizeof(char));
 				common_strncat(imagePath, dataDir, dataDirLen);
 				common_strncat(imagePath, imageName, imageNameLen);
 
@@ -616,13 +621,15 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
 				if (!tex)
 				{
 					DEBUG_LOG("parseXmlTreeToGame() failed: Could not load image");
-					PLATFORM_MEM_FREE(arena, imagePath,
-					                  totalPathLen * sizeof(char));
+					// TODO(doyle): Mem free
+					//PLATFORM_MEM_FREE(arena, imagePath,
+					//                  totalPathLen * sizeof(char));
 					return;
 				}
 
-				PLATFORM_MEM_FREE(arena, imagePath,
-				                  totalPathLen * sizeof(char));
+				// TODO(doyle): Mem free
+				//PLATFORM_MEM_FREE(arena, imagePath,
+				//                  totalPathLen * sizeof(char));
 				atlas->tex = tex;
 
 				/*
@@ -757,7 +764,7 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena *arena,
 	}
 }
 
-INTERNAL void recursiveFreeXmlTree(MemoryArena *const arena,
+INTERNAL void recursiveFreeXmlTree(MemoryArena_ *const arena,
                                    XmlNode *node)
 {
 	if (!node)
@@ -775,7 +782,8 @@ INTERNAL void recursiveFreeXmlTree(MemoryArena *const arena,
 
 			attrib->name  = NULL;
 			attrib->value = NULL;
-			PLATFORM_MEM_FREE(arena, attrib, sizeof(XmlAttribute));
+			// TODO(doyle): Mem free
+			// PLATFORM_MEM_FREE(arena, attrib, sizeof(XmlAttribute));
 			attrib = next;
 		}
 
@@ -784,16 +792,18 @@ INTERNAL void recursiveFreeXmlTree(MemoryArena *const arena,
 
 		node->name     = NULL;
 		node->isClosed = FALSE;
-		PLATFORM_MEM_FREE(arena, node, sizeof(XmlNode));
+		// TODO(doyle): Mem free
+		// PLATFORM_MEM_FREE(arena, node, sizeof(XmlNode));
 		node = NULL;
 	}
 }
 
-INTERNAL void freeXmlData(MemoryArena *const arena, XmlToken *tokens,
+INTERNAL void freeXmlData(MemoryArena_ *const arena, XmlToken *tokens,
                           const i32 numTokens, XmlNode *tree)
 {
 	if (tree) recursiveFreeXmlTree(arena, tree);
-	if (tokens) PLATFORM_MEM_FREE(arena, tokens, numTokens * sizeof(XmlToken));
+	// TODO(doyle): Mem free
+	// if (tokens) PLATFORM_MEM_FREE(arena, tokens, numTokens * sizeof(XmlToken));
 }
 
 /*
@@ -802,8 +812,8 @@ INTERNAL void freeXmlData(MemoryArena *const arena, XmlToken *tokens,
  *********************************
  */
 const i32 asset_loadXmlFile(AssetManager *const assetManager,
-                      MemoryArena *const arena,
-                      const PlatformFileRead *const fileRead)
+                            MemoryArena_ *const arena,
+                            const PlatformFileRead *const fileRead)
 {
 	i32 result = 0;
 	/* Tokenise buffer */
@@ -842,7 +852,7 @@ AudioVorbis *const asset_getVorbis(AssetManager *const assetManager,
 	return result;
 }
 
-const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
+const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena_ *arena,
                            const char *const path, const char *const key)
 {
 	HashTableEntry *entry = getFreeHashSlot(&assetManager->audio, arena, key);
@@ -852,7 +862,7 @@ const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
 	PlatformFileRead fileRead = {0};
 	platform_readFileToBuffer(arena, path, &fileRead);
 
-	entry->data = PLATFORM_MEM_ALLOC(arena, 1, AudioVorbis);
+	entry->data = MEMORY_PUSH_STRUCT(arena, AudioVorbis);
 
 	i32 error;
 	AudioVorbis *audio = CAST(AudioVorbis *) entry->data;
@@ -862,7 +872,8 @@ const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
 	if (!audio->file)
 	{
 		printf("stb_vorbis_open_memory() failed: Error code %d\n", error);
-		platform_closeFileRead(arena, &fileRead);
+		// TODO(doyle): Mem free
+		// platform_closeFileRead(arena, &fileRead);
 		stb_vorbis_close(audio->file);
 		return 0;
 	}
@@ -877,11 +888,12 @@ const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena *arena,
 	return 0;
 }
 
-INTERNAL GLuint createShaderFromPath(MemoryArena *arena, const char *const path,
+INTERNAL GLuint createShaderFromPath(MemoryArena_ *arena, const char *const path,
                                      GLuint shadertype)
 {
 	PlatformFileRead file = {0};
 
+	// TODO(doyle): Revise platform reads
 	i32 status = platform_readFileToBuffer(arena, path, &file);
 	if (status)
 		return status;
@@ -942,7 +954,7 @@ Shader *const asset_getShader(AssetManager *assetManager,
 	return NULL;
 }
 
-const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena *arena,
+const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena_ *arena,
                                 const char *const vertexPath,
                                 const char *const fragmentPath,
                                 const enum ShaderList type)
@@ -968,7 +980,7 @@ typedef struct GlyphBitmap
 	i32 codepoint;
 } GlyphBitmap;
 
-const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
+const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena_ *arena,
                            const char *filePath)
 {
 	PlatformFileRead fontFileRead = {0};
@@ -990,7 +1002,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 	const i32 numGlyphs = CAST(i32)(codepointRange.y - codepointRange.x);
 
 	GlyphBitmap *glyphBitmaps =
-	    PLATFORM_MEM_ALLOC(arena, numGlyphs, GlyphBitmap);
+	    memory_pushBytes(arena, numGlyphs * sizeof(GlyphBitmap));
 	v2 largestGlyphDimension = V2(0, 0);
 
 	const f32 targetFontHeight = 15.0f;
@@ -1005,7 +1017,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 
 	font->metrics = CAST(FontMetrics){ascent, descent, lineGap};
 
-	font->charMetrics = PLATFORM_MEM_ALLOC(arena, numGlyphs, CharMetrics);
+	font->charMetrics =
+	    memory_pushBytes(arena, numGlyphs * sizeof(CharMetrics));
 
 	/*
 	 ************************************************************
@@ -1024,7 +1037,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 		                             &height, &xOffset, &yOffset);
 
 		u8 *source       = monoBitmap;
-		u32 *colorBitmap = PLATFORM_MEM_ALLOC(arena, width * height, u32);
+		u32 *colorBitmap =
+		    memory_pushBytes(arena, width * height * sizeof(u32));
 		u32 *dest        = colorBitmap;
 
 		// NOTE(doyle): STB generates 1 byte per pixel bitmaps, we use 4bpp, so
@@ -1100,7 +1114,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 #endif
 
 	i32 bitmapSize = SQUARED(TARGET_TEXTURE_SIZE) * TARGET_BYTES_PER_PIXEL;
-	u32 *fontBitmap = PLATFORM_MEM_ALLOC(arena, bitmapSize, u32);
+	u32 *fontBitmap = memory_pushBytes(arena, bitmapSize * sizeof(u32));
 	const i32 pitch = MAX_TEXTURE_SIZE * TARGET_BYTES_PER_PIXEL;
 
 	// Check value to determine when a row of glyphs is completely printed
@@ -1208,7 +1222,9 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 	stbi_write_png("out.png", MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4, fontBitmap,
 	               MAX_TEXTURE_SIZE * 4);
 #endif
-	PLATFORM_MEM_FREE(arena, fontBitmap, bitmapSize);
+
+	// TODO(doyle): Mem free
+	// PLATFORM_MEM_FREE(arena, fontBitmap, bitmapSize);
 
 	fontAtlas->tex = tex;
 	font->atlas   = fontAtlas;
@@ -1222,10 +1238,12 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena *arena,
 		i32 glyphBitmapSizeInBytes = CAST(i32) glyphBitmaps[i].dimensions.w *
 		                             CAST(i32) glyphBitmaps[i].dimensions.h *
 		                             sizeof(u32);
-		PLATFORM_MEM_FREE(arena, glyphBitmaps[i].pixels, glyphBitmapSizeInBytes);
+		// TODO(doyle): Mem free
+		// PLATFORM_MEM_FREE(arena, glyphBitmaps[i].pixels, glyphBitmapSizeInBytes);
 	}
 
-	PLATFORM_MEM_FREE(arena, glyphBitmaps, numGlyphs * sizeof(GlyphBitmap));
+	// TODO(doyle): Mem free
+	// PLATFORM_MEM_FREE(arena, glyphBitmaps, numGlyphs * sizeof(GlyphBitmap));
 	platform_closeFileRead(arena, &fontFileRead);
 
 	return 0;
@@ -1254,7 +1272,7 @@ const v2 asset_stringDimInPixels(const Font *const font,
 	return stringDim;
 }
 
-void asset_unitTest(MemoryArena *arena)
+void asset_unitTest(MemoryArena_ *arena)
 {
 	PlatformFileRead xmlFileRead = {0};
 	i32 result = platform_readFileToBuffer(
@@ -1267,15 +1285,11 @@ void asset_unitTest(MemoryArena *arena)
 	else
 	{
 		/* Tokenise buffer */
-		i32 memBefore       = arena->bytesAllocated;
 		i32 numTokens       = 0;
 		XmlToken *xmlTokens = tokeniseXmlBuffer(arena, xmlFileRead.buffer,
 		                                        xmlFileRead.size, &numTokens);
 		/* Build XML tree from tokens */
 		XmlNode *xmlTree = buildXmlTree(arena, xmlTokens, numTokens);
 		freeXmlData(arena, xmlTokens, numTokens, xmlTree);
-		i32 memAfter = arena->bytesAllocated;
-
-		ASSERT(memBefore == memAfter);
 	}
 }

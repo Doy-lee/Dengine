@@ -6,7 +6,7 @@
 #include "Dengine/Common.h"
 
 /* Forward Declaration */
-typedef struct MemoryArena MemoryArena;
+typedef struct MemoryArena MemoryArena_;
 
 #define AUDIO_NO_FREE_SOURCE -1
 typedef struct AudioSourceEntry
@@ -49,18 +49,18 @@ typedef struct AudioRenderer
 
 
 const i32 audio_init(AudioManager *audioManager);
-const i32 audio_playVorbis(MemoryArena *arena, AudioManager *audioManager,
+const i32 audio_playVorbis(MemoryArena_ *arena, AudioManager *audioManager,
                            AudioRenderer *audioRenderer, AudioVorbis *vorbis,
                            i32 numPlays);
-const i32 audio_streamPlayVorbis(MemoryArena *arena, AudioManager *audioManager,
+const i32 audio_streamPlayVorbis(MemoryArena_ *arena, AudioManager *audioManager,
                                  AudioRenderer *audioRenderer,
                                  AudioVorbis *vorbis, i32 numPlays);
-const i32 audio_stopVorbis(MemoryArena *arena, AudioManager *audioManager,
+const i32 audio_stopVorbis(MemoryArena_ *arena, AudioManager *audioManager,
                                  AudioRenderer *audioRenderer);
 const i32 audio_pauseVorbis(AudioManager *audioManager,
                                   AudioRenderer *audioRenderer);
 const i32 audio_resumeVorbis(AudioManager *audioManager,
                                    AudioRenderer *audioRenderer);
-const i32 audio_updateAndPlay(MemoryArena *arena, AudioManager *audioManager,
+const i32 audio_updateAndPlay(MemoryArena_ *arena, AudioManager *audioManager,
                               AudioRenderer *audioRenderer);
 #endif

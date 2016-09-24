@@ -3,37 +3,38 @@
 #include <stdlib.h>
 
 #include "Dengine/Platform.h"
-#include "Dengine/MemoryArena.h"
 #include "Dengine/Debug.h"
+#include "Dengine/MemoryArena.h"
 
-void platform_memoryFree(MemoryArena *arena, void *data, i32 numBytes)
+void platform_memoryFree(MemoryArena_ *arena, void *data, i32 numBytes)
 {
 	if (data) free(data);
 
 #ifdef DENGINE_DEBUG
 	debug_countIncrement(debugcount_platformMemFree);
-	arena->bytesAllocated -= numBytes;
+	arena->used -= numBytes;
 #endif
 }
 
-void *platform_memoryAlloc(MemoryArena *arena, i32 numBytes)
+void *platform_memoryAlloc(MemoryArena_ *arena, i32 numBytes)
 {
 	void *result = calloc(1, numBytes);
 
 #ifdef DENGINE_DEBUG
 	debug_countIncrement(debugcount_platformMemAlloc);
-	if (result)
-		arena->bytesAllocated += numBytes;
+	if (result && arena)
+		arena->used += numBytes;
 #endif
 	return result;
 }
 
-void platform_closeFileRead(MemoryArena *arena, PlatformFileRead *file)
+void platform_closeFileRead(MemoryArena_ *arena, PlatformFileRead *file)
 {
-	PLATFORM_MEM_FREE(arena, file->buffer, file->size);
+	// TODO(doyle): Mem free
+	// PLATFORM_MEM_FREE(arena, file->buffer, file->size);
 }
 
-i32 platform_readFileToBuffer(MemoryArena *arena, const char *const filePath,
+i32 platform_readFileToBuffer(MemoryArena_ *arena, const char *const filePath,
                               PlatformFileRead *file)
 {
 	HANDLE fileHandle = CreateFile(filePath, GENERIC_READ, FILE_SHARE_READ,
@@ -55,8 +56,8 @@ i32 platform_readFileToBuffer(MemoryArena *arena, const char *const filePath,
 	}
 
 	// TODO(doyle): Warning we assume files less than 4GB
-	file->buffer = PLATFORM_MEM_ALLOC(arena, fileSize.LowPart, char);
-	file->size = fileSize.LowPart;
+	file->buffer = memory_pushBytes(arena, fileSize.LowPart * sizeof(char));
+	file->size   = fileSize.LowPart;
 
 	DWORD numBytesRead = 0;
 
@@ -66,7 +67,19 @@ i32 platform_readFileToBuffer(MemoryArena *arena, const char *const filePath,
 	{
 		printf("ReadFile() failed: %d error number\n",
 		       status);
-		PLATFORM_MEM_FREE(arena, file->buffer, file->size);
+
+		char msgBuffer[512] = {0};
+		DWORD dw = GetLastError();
+
+		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
+		                  FORMAT_MESSAGE_FROM_SYSTEM |
+		                  FORMAT_MESSAGE_IGNORE_INSERTS,
+		              NULL, dw, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		              (LPTSTR)msgBuffer, 0, NULL);
+
+
+		// TODO(doyle): Mem free
+		// PLATFORM_MEM_FREE(arena, file->buffer, file->size);
 		return status;
 	}
 	else if (numBytesRead != file->size)
@@ -74,7 +87,8 @@ i32 platform_readFileToBuffer(MemoryArena *arena, const char *const filePath,
 		printf(
 		    "ReadFile() failed: Number of bytes read doesn't match file "
 		    "size\n");
-		PLATFORM_MEM_FREE(arena, file->buffer, file->size);
+		// TODO(doyle): Mem free
+		// PLATFORM_MEM_FREE(arena, file->buffer, file->size);
 		return -1;
 	}
 

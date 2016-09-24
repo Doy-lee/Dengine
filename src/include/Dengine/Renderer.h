@@ -8,7 +8,7 @@
 typedef struct AssetManager AssetManager;
 typedef struct Entity Entity;
 typedef struct Font Font;
-typedef struct MemoryArena MemoryArena;
+typedef struct MemoryArena MemoryArena_;
 typedef struct Shader Shader;
 typedef struct Texture Texture;
 
@@ -68,12 +68,12 @@ inline void renderer_staticRect(Renderer *const renderer, v2 pos, v2 size,
 	              renderTex, color);
 }
 
-void renderer_string(Renderer *const renderer, MemoryArena *arena,
+void renderer_string(Renderer *const renderer, MemoryArena_ *arena,
                      Rect camera, Font *const font,
                      const char *const string, v2 pos, v2 pivotPoint,
                      f32 rotate, v4 color);
 
-inline void renderer_staticString(Renderer *const renderer, MemoryArena *arena,
+inline void renderer_staticString(Renderer *const renderer, MemoryArena_ *arena,
                                   Font *const font, const char *const string,
                                   v2 pos, v2 pivotPoint, f32 rotate, v4 color)
 {

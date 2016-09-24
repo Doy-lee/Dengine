@@ -160,11 +160,22 @@ i32 main(void)
 	 * INITIALISE GAME
 	 *******************
 	 */
+	Memory memory = {0};
+
+	size_t persistentSize = MEGABYTES(128);
+	size_t transientSize  = MEGABYTES(128);
+
+	memory.persistentSize = persistentSize;
+	memory.persistent     = PLATFORM_MEM_ALLOC_(NULL, persistentSize, u8);
+
+	memory.transientSize = transientSize;
+	memory.transient     = PLATFORM_MEM_ALLOC_(NULL, transientSize, u8);
+
 	GameState worldTraveller = {0};
 	worldTraveller_gameInit(&worldTraveller,
-	                        V2i(frameBufferWidth, frameBufferHeight));
+	                        V2i(frameBufferWidth, frameBufferHeight), &memory);
 #ifdef DENGINE_DEBUG
-	debug_init(&worldTraveller.arena, V2i(windowWidth, windowHeight),
+	debug_init(&worldTraveller.arena_, V2i(windowWidth, windowHeight),
 	           worldTraveller.assetManager.font);
 #endif
 
