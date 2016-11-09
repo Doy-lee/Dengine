@@ -1,17 +1,10 @@
-#ifndef DENGINE_ENTITY_H
-#define DENGINE_ENTITY_H
+#ifndef ENTITY_H
+#define ENTITY_H
 
-#include "Dengine/Common.h"
-#include "Dengine/Math.h"
 #include "Dengine/Assets.h"
+#include "Dengine/Common.h"
 
-typedef struct AssetManager AssetManager;
 typedef struct AudioRenderer AudioRenderer;
-typedef struct MemoryArena MemoryArena_;
-typedef struct World World;
-typedef struct EventQueue EventQueue;
-
-typedef struct Entity Entity;
 
 enum Direction
 {
@@ -19,62 +12,16 @@ enum Direction
 	direction_west,
 	direction_south,
 	direction_east,
-	direction_num,
 	direction_null,
+	direction_num,
 };
 
 enum EntityType
 {
-	entitytype_null,
-	entitytype_hero,
-	entitytype_weapon,
-	entitytype_projectile,
-	entitytype_attackObject,
-	entitytype_npc,
-	entitytype_mob,
-	entitytype_tile,
-	entitytype_soundscape,
+	entitytype_invalid,
+	entitytype_ship,
 	entitytype_count,
 };
-
-enum EntityState
-{
-	entitystate_idle,
-	entitystate_battle,
-	entitystate_attack,
-	entitystate_dead,
-	entitystate_count,
-	entitystate_invalid,
-};
-
-enum EntityAttack
-{
-	entityattack_claudeAttack,
-	entityattack_claudeAttackUp,
-	entityattack_claudeAttackDown,
-	entityattack_claudeDragonHowl,
-	entityattack_claudeEnergySword,
-	entityattack_claudeRipperBlast,
-	entityattack_claudeAirSlash,
-	entityattack_count,
-	entityattack_invalid,
-};
-
-typedef struct EntityStats
-{
-	f32 maxHealth;
-	f32 health;
-
-	f32 actionRate;
-	f32 actionTimer;
-	f32 actionSpdMul;
-
-	f32 busyDuration;
-	i32 entityIdToAttack;
-	enum EntityAttack queuedAttack;
-
-	Entity *weapon;
-} EntityStats;
 
 typedef struct EntityAnim
 {
@@ -85,7 +32,7 @@ typedef struct EntityAnim
 	u32 timesCompleted;
 } EntityAnim;
 
-struct Entity
+typedef struct Entity
 {
 	i32 id;
 
@@ -102,7 +49,6 @@ struct Entity
 
 	b32 invisible;
 
-	enum EntityState state;
 	enum EntityType type;
 	enum Direction direction;
 
@@ -116,32 +62,13 @@ struct Entity
 	// allow for early-exit in collision check if the entity doesn't collide at
 	// all
 	b32 collides;
-	enum EntityType collidesWith[entitytype_count];
 
 	EntityAnim animList[16];
-	i32 currAnimId;
-
-	EntityStats *stats;
+	i32 animListIndex;
 
 	// TODO(doyle): Audio mixing instead of multiple renderers
 	AudioRenderer *audioRenderer;
 	i32 numAudioRenderers;
-};
+} Entity;
 
-SubTexture entity_getActiveSubTexture(Entity *const entity);
-void entity_setActiveAnim(EventQueue *eventQueue, Entity *const entity,
-                          const char *const animName);
-void entity_updateAnim(EventQueue *eventQueue, Entity *const entity,
-                       const f32 dt);
-void entity_addAnim(AssetManager *const assetManager, Entity *const entity,
-                    const char *const animName);
-Entity *const entity_add(MemoryArena_ *const arena, World *const world,
-                         const v2 pos, const v2 size, const f32 scale,
-                         const enum EntityType type,
-                         const enum Direction direction, Texture *const tex,
-                         const b32 collides);
-void entity_clearData(MemoryArena_ *const arena, World *const world,
-                      Entity *const entity);
-Entity *entity_get(World *const world, const i32 entityId);
-i32 entity_getIndex(World *const world, const i32 entityId);
 #endif

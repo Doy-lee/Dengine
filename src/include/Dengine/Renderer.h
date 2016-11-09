@@ -6,8 +6,8 @@
 
 /* Forward Declaration */
 typedef struct AssetManager AssetManager;
-typedef struct Entity Entity;
 typedef struct Font Font;
+typedef struct Entity Entity;
 typedef struct MemoryArena MemoryArena_;
 typedef struct Shader Shader;
 typedef struct Texture Texture;

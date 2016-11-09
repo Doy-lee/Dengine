@@ -5,25 +5,25 @@
 
 typedef struct MemoryArena
 {
-	size_t size;
-	size_t used;
+	MemoryIndex size;
+	MemoryIndex used;
 	u8 *base;
 } MemoryArena_;
 
 typedef struct Memory
 {
 	void *persistent;
-	size_t persistentSize;
+	MemoryIndex persistentSize;
 
 	void *transient;
-	size_t transientSize;
+	MemoryIndex transientSize;
 
 	b32 init;
 } Memory;
 
 #define MEMORY_PUSH_STRUCT(arena, type) (type *)memory_pushBytes(arena, sizeof(type))
 #define MEMORY_PUSH_ARRAY(arena, count, type) (type *)memory_pushBytes(arena, (count)*sizeof(type))
-inline void *memory_pushBytes(MemoryArena_ *arena, size_t size)
+inline void *memory_pushBytes(MemoryArena_ *arena, MemoryIndex size)
 {
 	ASSERT((arena->used + size) <= arena->size);
 	void *result = arena->base + arena->used;
@@ -32,6 +32,6 @@ inline void *memory_pushBytes(MemoryArena_ *arena, size_t size)
 	return result;
 }
 
-void memory_arenaInit(MemoryArena_ *arena, void *base, size_t size);
+void memory_arenaInit(MemoryArena_ *arena, void *base, MemoryIndex size);
 
 #endif

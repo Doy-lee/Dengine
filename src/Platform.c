@@ -6,7 +6,7 @@
 #include "Dengine/Debug.h"
 #include "Dengine/MemoryArena.h"
 
-void platform_memoryFree(MemoryArena_ *arena, void *data, i32 numBytes)
+void platform_memoryFree(MemoryArena_ *arena, void *data, size_t numBytes)
 {
 	if (data) free(data);
 
@@ -16,7 +16,7 @@ void platform_memoryFree(MemoryArena_ *arena, void *data, i32 numBytes)
 #endif
 }
 
-void *platform_memoryAlloc(MemoryArena_ *arena, i32 numBytes)
+void *platform_memoryAlloc(MemoryArena_ *arena, size_t numBytes)
 {
 	void *result = calloc(1, numBytes);
 

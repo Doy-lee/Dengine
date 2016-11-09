@@ -14,6 +14,8 @@ typedef i32 b32;
 typedef float f32;
 typedef double f64;
 
+typedef size_t MemoryIndex;
+
 #define TRUE 1
 #define FALSE 0
 

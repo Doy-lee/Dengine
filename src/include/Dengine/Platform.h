@@ -140,14 +140,16 @@ typedef struct PlatformFileRead
 } PlatformFileRead;
 
 // TODO(doyle): Create own custom memory allocator
-#define PLATFORM_MEM_FREE_(arena, ptr, bytes) platform_memoryFree(arena, CAST(void *) ptr, bytes)
+#define PLATFORM_MEM_FREE_(arena, ptr, bytes)                                  \
+	platform_memoryFree(arena, CAST(void *) ptr, bytes)
 // TODO(doyle): numBytes in mem free is temporary until we create custom
 // allocator since we haven't put in a system to track memory usage per
 // allocation
-void platform_memoryFree(MemoryArena_ *arena, void *data, i32 numBytes);
+void platform_memoryFree(MemoryArena_ *arena, void *data, MemoryIndex numBytes);
 
-#define PLATFORM_MEM_ALLOC_(arena, num, type) CAST(type *) platform_memoryAlloc(arena, num * sizeof(type))
-void *platform_memoryAlloc(MemoryArena_ *arena, i32 numBytes);
+#define PLATFORM_MEM_ALLOC_(arena, num, type)                                  \
+	CAST(type *) platform_memoryAlloc(arena, num * sizeof(type))
+void *platform_memoryAlloc(MemoryArena_ *arena, MemoryIndex numBytes);
 
 void platform_closeFileRead(MemoryArena_ *arena, PlatformFileRead *file);
 i32 platform_readFileToBuffer(MemoryArena_ *arena, const char *const filePath,

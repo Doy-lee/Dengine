@@ -3,7 +3,8 @@
 #include "Dengine/Debug.h"
 #include "Dengine/Math.h"
 #include "Dengine/OpenGL.h"
-#include "Dengine/WorldTraveller.h"
+#include "Dengine/MemoryArena.h"
+#include "Dengine/Asteroid.h"
 
 INTERNAL inline void processKey(KeyState *state, int action)
 {
@@ -142,6 +143,7 @@ i32 main(void)
 	i32 frameBufferWidth, frameBufferHeight;
 	glfwGetFramebufferSize(window, &frameBufferWidth, &frameBufferHeight);
 	glViewport(0, 0, frameBufferWidth, frameBufferHeight);
+	v2 windowSize = V2i(frameBufferWidth, frameBufferHeight);
 
 	glfwSetKeyCallback(window, keyCallback);
 	glfwSetCursorPosCallback(window, mouseCallback);
@@ -161,9 +163,8 @@ i32 main(void)
 	 *******************
 	 */
 	Memory memory = {0};
-
-	size_t persistentSize = MEGABYTES(128);
-	size_t transientSize  = MEGABYTES(128);
+	MemoryIndex persistentSize = MEGABYTES(128);
+	MemoryIndex transientSize  = MEGABYTES(128);
 
 	memory.persistentSize = persistentSize;
 	memory.persistent     = PLATFORM_MEM_ALLOC_(NULL, persistentSize, u8);
@@ -171,15 +172,8 @@ i32 main(void)
 	memory.transientSize = transientSize;
 	memory.transient     = PLATFORM_MEM_ALLOC_(NULL, transientSize, u8);
 
-	GameState worldTraveller = {0};
-	worldTraveller_gameInit(&worldTraveller,
-	                        V2i(frameBufferWidth, frameBufferHeight), &memory);
-#ifdef DENGINE_DEBUG
-	debug_init(&worldTraveller.arena_, V2i(windowWidth, windowHeight),
-	           worldTraveller.assetManager.font);
-#endif
-
-	glfwSetWindowUserPointer(window, CAST(void *)(&worldTraveller));
+	GameState gameState = {0};
+	glfwSetWindowUserPointer(window, CAST(void *)(&gameState));
 
 	/*
 	 *******************
@@ -206,10 +200,11 @@ i32 main(void)
 		glfwPollEvents();
 
 		/* Rendering commands here*/
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		worldTraveller_gameUpdateAndRender(&worldTraveller, secondsElapsed);
+		asteroid_gameUpdateAndRender(&gameState, &memory, windowSize,
+		                             secondsElapsed);
 		GL_CHECK_ERROR();
 
 		/* Swap the buffers */
@@ -235,14 +230,10 @@ i32 main(void)
 			f32 msPerFrame      = secondsElapsed * 1000.0f;
 			f32 framesPerSecond = 1.0f / secondsElapsed;
 
-			i32 entityCount =
-			    worldTraveller.world[worldTraveller.currWorldIndex]
-			        .freeEntityIndex;
-
 			char textBuffer[256];
 			snprintf(textBuffer, ARRAY_COUNT(textBuffer),
 			         "Dengine | %f ms/f | %f fps | Entity Count: %d",
-			         msPerFrame, framesPerSecond, entityCount);
+			         msPerFrame, framesPerSecond, 0);
 
 			glfwSetWindowTitle(window, textBuffer);
 			titleUpdateFrequencyInSeconds = 0.5f;

@@ -94,7 +94,6 @@ typedef struct AudioVorbis
  * Texture Assets
  *********************************
  */
-
 typedef struct SubTexture
 {
 	Rect rect;

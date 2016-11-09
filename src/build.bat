@@ -1,4 +1,13 @@
 @echo OFF
+
+REM Build tags file
+ctags -R
+
+REM Check if build tool is on path
+REM >nul, 2>nul will remove the output text from the where command
+where cl.exe >nul 2>nul
+if %errorlevel%==1 call msvc86.bat
+
 REM Drop compilation files into build folder
 IF NOT EXIST ..\bin mkdir ..\bin
 pushd ..\bin

@@ -381,23 +381,31 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 	if (math_pointInRect(camera, leftAlignedP) ||
 	    math_pointInRect(camera, rightAlignedP))
 	{
-		EntityAnim *entityAnim = &entity->animList[entity->currAnimId];
-		Animation *anim        = entityAnim->anim;
-		char *frameName        = anim->frameList[entityAnim->currFrame];
-		SubTexture animRect    = asset_getAtlasSubTex(anim->atlas, frameName);
+		EntityAnim *entityAnim = &entity->animList[entity->animListIndex];
 
-		v4 animTexRect = {0};
-		animTexRect.vec2[0] = animRect.rect.pos;
-		animTexRect.vec2[1] = v2_add(animRect.rect.pos, animRect.rect.size);
+		v4 texRect = {0};
+		if (entityAnim->anim)
+		{
+			Animation *anim        = entityAnim->anim;
+			char *frameName        = anim->frameList[entityAnim->currFrame];
+			SubTexture subTex    = asset_getAtlasSubTex(anim->atlas, frameName);
 
-		flipTexCoord(&animTexRect, entity->flipX, entity->flipY);
+			texRect.vec2[0] = subTex.rect.pos;
+			texRect.vec2[1] = v2_add(subTex.rect.pos, subTex.rect.size);
+			flipTexCoord(&texRect, entity->flipX, entity->flipY);
+		}
+		else
+		{
+			texRect = V4(0.0f, 0.0f, (f32)entity->tex->width,
+			             (f32)entity->tex->height);
+		}
 
 		if (entity->direction == direction_east)
 		{
-			flipTexCoord(&animTexRect, TRUE, FALSE);
+			flipTexCoord(&texRect, TRUE, FALSE);
 		}
 
-		RenderTex renderTex = {entity->tex, animTexRect};
+		RenderTex renderTex = {entity->tex, texRect};
 		renderer_rect(renderer, camera, entity->pos, entity->size, pivotPoint,
 		              entity->rotation + rotate, renderTex, color);
 	}
