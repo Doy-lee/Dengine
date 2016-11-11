@@ -24,25 +24,36 @@ typedef struct RenderTex
 	v4 texRect;
 } RenderTex;
 
-typedef struct RenderQuad
-{
-	Vertex vertex[4];
-} RenderQuad_;
+typedef struct TrianglePoints {
+	v2 points[3];
+} TrianglePoints;
 
 typedef struct RenderGroup
 {
+	enum RenderMode mode;
 	Texture *tex;
 	v4 color;
 
 	Vertex *vertexList;
 	i32 vertexIndex;
+
 } RenderGroup;
+
+enum RenderMode
+{
+	rendermode_quad,
+	rendermode_triangle,
+	rendermode_count,
+	rendermode_invalid,
+};
 
 typedef struct Renderer
 {
 	Shader *shader;
-	u32 vao;
-	u32 vbo;
+
+	u32 vao[rendermode_count];
+	u32 vbo[rendermode_count];
+
 	i32 numVertexesInVbo;
 	v2 vertexNdcFactor;
 	v2 size;
@@ -52,7 +63,8 @@ typedef struct Renderer
 } Renderer;
 
 // TODO(doyle): Use z-index occluding for rendering
-RenderTex renderer_createNullRenderTex(AssetManager *const assetManager);
+RenderTex
+renderer_createNullRenderTex(AssetManager *const assetManager);
 
 // TODO(doyle): Clean up lines
 // Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
@@ -67,6 +79,10 @@ inline void renderer_staticRect(Renderer *const renderer, v2 pos, v2 size,
 	renderer_rect(renderer, staticCamera, pos, size, pivotPoint, rotate,
 	              renderTex, color);
 }
+
+void renderer_triangle(Renderer *const renderer, Rect camera,
+                       TrianglePoints triangle, v2 pivotPoint, f32 rotate,
+                       RenderTex renderTex, v4 color);
 
 void renderer_string(Renderer *const renderer, MemoryArena_ *arena,
                      Rect camera, Font *const font,

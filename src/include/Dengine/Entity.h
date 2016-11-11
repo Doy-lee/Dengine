@@ -39,8 +39,8 @@ typedef struct Entity
 	i32 childIds[8];
 	i32 numChilds;
 
-	v2 pos;  // Position
-	v2 dPos; // Velocity
+	v2 pos;
+	v2 velocity;
 	v2 hitbox;
 	v2 size;
 

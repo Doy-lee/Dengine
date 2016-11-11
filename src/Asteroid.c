@@ -61,26 +61,41 @@ void initRenderer(GameState *state, v2 windowSize) {
 	GL_CHECK_ERROR();
 
 	/* Create buffers */
-	glGenVertexArrays(1, &renderer->vao);
-	glGenBuffers(1, &renderer->vbo);
+	glGenVertexArrays(ARRAY_COUNT(renderer->vao), renderer->vao);
+	glGenBuffers(ARRAY_COUNT(renderer->vbo), renderer->vbo);
 	GL_CHECK_ERROR();
 
-	/* Bind buffers */
-	glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
-	glBindVertexArray(renderer->vao);
+	{
+		// Bind buffers and configure vao, vao automatically intercepts
+		// glBindCalls and associates the state with that buffer for us
+		glBindVertexArray(renderer->vao[rendermode_quad]);
+		glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo[rendermode_quad]);
 
-	/* Configure VAO */
-	u32 numVertexElements = 4;
-	u32 stride            = sizeof(Vertex);
-	glVertexAttribPointer(0, numVertexElements, GL_FLOAT, GL_FALSE, stride,
-	                      (GLvoid *)0);
-	glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(0);
+		u32 numVertexElements = 4;
+		u32 stride            = sizeof(Vertex);
 
-	GL_CHECK_ERROR();
+		glVertexAttribPointer(0, numVertexElements, GL_FLOAT,
+		                      GL_FALSE, stride, (GLvoid *)0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+	}
+
+	{
+		glBindVertexArray(renderer->vao[rendermode_triangle]);
+		glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo[rendermode_triangle]);
+
+		glEnableVertexAttribArray(0);
+		u32 numVertexElements = 3;
+		u32 stride            = sizeof(Vertex);
+
+		glVertexAttribPointer(0, numVertexElements, GL_FLOAT,
+		                      GL_FALSE, stride, (GLvoid *)0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+	}
 
 	/* Unbind */
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
 	GL_CHECK_ERROR();
 
 	// TODO(doyle): Lazy allocate render group capacity
@@ -167,6 +182,8 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		initAssetManager(state);
 		initRenderer(state, windowSize);
 
+		state->pixelsPerMeter = 70.0f;
+
 		{ // Init ship entity
 			Entity *ship    = &state->entityList[state->entityIndex++];
 			ship->id        = 0;
@@ -182,6 +199,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 		state->camera.pos = V2(0, 0);
 		state->camera.size = state->renderer.size;
+
 
 		state->init = TRUE;
 	}
@@ -217,25 +235,75 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 		if (entity->type == entitytype_ship) {
 
-			{ // Parse input
-				if (getKeyStatus(&state->input.keys[keycode_up],
-				                 readkeytype_repeat, 0.0f, dt))
-				{
-					entity->pos.y += 10.0f;
-				}
 
-				if (getKeyStatus(&state->input.keys[keycode_down],
-				                 readkeytype_repeat, 0.0f, dt))
-				{
-					entity->pos.y -= 10.0f;
-				}
+			v2 acceleration = {0};
+			if (getKeyStatus(&state->input.keys[keycode_up], readkeytype_repeat,
+			                 0.0f, dt))
+			{
+				acceleration.y = 1.0f;
 			}
 
+			if (getKeyStatus(&state->input.keys[keycode_down],
+			                 readkeytype_repeat, 0.0f, dt))
+			{
+				acceleration.y = -1.0f;
+			}
+
+			if (getKeyStatus(&state->input.keys[keycode_left],
+			                 readkeytype_repeat, 0.0f, dt))
+			{
+				acceleration.x = -1.0f;
+			}
+
+			if (getKeyStatus(&state->input.keys[keycode_right],
+			                 readkeytype_repeat, 0.0f, dt))
+			{
+				acceleration.x = 1.0f;
+			}
+
+			if (acceleration.x != 0.0f && acceleration.y != 0.0f)
+			{
+				// NOTE(doyle): Cheese it and pre-compute the vector for
+				// diagonal using pythagoras theorem on a unit triangle 1^2
+				// + 1^2 = c^2
+				acceleration = v2_scale(acceleration, 0.70710678118f);
+			}
+
+			/*
+			    Assuming acceleration A over t time, then integrate twice to get
+
+			    newVelocity = a*t + oldVelocity
+			    newPos = (a*t^2)/2 + oldVelocity*t + oldPos
+			*/
+
+			acceleration = v2_scale(acceleration, state->pixelsPerMeter * 25);
+
+			v2 oldVelocity = entity->velocity;
+			v2 resistance = v2_scale(oldVelocity, 4.0f);
+			acceleration = v2_sub(acceleration, resistance);
+
+			entity->velocity = v2_add(v2_scale(acceleration, dt), oldVelocity);
+
+			v2 halfAcceleration = v2_scale(acceleration, 0.5f);
+			v2 halfAccelerationDtSquared =
+			    v2_scale(halfAcceleration, (SQUARED(dt)));
+			v2 oldVelocityDt = v2_scale(oldVelocity, dt);
+			v2 oldPos = entity->pos;
+			entity->pos      = v2_add(
+			    v2_add(halfAccelerationDtSquared, oldVelocityDt), oldPos);
 		}
 
 		renderer_entity(&state->renderer, state->camera, entity, V2(0, 0), 0,
-		                V4(1.0f, 1.0f, 1.0f, 1.0f));
+		                 V4(0.0f, 1.0f, 1.0f, 1.0f));
 	}
+
+	RenderTex nullRenderTex = renderer_createNullRenderTex(&state->assetManager);
+	TrianglePoints triangle = {0};
+	triangle.points[0] = V2(100, 200);
+	triangle.points[2] = V2(100, 100);
+	triangle.points[1] = V2(200, 100);
+	renderer_triangle(&state->renderer, state->camera, triangle, V2(0, 0), 0,
+	                  nullRenderTex, V4(1, 1, 1, 1));
 
 	renderer_renderGroups(&state->renderer);
 }

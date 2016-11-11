@@ -233,7 +233,7 @@ i32 main(void)
 			char textBuffer[256];
 			snprintf(textBuffer, ARRAY_COUNT(textBuffer),
 			         "Dengine | %f ms/f | %f fps | Entity Count: %d",
-			         msPerFrame, framesPerSecond, 0);
+			         msPerFrame, framesPerSecond, gameState.entityIndex);
 
 			glfwSetWindowTitle(window, textBuffer);
 			titleUpdateFrequencyInSeconds = 0.5f;

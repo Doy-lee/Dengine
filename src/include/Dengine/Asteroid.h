@@ -13,6 +13,7 @@ typedef struct GameState {
 
 	Entity entityList[1024];
 	i32 entityIndex;
+	f32 pixelsPerMeter;
 
 	Rect camera;
 

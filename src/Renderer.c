@@ -10,8 +10,19 @@
 
 #define RENDER_BOUNDING_BOX FALSE
 
+typedef struct RenderQuad
+{
+	Vertex vertex[4];
+} RenderQuad_;
+
+typedef struct RenderTriangle
+{
+	Vertex vertex[3];
+} RenderTriangle_;
+
 INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
-                                     Vertex *vertexList, i32 numVertexes)
+                                     Vertex *vertexList, i32 numVertexes,
+                                     enum RenderMode targetRenderMode)
 {
 
 #ifdef DENGINE_DEBUG
@@ -32,7 +43,7 @@ INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
 			/* If the textures match and have the same color modulation, we can
 			 * add these vertices to the current group */
 			if (group->tex->id == tex->id &&
-			    v4_equals(group->color, color))
+			    v4_equals(group->color, color) && group->mode == targetRenderMode)
 			{
 				groupIsValid = TRUE;
 			}
@@ -46,6 +57,7 @@ INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
 			group->vertexIndex++;
 			group->tex   = tex;
 			group->color = color;
+			group->mode  = targetRenderMode;
 
 #ifdef DENGINE_DEBUG
 			debug_countIncrement(debugcount_renderGroups);
@@ -90,37 +102,6 @@ INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
 	}
 }
 
-INTERNAL inline void addRenderQuadToRenderGroup(Renderer *renderer,
-                                                RenderQuad_ quad,
-                                                Texture *tex, v4 color)
-{
-	/*
-	   NOTE(doyle): Entity rendering is always done in two pairs of
-	   triangles, i.e. quad. To batch render quads as a triangle strip, we
-	   need to create zero-area triangles which OGL will omit from
-	   rendering. Render groups are initialised with 1 degenerate vertex and
-	   then the first two vertexes sent to the render group are the same to
-	   form 1 zero-area triangle strip.
-
-	   A degenerate vertex has to be copied from the last vertex in the
-	   rendering quad, to repeat this process as more entities are
-	   renderered.
-
-	   Alternative implementation is recognising if the rendered
-	   entity is the first in its render group, then we don't need to init
-	   a degenerate vertex, and only at the end of its vertex list. But on
-	   subsequent renders, we need a degenerate vertex at the front to
-	   create the zero-area triangle strip.
-
-	   The first has been chosen for simplicity of code, at the cost of
-	   1 degenerate vertex at the start of each render group.
-   */
-	Vertex vertexList[6] = {quad.vertex[0], quad.vertex[0], quad.vertex[1],
-	                        quad.vertex[2], quad.vertex[3], quad.vertex[3]};
-	addVertexToRenderGroup(renderer, tex, color, vertexList,
-	                       ARRAY_COUNT(vertexList));
-};
-
 INTERNAL inline void flipTexCoord(v4 *texCoords, b32 flipX, b32 flipY)
 {
 	if (flipX)
@@ -138,22 +119,17 @@ INTERNAL inline void flipTexCoord(v4 *texCoords, b32 flipX, b32 flipY)
 	}
 }
 
-INTERNAL void updateBufferObject(Renderer *const renderer,
-                                 const Vertex *const vertexList,
-                                 const i32 numVertex)
+INTERNAL void bufferRenderGroupToGL(Renderer *renderer, RenderGroup *group)
 {
+	Vertex *vertexList = group->vertexList;
+	i32 numVertex = group->vertexIndex;
+
 	// TODO(doyle): We assume that vbo and vao are assigned
 	renderer->numVertexesInVbo = numVertex;
-
-	glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo[group->mode]);
 	glBufferData(GL_ARRAY_BUFFER, numVertex * sizeof(Vertex), vertexList,
 	             GL_STREAM_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-}
-
-INTERNAL void bufferRenderGroupToGL(Renderer *renderer, RenderGroup *group)
-{
-	updateBufferObject(renderer, group->vertexList, group->vertexIndex);
 }
 
 INTERNAL RenderQuad_ createRenderQuad(Renderer *renderer, v2 pos, v2 size,
@@ -237,6 +213,39 @@ INTERNAL RenderQuad_ createRenderQuad(Renderer *renderer, v2 pos, v2 size,
 	return result;
 }
 
+INTERNAL RenderTriangle_ createRenderTriangle(Renderer *renderer,
+                                              TrianglePoints triangle,
+                                              v2 pivotPoint, f32 rotate,
+                                              RenderTex renderTex)
+{
+	/* Convert texture coordinates to normalised texture coordinates */
+	v4 texRectNdc = renderTex.texRect;
+	if (renderTex.tex)
+	{
+		v2 texNdcFactor =
+		    V2(1.0f / renderTex.tex->width, 1.0f / renderTex.tex->height);
+		texRectNdc.e[0] *= texNdcFactor.w;
+		texRectNdc.e[1] *= texNdcFactor.h;
+		texRectNdc.e[2] *= texNdcFactor.w;
+		texRectNdc.e[3] *= texNdcFactor.h;
+	}
+	
+	RenderTriangle_ result = {0};
+
+	result.vertex[0].pos       = triangle.points[0];
+	result.vertex[0].texCoord  = V2(texRectNdc.x, texRectNdc.w);
+
+	result.vertex[1].pos       = triangle.points[1];
+	result.vertex[1].texCoord  = V2(texRectNdc.x, texRectNdc.y);
+
+	result.vertex[2].pos       = triangle.points[2];
+	result.vertex[2].texCoord  = V2(texRectNdc.z, texRectNdc.w);
+
+	if (rotate == 0) return result;
+
+	return result;
+}
+
 INTERNAL inline RenderQuad_
 createDefaultTexQuad(Renderer *renderer, RenderTex renderTex)
 {
@@ -248,6 +257,7 @@ createDefaultTexQuad(Renderer *renderer, RenderTex renderTex)
 
 INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *renderGroup)
 {
+	ASSERT(renderGroup->mode < rendermode_invalid);
 	/* Load transformation matrix */
 	shader_use(renderer->shader);
 	GL_CHECK_ERROR();
@@ -255,10 +265,11 @@ INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *renderGroup)
 	/* Set color modulation value */
 	shader_uniformSetVec4f(renderer->shader, "spriteColor",
 	                       renderGroup->color);
+	GL_CHECK_ERROR();
 
     /* Send draw calls */
 #if RENDER_BOUNDING_BOX
-	glBindVertexArray(renderer->vao);
+	glBindVertexArray(renderer->vao[renderGroup->mode]);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
 	glBindVertexArray(0);
 #endif
@@ -271,8 +282,9 @@ INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *renderGroup)
 		shader_uniformSet1i(renderer->shader, "tex", 0);
 	}
 
-	glBindVertexArray(renderer->vao);
+	glBindVertexArray(renderer->vao[renderGroup->mode]);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
+	GL_CHECK_ERROR();
 
 #ifdef DENGINE_DEBUG
 	debug_countIncrement(debugcount_drawArrays);
@@ -298,7 +310,56 @@ void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
 	v2 posInCameraSpace = v2_sub(pos, camera.pos);
 	RenderQuad_ quad    = createRenderQuad(renderer, posInCameraSpace, size,
 	                                    pivotPoint, rotate, renderTex);
-	addRenderQuadToRenderGroup(renderer, quad, renderTex.tex, color);
+
+	{ // addRenderQuadToRenderGroup
+		/*
+		   NOTE(doyle): Entity rendering is always done in two pairs of
+		   triangles, i.e. quad. To batch render quads as a triangle strip, we
+		   need to create zero-area triangles which OGL will omit from
+		   rendering. Render groups are initialised with 1 degenerate vertex and
+		   then the first two vertexes sent to the render group are the same to
+		   form 1 zero-area triangle strip.
+
+		   A degenerate vertex has to be copied from the last vertex in the
+		   rendering quad, to repeat this process as more entities are
+		   renderered.
+
+		   Alternative implementation is recognising if the rendered
+		   entity is the first in its render group, then we don't need to init
+		   a degenerate vertex, and only at the end of its vertex list. But on
+		   subsequent renders, we need a degenerate vertex at the front to
+		   create the zero-area triangle strip.
+
+		   The first has been chosen for simplicity of code, at the cost of
+		   1 degenerate vertex at the start of each render group.
+		   */
+		Vertex vertexList[6] = {quad.vertex[0], quad.vertex[0], quad.vertex[1],
+		                        quad.vertex[2], quad.vertex[3], quad.vertex[3]};
+		addVertexToRenderGroup(renderer, renderTex.tex, color, vertexList,
+		                       ARRAY_COUNT(vertexList), rendermode_quad);
+	}
+
+}
+
+void renderer_triangle(Renderer *const renderer, Rect camera,
+                       TrianglePoints triangle, v2 pivotPoint, f32 rotate,
+                       RenderTex renderTex, v4 color)
+{
+	TrianglePoints triangleInCamSpace = {0};
+	ASSERT(ARRAY_COUNT(triangle.points) ==
+	       ARRAY_COUNT(triangleInCamSpace.points));
+
+	for (i32 i = 0; i < ARRAY_COUNT(triangleInCamSpace.points); i++)
+	{
+		triangleInCamSpace.points[i] = v2_sub(triangle.points[i], camera.pos);
+	}
+
+	RenderTriangle_ renderTriangle = createRenderTriangle(
+	    renderer, triangleInCamSpace, pivotPoint, rotate, renderTex);
+
+	addVertexToRenderGroup(
+	    renderer, renderTex.tex, color, renderTriangle.vertex,
+	    ARRAY_COUNT(renderTriangle.vertex), rendermode_triangle);
 }
 
 void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
@@ -361,7 +422,7 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
 		}
 
 		addVertexToRenderGroup(renderer, tex, color, vertexList,
-		                       numVertexesToAlloc);
+		                       numVertexesToAlloc, rendermode_quad);
 		// TODO(doyle): Mem free
 		// PLATFORM_MEM_FREE(arena, vertexList,
 		//                  sizeof(Vertex) * numVertexesToAlloc);
