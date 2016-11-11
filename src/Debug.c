@@ -229,9 +229,9 @@ INTERNAL void updateAndRenderDebugStack(Renderer *renderer, MemoryArena_ *arena,
 	{
 		f32 rotate = 0;
 		v4 color   = V4(0, 0, 0, 1);
-		renderer_staticString(renderer, arena, &GLOBAL_debug.font,
-		                      GLOBAL_debug.debugStrings[i],
-		                      GLOBAL_debug.currStringP, V2(0, 0), rotate, color);
+		renderer_staticString(
+		    renderer, arena, &GLOBAL_debug.font, GLOBAL_debug.debugStrings[i],
+		    GLOBAL_debug.currStringP, V2(0, 0), rotate, color, 0);
 		GLOBAL_debug.currStringP.y -= (0.9f * GLOBAL_debug.stringLineGap);
 	}
 
@@ -263,7 +263,7 @@ INTERNAL void renderConsole(Renderer *renderer, MemoryArena_ *arena)
 		v4 color   = V4(0, 0, 0, 1);
 		renderer_staticString(renderer, arena, &GLOBAL_debug.font,
 		                      GLOBAL_debug.console[i], consoleStrP,
-		                      V2(0, 0), rotate, color);
+		                      V2(0, 0), rotate, color, 0);
 		consoleStrP.y -= (0.9f * GLOBAL_debug.stringLineGap);
 	}
 }

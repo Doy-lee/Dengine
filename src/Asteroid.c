@@ -193,7 +193,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			ship->scale     = 1;
 			ship->type      = entitytype_ship;
 			ship->direction = direction_null;
-			ship->tex       = asset_getTex(&state->assetManager, "nullTex");
+			ship->tex       = NULL;
 			ship->collides  = FALSE;
 		}
 
@@ -293,17 +293,22 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			    v2_add(halfAccelerationDtSquared, oldVelocityDt), oldPos);
 		}
 
-		renderer_entity(&state->renderer, state->camera, entity, V2(0, 0), 0,
-		                 V4(0.0f, 1.0f, 1.0f, 1.0f));
+		RenderFlags flags = renderflag_wireframe;
+		renderer_entity(&state->renderer, state->camera, entity, V2(0, 0),
+		                0, V4(0.4f, 0.8f, 1.0f, 1.0f), flags);
 	}
 
-	RenderTex nullRenderTex = renderer_createNullRenderTex(&state->assetManager);
 	TrianglePoints triangle = {0};
 	triangle.points[0] = V2(100, 200);
-	triangle.points[2] = V2(100, 100);
+	triangle.points[2] = V2(100, 300);
 	triangle.points[1] = V2(200, 100);
-	renderer_triangle(&state->renderer, state->camera, triangle, V2(0, 0), 0,
-	                  nullRenderTex, V4(1, 1, 1, 1));
+
+	LOCAL_PERSIST Radians rotation = 0.0f;
+	rotation += DEGREES_TO_RADIANS(((60.0f) * dt));
+
+	RenderFlags flags = renderflag_wireframe;
+	renderer_triangle(&state->renderer, state->camera, triangle, V2(0, 0),
+	                  rotation, NULL, V4(1, 1, 1, 1), flags);
 
 	renderer_renderGroups(&state->renderer);
 }

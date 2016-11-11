@@ -8,8 +8,6 @@
 #include "Dengine/Shader.h"
 #include "Dengine/Texture.h"
 
-#define RENDER_BOUNDING_BOX FALSE
-
 typedef struct RenderQuad
 {
 	Vertex vertex[4];
@@ -22,7 +20,8 @@ typedef struct RenderTriangle
 
 INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
                                      Vertex *vertexList, i32 numVertexes,
-                                     enum RenderMode targetRenderMode)
+                                     enum RenderMode targetRenderMode,
+                                     RenderFlags flags)
 {
 
 #ifdef DENGINE_DEBUG
@@ -38,26 +37,50 @@ INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
 	{
 		RenderGroup *group = &renderer->groups[i];
 		b32 groupIsValid = FALSE;
-		if (group->tex)
+		if (group->init)
 		{
 			/* If the textures match and have the same color modulation, we can
 			 * add these vertices to the current group */
-			if (group->tex->id == tex->id &&
-			    v4_equals(group->color, color) && group->mode == targetRenderMode)
+
+			b32 renderModeMatches = FALSE;
+			if (group->mode == targetRenderMode) renderModeMatches = TRUE;
+
+			b32 colorMatches = FALSE;
+			if (v4_equals(group->color, color)) colorMatches = TRUE;
+
+			b32 flagsMatches = FALSE;
+			if (group->flags == flags) flagsMatches = TRUE;
+
+			b32 texMatches = TRUE;
+			if (!tex && !group->tex)
 			{
-				groupIsValid = TRUE;
+				texMatches = TRUE;
 			}
+			else if (tex && group->tex)
+			{
+				if (group->tex->id == tex->id)
+				{
+					texMatches = TRUE;
+				}
+			}
+
+			if (texMatches && colorMatches && renderModeMatches && flagsMatches)
+				groupIsValid = TRUE;
 		}
 		else
 		{
 			/* New group, unused so initialise it */
 			groupIsValid = TRUE;
 
-			// NOTE(doyle): Mark first vertex as degenerate vertex
-			group->vertexIndex++;
+			// NOTE(doyle): Mark first vertex as degenerate vertex, but where we
+			// request wireframe mode- we can't use degenerate vertexes for line
+			// mode
+			if (!(flags & renderflag_wireframe)) group->vertexIndex++;
+			group->init  = TRUE;
 			group->tex   = tex;
 			group->color = color;
 			group->mode  = targetRenderMode;
+			group->flags = flags;
 
 #ifdef DENGINE_DEBUG
 			debug_countIncrement(debugcount_renderGroups);
@@ -132,8 +155,54 @@ INTERNAL void bufferRenderGroupToGL(Renderer *renderer, RenderGroup *group)
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
+INTERNAL void applyRotationToVertexes(v2 pos, v2 pivotPoint, Radians rotate,
+                                      Vertex *vertexList, i32 vertexListSize)
+{
+	// NOTE(doyle): Move the world origin to the base position of the object.
+	// Then move the origin to the pivot point (e.g. center of object) and
+	// rotate from that point.
+	v2 pointOfRotation = v2_add(pivotPoint, pos);
+
+	mat4 rotateMat = mat4_translate(pointOfRotation.x, pointOfRotation.y, 0.0f);
+	rotateMat      = mat4_mul(rotateMat, mat4_rotate(rotate, 0.0f, 0.0f, 1.0f));
+	rotateMat      = mat4_mul(rotateMat, mat4_translate(-pointOfRotation.x,
+	                                               -pointOfRotation.y, 0.0f));
+	for (i32 i = 0; i < vertexListSize; i++)
+	{
+		// NOTE(doyle): Manual matrix multiplication since vertex pos is 2D and
+		// matrix is 4D
+		v2 oldP = vertexList[i].pos;
+		v2 newP = {0};
+
+		newP.x = (oldP.x * rotateMat.e[0][0]) + (oldP.y * rotateMat.e[1][0]) +
+		         (rotateMat.e[3][0]);
+		newP.y = (oldP.x * rotateMat.e[0][1]) + (oldP.y * rotateMat.e[1][1]) +
+		         (rotateMat.e[3][1]);
+
+		vertexList[i].pos = newP;
+	}
+}
+
+INTERNAL v4 getTexRectNormaliseDeviceCoords(RenderTex renderTex)
+{
+	/* Convert texture coordinates to normalised texture coordinates */
+	v4 result = renderTex.texRect;
+	if (renderTex.tex)
+	{
+		v2 texNdcFactor =
+		    V2(1.0f / renderTex.tex->width, 1.0f / renderTex.tex->height);
+		result.e[0] *= texNdcFactor.w;
+		result.e[1] *= texNdcFactor.h;
+		result.e[2] *= texNdcFactor.w;
+		result.e[3] *= texNdcFactor.h;
+	}
+
+	return result;
+
+}
+
 INTERNAL RenderQuad_ createRenderQuad(Renderer *renderer, v2 pos, v2 size,
-                                      v2 pivotPoint, f32 rotate,
+                                      v2 pivotPoint, Radians rotate,
                                       RenderTex renderTex)
 {
 	/*
@@ -152,18 +221,7 @@ INTERNAL RenderQuad_ createRenderQuad(Renderer *renderer, v2 pos, v2 size,
 	v4 vertexPair       = {0};
 	vertexPair.vec2[0]  = pos;
 	vertexPair.vec2[1]  = v2_add(pos, size);
-
-	/* Convert texture coordinates to normalised texture coordinates */
-	v4 texRectNdc = renderTex.texRect;
-	if (renderTex.tex)
-	{
-		v2 texNdcFactor =
-		    V2(1.0f / renderTex.tex->width, 1.0f / renderTex.tex->height);
-		texRectNdc.e[0] *= texNdcFactor.w;
-		texRectNdc.e[1] *= texNdcFactor.h;
-		texRectNdc.e[2] *= texNdcFactor.w;
-		texRectNdc.e[3] *= texNdcFactor.h;
-	}
+	v4 texRectNdc = getTexRectNormaliseDeviceCoords(renderTex);
 
 	// NOTE(doyle): Create a quad composed of 4 vertexes to be rendered as
 	// a triangle strip using vertices v0, v1, v2, then v2, v1, v3 (note the
@@ -185,53 +243,20 @@ INTERNAL RenderQuad_ createRenderQuad(Renderer *renderer, v2 pos, v2 size,
 	// NOTE(doyle): Precalculate rotation on vertex positions
 	// NOTE(doyle): No translation/scale matrix as we pre-calculate it from
 	// entity data and work in world space until GLSL uses the projection matrix
-
-	// NOTE(doyle): Move the world origin to the base position of the object.
-	// Then move the origin to the pivot point (e.g. center of object) and
-	// rotate from that point.
-	v2 pointOfRotation = v2_add(pivotPoint, pos);
-
-	mat4 rotateMat = mat4_translate(pointOfRotation.x, pointOfRotation.y, 0.0f);
-	rotateMat      = mat4_mul(rotateMat, mat4_rotate(rotate, 0.0f, 0.0f, 1.0f));
-	rotateMat      = mat4_mul(rotateMat, mat4_translate(-pointOfRotation.x,
-	                                               -pointOfRotation.y, 0.0f));
-	for (i32 i = 0; i < ARRAY_COUNT(result.vertex); i++)
-	{
-		// NOTE(doyle): Manual matrix multiplication since vertex pos is 2D and
-		// matrix is 4D
-		v2 oldP = result.vertex[i].pos;
-		v2 newP = {0};
-
-		newP.x = (oldP.x * rotateMat.e[0][0]) + (oldP.y * rotateMat.e[1][0]) +
-		         (rotateMat.e[3][0]);
-		newP.y = (oldP.x * rotateMat.e[0][1]) + (oldP.y * rotateMat.e[1][1]) +
-		         (rotateMat.e[3][1]);
-
-		result.vertex[i].pos = newP;
-	}
-
+	applyRotationToVertexes(pos, pivotPoint, rotate, result.vertex,
+	                        ARRAY_COUNT(result.vertex));
 	return result;
 }
 
 INTERNAL RenderTriangle_ createRenderTriangle(Renderer *renderer,
                                               TrianglePoints triangle,
-                                              v2 pivotPoint, f32 rotate,
+                                              v2 pivotPoint, Radians rotate,
                                               RenderTex renderTex)
 {
 	/* Convert texture coordinates to normalised texture coordinates */
-	v4 texRectNdc = renderTex.texRect;
-	if (renderTex.tex)
-	{
-		v2 texNdcFactor =
-		    V2(1.0f / renderTex.tex->width, 1.0f / renderTex.tex->height);
-		texRectNdc.e[0] *= texNdcFactor.w;
-		texRectNdc.e[1] *= texNdcFactor.h;
-		texRectNdc.e[2] *= texNdcFactor.w;
-		texRectNdc.e[3] *= texNdcFactor.h;
-	}
-	
-	RenderTriangle_ result = {0};
+	v4 texRectNdc = getTexRectNormaliseDeviceCoords(renderTex);
 
+	RenderTriangle_ result = {0};
 	result.vertex[0].pos       = triangle.points[0];
 	result.vertex[0].texCoord  = V2(texRectNdc.x, texRectNdc.w);
 
@@ -242,39 +267,34 @@ INTERNAL RenderTriangle_ createRenderTriangle(Renderer *renderer,
 	result.vertex[2].texCoord  = V2(texRectNdc.z, texRectNdc.w);
 
 	if (rotate == 0) return result;
+	applyRotationToVertexes(triangle.points[0], pivotPoint, rotate,
+	                        result.vertex, ARRAY_COUNT(result.vertex));
 
 	return result;
 }
 
 INTERNAL inline RenderQuad_
-createDefaultTexQuad(Renderer *renderer, RenderTex renderTex)
+createDefaultTexQuad(Renderer *renderer, RenderTex *renderTex)
 {
 	RenderQuad_ result = {0};
 	result = createRenderQuad(renderer, V2(0, 0), V2(0, 0), V2(0, 0),
-	                          0.0f, renderTex);
+	                          0.0f, *renderTex);
 	return result;
 }
 
-INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *renderGroup)
+INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *group)
 {
-	ASSERT(renderGroup->mode < rendermode_invalid);
+	ASSERT(group->mode < rendermode_invalid);
 	/* Load transformation matrix */
 	shader_use(renderer->shader);
 	GL_CHECK_ERROR();
 
 	/* Set color modulation value */
 	shader_uniformSetVec4f(renderer->shader, "spriteColor",
-	                       renderGroup->color);
+	                       group->color);
 	GL_CHECK_ERROR();
 
-    /* Send draw calls */
-#if RENDER_BOUNDING_BOX
-	glBindVertexArray(renderer->vao[renderGroup->mode]);
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
-	glBindVertexArray(0);
-#endif
-
-	Texture *tex = renderGroup->tex;
+	Texture *tex = group->tex;
 	if (tex)
 	{
 		glActiveTexture(GL_TEXTURE0);
@@ -282,13 +302,17 @@ INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *renderGroup)
 		shader_uniformSet1i(renderer->shader, "tex", 0);
 	}
 
-	glBindVertexArray(renderer->vao[renderGroup->mode]);
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
-	GL_CHECK_ERROR();
+	glBindVertexArray(renderer->vao[group->mode]);
 
-#ifdef DENGINE_DEBUG
+	u32 drawMethod = GL_TRIANGLE_STRIP;
+	if (group->flags & renderflag_wireframe)
+	{
+		drawMethod = GL_LINE_LOOP;
+	}
+
+	glDrawArrays(drawMethod, 0, renderer->numVertexesInVbo);
+	GL_CHECK_ERROR();
 	debug_countIncrement(debugcount_drawArrays);
-#endif
 
 	/* Unbind */
 	glBindVertexArray(0);
@@ -304,14 +328,29 @@ RenderTex renderer_createNullRenderTex(AssetManager *const assetManager)
 }
 
 void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
-                   v2 pivotPoint, f32 rotate, RenderTex renderTex, v4 color)
+                   v2 pivotPoint, Radians rotate, RenderTex *renderTex, v4 color,
+                   RenderFlags flags)
 {
 	// NOTE(doyle): Bottom left and top right position of quad in world space
 	v2 posInCameraSpace = v2_sub(pos, camera.pos);
-	RenderQuad_ quad    = createRenderQuad(renderer, posInCameraSpace, size,
-	                                    pivotPoint, rotate, renderTex);
 
-	{ // addRenderQuadToRenderGroup
+	RenderTex emptyRenderTex = {0};
+	if (!renderTex) renderTex = &emptyRenderTex;
+
+	RenderQuad_ quad = createRenderQuad(renderer, posInCameraSpace, size,
+	                                    pivotPoint, rotate, *renderTex);
+
+	// addRenderQuadToRenderGroup
+	if (flags & renderflag_wireframe)
+	{
+		Vertex vertexList[4] = {quad.vertex[0], quad.vertex[1], quad.vertex[3],
+		                        quad.vertex[2]};
+		addVertexToRenderGroup(renderer, renderTex->tex, color, vertexList,
+		                       ARRAY_COUNT(vertexList), rendermode_quad,
+		                       flags);
+	}
+	else
+	{
 		/*
 		   NOTE(doyle): Entity rendering is always done in two pairs of
 		   triangles, i.e. quad. To batch render quads as a triangle strip, we
@@ -333,38 +372,39 @@ void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
 		   The first has been chosen for simplicity of code, at the cost of
 		   1 degenerate vertex at the start of each render group.
 		   */
+
 		Vertex vertexList[6] = {quad.vertex[0], quad.vertex[0], quad.vertex[1],
 		                        quad.vertex[2], quad.vertex[3], quad.vertex[3]};
-		addVertexToRenderGroup(renderer, renderTex.tex, color, vertexList,
-		                       ARRAY_COUNT(vertexList), rendermode_quad);
+		addVertexToRenderGroup(renderer, renderTex->tex, color, vertexList,
+		                       ARRAY_COUNT(vertexList), rendermode_quad, flags);
 	}
-
 }
 
 void renderer_triangle(Renderer *const renderer, Rect camera,
-                       TrianglePoints triangle, v2 pivotPoint, f32 rotate,
-                       RenderTex renderTex, v4 color)
+                       TrianglePoints triangle, v2 pivotPoint, Radians rotate,
+                       RenderTex *renderTex, v4 color, RenderFlags flags)
 {
 	TrianglePoints triangleInCamSpace = {0};
 	ASSERT(ARRAY_COUNT(triangle.points) ==
 	       ARRAY_COUNT(triangleInCamSpace.points));
 
 	for (i32 i = 0; i < ARRAY_COUNT(triangleInCamSpace.points); i++)
-	{
 		triangleInCamSpace.points[i] = v2_sub(triangle.points[i], camera.pos);
-	}
+
+	RenderTex emptyRenderTex = {0};
+	if (!renderTex) renderTex = &emptyRenderTex;
 
 	RenderTriangle_ renderTriangle = createRenderTriangle(
-	    renderer, triangleInCamSpace, pivotPoint, rotate, renderTex);
+	    renderer, triangleInCamSpace, pivotPoint, rotate, *renderTex);
 
 	addVertexToRenderGroup(
-	    renderer, renderTex.tex, color, renderTriangle.vertex,
-	    ARRAY_COUNT(renderTriangle.vertex), rendermode_triangle);
+	    renderer, renderTex->tex, color, renderTriangle.vertex,
+	    ARRAY_COUNT(renderTriangle.vertex), rendermode_triangle, flags);
 }
 
 void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
                      Font *const font, const char *const string, v2 pos,
-                     v2 pivotPoint, f32 rotate, v4 color)
+                     v2 pivotPoint, Radians rotate, v4 color, RenderFlags flags)
 {
 	i32 strLen = common_strlen(string);
 	if (strLen <= 0) return;
@@ -422,7 +462,7 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
 		}
 
 		addVertexToRenderGroup(renderer, tex, color, vertexList,
-		                       numVertexesToAlloc, rendermode_quad);
+		                       numVertexesToAlloc, rendermode_quad, flags);
 		// TODO(doyle): Mem free
 		// PLATFORM_MEM_FREE(arena, vertexList,
 		//                  sizeof(Vertex) * numVertexesToAlloc);
@@ -430,7 +470,7 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
 }
 
 void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
-                     v2 pivotPoint, f32 rotate, v4 color)
+                     v2 pivotPoint, Radians rotate, v4 color, RenderFlags flags)
 {
 	// TODO(doyle): Batch into render groups
 
@@ -442,33 +482,40 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 	if (math_pointInRect(camera, leftAlignedP) ||
 	    math_pointInRect(camera, rightAlignedP))
 	{
-		EntityAnim *entityAnim = &entity->animList[entity->animListIndex];
 
-		v4 texRect = {0};
-		if (entityAnim->anim)
+		RenderTex renderTex = {0};
+		if (entity->tex)
 		{
-			Animation *anim        = entityAnim->anim;
-			char *frameName        = anim->frameList[entityAnim->currFrame];
-			SubTexture subTex    = asset_getAtlasSubTex(anim->atlas, frameName);
+			EntityAnim *entityAnim = &entity->animList[entity->animListIndex];
+			v4 texRect = {0};
+			if (entityAnim->anim)
+			{
+				Animation *anim = entityAnim->anim;
+				char *frameName = anim->frameList[entityAnim->currFrame];
+				SubTexture subTex =
+				    asset_getAtlasSubTex(anim->atlas, frameName);
 
-			texRect.vec2[0] = subTex.rect.pos;
-			texRect.vec2[1] = v2_add(subTex.rect.pos, subTex.rect.size);
-			flipTexCoord(&texRect, entity->flipX, entity->flipY);
-		}
-		else
-		{
-			texRect = V4(0.0f, 0.0f, (f32)entity->tex->width,
-			             (f32)entity->tex->height);
+				texRect.vec2[0] = subTex.rect.pos;
+				texRect.vec2[1] = v2_add(subTex.rect.pos, subTex.rect.size);
+				flipTexCoord(&texRect, entity->flipX, entity->flipY);
+			}
+			else
+			{
+				texRect = V4(0.0f, 0.0f, (f32)entity->tex->width,
+				             (f32)entity->tex->height);
+			}
+
+			if (entity->direction == direction_east)
+			{
+				flipTexCoord(&texRect, TRUE, FALSE);
+			}
+
+			renderTex.tex = entity->tex;
+			renderTex.texRect = texRect;
 		}
 
-		if (entity->direction == direction_east)
-		{
-			flipTexCoord(&texRect, TRUE, FALSE);
-		}
-
-		RenderTex renderTex = {entity->tex, texRect};
 		renderer_rect(renderer, camera, entity->pos, entity->size, pivotPoint,
-		              entity->rotation + rotate, renderTex, color);
+		              entity->rotation + rotate, &renderTex, color, flags);
 	}
 }
 
@@ -477,7 +524,7 @@ void renderer_renderGroups(Renderer *renderer)
 	for (i32 i = 0; i < ARRAY_COUNT(renderer->groups); i++)
 	{
 		RenderGroup *currGroup = &renderer->groups[i];
-		if (currGroup->tex)
+		if (currGroup->init)
 		{
 			bufferRenderGroupToGL(renderer, currGroup);
 			renderGLBufferedData(renderer, currGroup);

@@ -67,13 +67,14 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 	if (uiState->kbdItem == id)
 	{
 		// Draw outline
-		renderer_staticRect(
-		    renderer, v2_add(V2(-2, -2), v2_add(buttonOffset, rect.pos)),
-		    v2_add(V2(4, 4), rect.size), V2(0, 0), 0, renderTex, buttonColor);
+		renderer_staticRect(renderer,
+		                    v2_add(V2(-2, -2), v2_add(buttonOffset, rect.pos)),
+		                    v2_add(V2(4, 4), rect.size), V2(0, 0), 0, &renderTex,
+		                    buttonColor, 0);
 	}
 
 	renderer_staticRect(renderer, v2_add(buttonOffset, rect.pos), rect.size,
-	                    V2(0, 0), 0, renderTex, buttonColor);
+	                    V2(0, 0), 0, &renderTex, buttonColor, 0);
 
 	if (label)
 	{
@@ -95,7 +96,7 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 
 		labelPos = v2_add(labelPos, buttonOffset);
 		renderer_staticString(renderer, arena, font, label, labelPos, V2(0, 0),
-		                      0, V4(0, 0, 0, 1));
+		                      0, V4(0, 0, 0, 1), 0);
 	}
 
 	// After renderering before click check, see if we need to process keys
@@ -169,12 +170,12 @@ i32 userInterface_scrollbar(UiState *const uiState,
 		// Draw outline
 		renderer_staticRect(renderer, v2_add(V2(-2, -2), scrollBarRect.pos),
 		                    v2_add(V2(4, 4), scrollBarRect.size), V2(0, 0), 0,
-		                    renderTex, V4(1, 0, 0, 1));
+		                    &renderTex, V4(1, 0, 0, 1), 0);
 	}
 
 	// Render scroll bar background
 	renderer_staticRect(renderer, scrollBarRect.pos, scrollBarRect.size,
-	                    V2(0, 0), 0, renderTex, V4(0.75f, 0.5f, 0.5f, 1));
+	                    V2(0, 0), 0, &renderTex, V4(0.75f, 0.5f, 0.5f, 1), 0);
 
 	// Render scroll bar slider
 	v2 sliderSize   = V2(16, 16);
@@ -190,8 +191,8 @@ i32 userInterface_scrollbar(UiState *const uiState,
 	else
 		sliderColor = V4(0.0f, 1.0f, 0, 1);
 
-	renderer_staticRect(renderer, sliderPos, sliderSize, V2(0, 0), 0, renderTex,
-	                    sliderColor);
+	renderer_staticRect(renderer, sliderPos, sliderSize, V2(0, 0), 0, &renderTex,
+	                    sliderColor, 0);
 
 	if (uiState->kbdItem == id)
 	{
@@ -283,27 +284,27 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
 		// Draw outline
 		renderer_staticRect(renderer, v2_add(V2(-2, -2), rect.pos),
 		                    v2_add(V2(4, 4), rect.size), V2(0, 0), 0,
-		                    renderTex, V4(1.0f, 0, 0, 1));
+		                    &renderTex, V4(1.0f, 0, 0, 1), 0);
 	}
 
 	// Render text field
 	renderer_staticRect(renderer, rect.pos, rect.size, V2(0, 0), 0,
-	                    renderTex, V4(0.75f, 0.5f, 0.5f, 1));
+	                    &renderTex, V4(0.75f, 0.5f, 0.5f, 1), 0);
 
 	if (uiState->activeItem == id || uiState->hotItem == id)
 	{
 		renderer_staticRect(renderer, rect.pos, rect.size, V2(0, 0), 0,
-		                    renderTex, V4(0.75f, 0.75f, 0.0f, 1));
+		                    &renderTex, V4(0.75f, 0.75f, 0.0f, 1), 0);
 	}
 	else
 	{
 		renderer_staticRect(renderer, rect.pos, rect.size, V2(0, 0), 0,
-		                    renderTex, V4(0.5f, 0.5f, 0.5f, 1));
+		                    &renderTex, V4(0.5f, 0.5f, 0.5f, 1), 0);
 	}
 
 	v2 strPos = rect.pos;
 	renderer_staticString(renderer, arena, font, string, strPos, V2(0, 0), 0,
-	                      V4(0, 0, 0, 1));
+	                      V4(0, 0, 0, 1), 0);
 
 	if (uiState->kbdItem == id)
 	{
@@ -365,11 +366,11 @@ i32 userInterface_window(UiState *const uiState, MemoryArena_ *const arena,
 	Rect rect = window->rect;
 	RenderTex nullRenderTex = renderer_createNullRenderTex(assetManager);
 	renderer_staticRect(renderer, rect.pos, rect.size, V2(0, 0), 0,
-	                    nullRenderTex, V4(0.25f, 0.25f, 0.5f, 0.5f));
+	                    &nullRenderTex, V4(0.25f, 0.25f, 0.5f, 0.5f), 0);
 
 	v2 menuTitleP = v2_add(rect.pos, V2(0, rect.size.h - 10));
 	renderer_staticString(renderer, arena, font, window->title, menuTitleP,
-	                      V2(0, 0), 0, V4(0, 0, 0, 1));
+	                      V2(0, 0), 0, V4(0, 0, 0, 1), 0);
 
 	/* Draw window elements */
 	i32 firstActiveChildId = -1;

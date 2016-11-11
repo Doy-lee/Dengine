@@ -11,6 +11,8 @@
 #define RADIANS_TO_DEGREES(x) (x * (180.0f / MATH_PI))
 #define SQRT(x) (sqrtf(x))
 
+typedef f32 Radians;
+
 INTERNAL inline f32 math_acosf(f32 a)
 {
 	f32 result = acosf(a);
