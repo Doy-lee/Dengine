@@ -3,6 +3,7 @@
 
 #include "Dengine/Common.h"
 #include "Dengine/Math.h"
+#include "Dengine/Assets.h"
 
 /* Forward Declaration */
 typedef struct AssetManager AssetManager;
@@ -57,7 +58,8 @@ typedef struct RenderGroup
 
 typedef struct Renderer
 {
-	Shader *shader;
+	u32 shaderList[shaderlist_count];
+	u32 activeShaderId;
 
 	u32 vao[rendermode_count];
 	u32 vbo[rendermode_count];

@@ -4,18 +4,13 @@
 #include "Dengine/Math.h"
 #include "Dengine/OpenGL.h"
 
-typedef struct Shader
-{
-	GLuint id;
-} Shader;
-
-void shader_uniformSet1i(Shader *const shader, const GLchar *name,
+void shader_uniformSet1i(u32 shaderId, const GLchar *name,
                          const GLuint data);
-void shader_uniformSetMat4fv(Shader *const shader, const GLchar *name,
+void shader_uniformSetMat4fv(u32 shaderId, const GLchar *name,
                              mat4 data);
-void shader_uniformSetVec4f(Shader *const shader, const GLchar *name,
+void shader_uniformSetVec4f(u32 shaderId, const GLchar *name,
                             v4 data);
 
-void shader_use(const Shader *const shader);
+void shader_use(u32 shaderId);
 
 #endif

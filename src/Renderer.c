@@ -285,12 +285,23 @@ createDefaultTexQuad(Renderer *renderer, RenderTex *renderTex)
 INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *group)
 {
 	ASSERT(group->mode < rendermode_invalid);
-	/* Load transformation matrix */
-	shader_use(renderer->shader);
-	GL_CHECK_ERROR();
+
+	u32 drawMethod = GL_TRIANGLE_STRIP;
+	if (group->flags & renderflag_wireframe)
+	{
+		drawMethod = GL_LINE_LOOP;
+		renderer->activeShaderId =
+		    renderer->shaderList[shaderlist_default_no_tex];
+	}
+	else
+	{
+		renderer->activeShaderId = renderer->shaderList[shaderlist_default];
+	}
+
+	shader_use(renderer->activeShaderId);
 
 	/* Set color modulation value */
-	shader_uniformSetVec4f(renderer->shader, "spriteColor",
+	shader_uniformSetVec4f(renderer->activeShaderId, "spriteColor",
 	                       group->color);
 	GL_CHECK_ERROR();
 
@@ -299,17 +310,10 @@ INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *group)
 	{
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, tex->id);
-		shader_uniformSet1i(renderer->shader, "tex", 0);
+		shader_uniformSet1i(renderer->activeShaderId, "tex", 0);
 	}
 
 	glBindVertexArray(renderer->vao[group->mode]);
-
-	u32 drawMethod = GL_TRIANGLE_STRIP;
-	if (group->flags & renderflag_wireframe)
-	{
-		drawMethod = GL_LINE_LOOP;
-	}
-
 	glDrawArrays(drawMethod, 0, renderer->numVertexesInVbo);
 	GL_CHECK_ERROR();
 	debug_countIncrement(debugcount_drawArrays);

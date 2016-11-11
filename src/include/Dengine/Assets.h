@@ -44,7 +44,8 @@ typedef struct XmlNode
 
 enum ShaderList
 {
-	shaderlist_sprite,
+	shaderlist_default,
+	shaderlist_default_no_tex,
 	shaderlist_count,
 };
 

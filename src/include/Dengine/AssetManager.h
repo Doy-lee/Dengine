@@ -18,7 +18,7 @@ typedef struct AssetManager
 	HashTable audio;
 
 	/* Primitive Array */
-	Shader shaders[2];
+	u32 shaders[shaderlist_count];
 	Font font;
 } AssetManager;
 
@@ -72,7 +72,7 @@ const i32 asset_loadXmlFile(AssetManager *const assetManager,
                             MemoryArena_ *const arena,
                             const PlatformFileRead *const fileRead);
 
-Shader *const asset_getShader(AssetManager *assetManager, const enum ShaderList type);
+u32 asset_getShader(AssetManager *assetManager, const enum ShaderList type);
 const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena_ *arena,
                                 const char *const vertexPath,
                                 const char *const fragmentPath,

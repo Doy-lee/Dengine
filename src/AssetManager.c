@@ -918,40 +918,42 @@ INTERNAL GLuint createShaderFromPath(MemoryArena_ *arena, const char *const path
 	return result;
 }
 
-INTERNAL i32 shaderLoadProgram(Shader *const shader, const GLuint vertexShader,
+INTERNAL u32 shaderLoadProgram(const GLuint vertexShader,
                                const GLuint fragmentShader)
 {
-	shader->id = glCreateProgram();
-	glAttachShader(shader->id, vertexShader);
-	glAttachShader(shader->id, fragmentShader);
-	glLinkProgram(shader->id);
+	u32 result = glCreateProgram();
+	glAttachShader(result, vertexShader);
+	glAttachShader(result, fragmentShader);
+	glLinkProgram(result);
+	GL_CHECK_ERROR();
 
 	glDeleteShader(fragmentShader);
 	glDeleteShader(vertexShader);
+	GL_CHECK_ERROR();
 
 	GLint success;
 	GLchar infoLog[512];
-	glGetProgramiv(shader->id, GL_LINK_STATUS, &success);
-	if (!success)
+	glGetProgramiv(result, GL_LINK_STATUS, &success);
+	GL_CHECK_ERROR();
+	if (result == 0)
 	{
-		glGetProgramInfoLog(shader->id, 512, NULL, infoLog);
+		glGetProgramInfoLog(result, 512, NULL, infoLog);
 		printf("glLinkProgram failed: %s\n", infoLog);
-		return -1;
+		ASSERT(TRUE);
 	}
+	GL_CHECK_ERROR();
 
-	return 0;
+	return result;
 }
 
-Shader *const asset_getShader(AssetManager *assetManager,
-                              const enum ShaderList type)
+u32 asset_getShader(AssetManager *assetManager, const enum ShaderList type)
 {
-	if (type < shaderlist_count)
-		return &assetManager->shaders[type];
+	if (type < shaderlist_count) return assetManager->shaders[type];
 
 #ifdef DENGINE_DEBUG
 	ASSERT(INVALID_CODE_PATH);
 #endif
-	return NULL;
+	return -1;
 }
 
 const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena_ *arena,
@@ -963,12 +965,10 @@ const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena_ *arena,
 	GLuint fragmentShader =
 	    createShaderFromPath(arena, fragmentPath, GL_FRAGMENT_SHADER);
 
-	Shader shader;
-	i32 result = shaderLoadProgram(&shader, vertexShader, fragmentShader);
-	if (result)
-		return result;
+	u32 shaderId = shaderLoadProgram(vertexShader, fragmentShader);
+	if (shaderId == 0) return -1;
 
-	assetManager->shaders[type] = shader;
+	assetManager->shaders[type] = shaderId;
 	return 0;
 }
 

@@ -32,9 +32,13 @@ void initAssetManager(GameState *state)
 	*tex         = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
 
 	/* Load shaders */
-	asset_loadShaderFiles(assetManager, arena, "data/shaders/sprite.vert.glsl",
-	                      "data/shaders/sprite.frag.glsl",
-	                      shaderlist_sprite);
+	asset_loadShaderFiles(
+	    assetManager, arena, "data/shaders/default_tex.vert.glsl",
+	    "data/shaders/default_tex.frag.glsl", shaderlist_default);
+
+	asset_loadShaderFiles(
+	    assetManager, arena, "data/shaders/default_no_tex.vert.glsl",
+	    "data/shaders/default_no_tex.frag.glsl", shaderlist_default_no_tex);
 
 	i32 result =
 	    asset_loadTTFont(assetManager, arena, "C:/Windows/Fonts/Arialbd.ttf");
@@ -52,12 +56,19 @@ void initRenderer(GameState *state, v2 windowSize) {
 	// NOTE(doyle): Value to map a screen coordinate to NDC coordinate
 	renderer->vertexNdcFactor =
 	    V2(1.0f / renderer->size.w, 1.0f / renderer->size.h);
-	renderer->shader = asset_getShader(assetManager, shaderlist_sprite);
-	shader_use(renderer->shader);
 
 	const mat4 projection =
 	    mat4_ortho(0.0f, renderer->size.w, 0.0f, renderer->size.h, 0.0f, 1.0f);
-	shader_uniformSetMat4fv(renderer->shader, "projection", projection);
+	for (i32 i = 0; i < shaderlist_count; i++)
+	{
+		renderer->shaderList[i] = asset_getShader(assetManager, i);
+		shader_use(renderer->shaderList[i]);
+		shader_uniformSetMat4fv(renderer->shaderList[i], "projection",
+		                        projection);
+		GL_CHECK_ERROR();
+	}
+
+	renderer->activeShaderId = renderer->shaderList[shaderlist_default];
 	GL_CHECK_ERROR();
 
 	/* Create buffers */
