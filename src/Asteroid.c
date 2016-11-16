@@ -163,10 +163,146 @@ INTERNAL b32 getKeyStatus(KeyState *key, enum ReadKeyType readType,
 	return FALSE;
 }
 
+typedef struct Basis
+{
+	v2 basis;
+	v2 pivotPoint;
+} Basis;
 
+enum RectBaseline
+{
+	rectbaseline_top,
+	rectbaseline_topLeft,
+	rectbaseline_topRight,
+	rectbaseline_bottom,
+	rectbaseline_bottomRight,
+	rectbaseline_bottomLeft,
+	rectbaseline_left,
+	rectbaseline_right,
+	rectbaseline_center,
+	rectbaseline_count,
+
+};
+
+Basis getBasis(Entity *entity, enum RectBaseline baseline)
+{
+	ASSERT(baseline < rectbaseline_count);
+
+	v2 basis = v2_sub(entity->pos, entity->offset);
+	v2 pivotPoint = v2_scale(entity->size, 0.5f);
+	v2 size = entity->size;
+	switch (baseline)
+	{
+		case rectbaseline_top:
+			basis.y += (size.h);
+			basis.x += (size.w * 0.5f);
+		    break;
+		case rectbaseline_topLeft:
+			basis.y += (size.h);
+		    break;
+		case rectbaseline_topRight:
+		    basis.y += (size.h);
+		    basis.x += (size.w);
+		    break;
+		case rectbaseline_bottom:
+			basis.x += (size.w * 0.5f);
+			break;
+		case rectbaseline_bottomRight:
+			basis.x += (size.w);
+			break;
+		case rectbaseline_left:
+			basis.y += (size.h * 0.5f);
+			break;
+		case rectbaseline_right:
+			basis.x += (size.w);
+			basis.y += (size.h * 0.5f);
+			break;
+
+		case rectbaseline_bottomLeft:
+		    break;
+		default:
+		    DEBUG_LOG(
+		        "getPosRelativeToRect() warning: baseline enum not recognised");
+			break;
+	}
+
+	Basis result      = {0};
+	result.basis      = basis;
+	result.pivotPoint = pivotPoint;
+
+	return result;
+}
+
+Basis getDefaultBasis(Entity *entity)
+{
+	Basis result = getBasis(entity, rectbaseline_bottomLeft);
+	return result;
+}
+
+#include <stdlib.h>
+#include <time.h>
+v2 *createAsteroidVertexList(MemoryArena_ *arena, v2 pos, i32 iterations)
+{
+	f32 iterationAngle = 360.0f / iterations;
+	iterationAngle     = DEGREES_TO_RADIANS(iterationAngle);
+	v2 *result =
+	    memory_pushBytes(arena, iterations * sizeof(v2));
+
+	srand(time(NULL));
+	for (i32 i = 0; i < iterations; i++)
+	{
+		i32 randValue      = rand();
+		i32 asteroidRadius = (randValue % 100) + 50;
+
+		result[i] = V2(math_cosf(iterationAngle * i) * asteroidRadius,
+		               math_sinf(iterationAngle * i) * asteroidRadius);
+		result[i] = v2_add(result[i], pos);
+
+#if 1
+		f32 displacementDist   = 0.25f * asteroidRadius;
+		i32 vertexDisplacement =
+		    randValue % (i32)displacementDist + (i32)(displacementDist * 0.1f);
+
+		i32 quadrantSize = iterations / 4;
+
+		i32 firstQuadrant  = quadrantSize;
+		i32 secondQuadrant = quadrantSize * 2;
+		i32 thirdQuadrant  = quadrantSize * 3;
+		i32 fourthQuadrant = quadrantSize * 4;
+
+		if (i < firstQuadrant)
+		{
+			result[i].x += vertexDisplacement;
+			result[i].y += vertexDisplacement;
+		}
+		else if (i < secondQuadrant)
+		{
+			result[i].x -= vertexDisplacement;
+			result[i].y += vertexDisplacement;
+		}
+		else if (i < thirdQuadrant)
+		{
+			result[i].x -= vertexDisplacement;
+			result[i].y -= vertexDisplacement;
+		}
+		else
+		{
+			result[i].x += vertexDisplacement;
+			result[i].y -= vertexDisplacement;
+		}
+#endif
+	}
+
+	return result;
+}
+
+LOCAL_PERSIST v2 *asteroidVertexList = NULL;
+LOCAL_PERSIST f32 updateAsteroidListTimerThreshold = 1.0f;
+LOCAL_PERSIST f32 updateAsteroidListTimer          = 1.0f;
 void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
                                   v2 windowSize, f32 dt)
 {
+	i32 iterations = 16;
 	if (!state->init)
 	{
 
@@ -200,10 +336,21 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 		debug_init(&state->persistentArena, windowSize,
 		           state->assetManager.font);
+
+		asteroidVertexList =
+		    createAsteroidVertexList(&state->persistentArena, V2(500, 500), 16);
 	}
 
 	memory_arenaInit(&state->transientArena, memory->transient,
 	                 memory->transientSize);
+
+	updateAsteroidListTimer -= dt;
+	if (updateAsteroidListTimer < 0)
+	{
+		asteroidVertexList = createAsteroidVertexList(&state->persistentArena,
+		                                              V2(500, 500), iterations);
+		updateAsteroidListTimer = updateAsteroidListTimerThreshold;
+	}
 
 	{
 		KeyState *keys = state->input.keys;
@@ -236,8 +383,20 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		ASSERT(entity->type != entitytype_invalid);
 
 		v2 pivotPoint = {0};
-		if (entity->type == entitytype_ship) {
 
+		// Loop entity around world
+		if (entity->pos.y >= state->worldSize.h)
+			entity->pos.y = 0;
+		else if (entity->pos.y < 0)
+			entity->pos.y = state->worldSize.h;
+
+		if (entity->pos.x >= state->worldSize.w)
+			entity->pos.x = 0;
+		else if (entity->pos.x < 0)
+			entity->pos.x = state->worldSize.w;
+
+		if (entity->type == entitytype_ship)
+		{
 			v2 ddP = {0};
 			if (getKeyStatus(&state->input.keys[keycode_up], readkeytype_repeat,
 			                 0.0f, dt))
@@ -245,9 +404,11 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				// TODO(doyle): Renderer creates upfacing triangles by default,
 				// but we need to offset rotation so that our base "0 degrees"
 				// is right facing for trig to work
-				Radians rotation = DEGREES_TO_RADIANS((entity->rotation + 90.0f));
-				v2 direction     = V2(math_cosf(rotation), math_sinf(rotation));
-				ddP = direction;
+				Radians rotation =
+				    DEGREES_TO_RADIANS((entity->rotation + 90.0f));
+
+				v2 direction = V2(math_cosf(rotation), math_sinf(rotation));
+				ddP          = direction;
 			}
 
 			if (getKeyStatus(&state->input.keys[keycode_left],
@@ -293,46 +454,26 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			entity->pos = v2_add(v2_add(ddPHalfDtSquared, oldDpDt), oldPos);
 
 			pivotPoint = v2_scale(entity->size, 0.5f);
+
+			DEBUG_PUSH_VAR("Pos: %5.2f, %5.2f", entity->pos, "v2");
+			DEBUG_PUSH_VAR("Velocity: %5.2f, %5.2f", entity->dP, "v2");
+			DEBUG_PUSH_VAR("Rotation: %5.2f", entity->rotation, "f32");
+
+			RenderFlags flags = renderflag_wireframe | renderflag_no_texture;
+			renderer_entity(&state->renderer, state->camera, entity, pivotPoint, 0,
+					V4(0.4f, 0.8f, 1.0f, 1.0f), flags);
+
+			Basis entityBasis = getDefaultBasis(entity);
+			renderer_rect(&state->renderer, state->camera, entityBasis.basis,
+					V2(4, 4), entityBasis.pivotPoint,
+					DEGREES_TO_RADIANS(entity->rotation), NULL,
+					V4(1.0f, 0, 0, 1.0f), flags);
 		}
-
-		if (entity->pos.y >= state->worldSize.h)
-		{
-			entity->pos.y = 0;
-		}
-		else if (entity->pos.y < 0)
-		{
-			entity->pos.y = state->worldSize.h;
-		}
-
-		if (entity->pos.x >= state->worldSize.w)
-		{
-			entity->pos.x = 0;
-		}
-		else if (entity->pos.x < 0)
-		{
-			entity->pos.x = state->worldSize.w;
-		}
-
-		DEBUG_PUSH_VAR("Pos: %5.2f, %5.2f", entity->pos, "v2");
-		DEBUG_PUSH_VAR("Velocity: %5.2f, %5.2f", entity->dP, "v2");
-		DEBUG_PUSH_VAR("Rotation: %5.2f", entity->rotation, "f32");
-
-		RenderFlags flags = renderflag_wireframe | renderflag_no_texture;
-		renderer_entity(&state->renderer, state->camera, entity, pivotPoint, 0,
-		                 V4(0.4f, 0.8f, 1.0f, 1.0f), flags);
-
-		v2 leftAlignedP = v2_sub(entity->pos, entity->offset);
-		renderer_rect(&state->renderer, state->camera, leftAlignedP,
-		              entity->size, v2_scale(entity->size, 0.5f),
-		              DEGREES_TO_RADIANS(entity->rotation), NULL,
-		              V4(1.0f, 0.8f, 1.0f, 1.0f), flags);
-
-		v2 rightAlignedP = v2_add(leftAlignedP, entity->size);
-		renderer_rect(&state->renderer, state->camera, rightAlignedP, V2(4, 4),
-		              v2_scale(pivotPoint, -1.0f),
-		              DEGREES_TO_RADIANS(entity->rotation), NULL,
-		              V4(0.4f, 0.8f, 1.0f, 1.0f), flags);
 	}
+
+	renderer_polygon(&state->renderer, &state->transientArena, state->camera,
+	                 asteroidVertexList, iterations, V2(0, 0), 0, NULL,
+	                 V4(0.0f, 0.0f, 1.0f, 1.0f), 0);
 
 	TrianglePoints triangle = {0};
 	triangle.points[0] = V2(100, 200);

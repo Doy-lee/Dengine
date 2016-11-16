@@ -376,6 +376,52 @@ void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
 		                       ARRAY_COUNT(vertexList), rendermode_quad, flags);
 }
 
+void renderer_polygon(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
+                      v2 *polygonPoints, i32 numPoints, v2 pivotPoint,
+                      Radians rotate, RenderTex *renderTex, v4 color,
+                      RenderFlags flags)
+{
+	ASSERT(numPoints > 3);
+
+	for (i32 i = 0; i < numPoints; i++)
+		polygonPoints[i] = v2_sub(polygonPoints[i], camera.min);
+
+	RenderTex emptyRenderTex  = {0};
+	if (!renderTex) renderTex = &emptyRenderTex;
+
+	i32 numTrisInTriangulation = numPoints - 2;
+	RenderTriangle_ *polygonTriangulation = memory_pushBytes(
+	    arena, (sizeof(RenderTriangle_) * numTrisInTriangulation));
+
+	v2 triangulationBaseP = polygonPoints[0];
+	i32 triangulationIndex = 0;
+
+	Vertex triangulationBaseVertex = {0};
+	triangulationBaseVertex.pos = triangulationBaseP;
+
+	addVertexToRenderGroup(renderer, renderTex->tex, color,
+	                       &triangulationBaseVertex, 1, rendermode_polygon,
+	                       flags);
+	for (i32 i = 1; triangulationIndex < numTrisInTriangulation; i++)
+	{
+		RenderTriangle_ *tri = &polygonTriangulation[triangulationIndex++];
+		tri->vertex[0].pos = triangulationBaseP;
+		tri->vertex[1].pos = polygonPoints[i + 1];
+		tri->vertex[2].pos = polygonPoints[i];
+
+		addVertexToRenderGroup(renderer, renderTex->tex, color, tri->vertex, 3,
+		                       rendermode_polygon, flags);
+	}
+	RenderTriangle_ tri = polygonTriangulation[numTrisInTriangulation-1];
+	addVertexToRenderGroup(renderer, renderTex->tex, color, &tri.vertex[2], 1,
+	                       rendermode_polygon, flags);
+	/*
+	// NOTE(doyle): Create degenerate vertex setup
+	Vertex triVertexList[5] = {tri->vertex[0], tri->vertex[0], tri->vertex[1],
+	                           tri->vertex[2], tri->vertex[2]};
+	*/
+}
+
 void renderer_triangle(Renderer *const renderer, Rect camera,
                        TrianglePoints triangle, v2 pivotPoint, Radians rotate,
                        RenderTex *renderTex, v4 color, RenderFlags flags)
@@ -472,6 +518,7 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
 void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
                      v2 pivotPoint, Degrees rotate, v4 color, RenderFlags flags)
 {
+	// TODO(doyle): Add early exit on entities out of camera bounds
 	Radians totalRotation = DEGREES_TO_RADIANS((entity->rotation + rotate));
 	RenderTex renderTex   = {0};
 	if (entity->tex)
