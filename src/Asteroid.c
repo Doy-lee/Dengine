@@ -42,10 +42,7 @@ void initAssetManager(GameState *state)
 
 	i32 result =
 	    asset_loadTTFont(assetManager, arena, "C:/Windows/Fonts/Arialbd.ttf");
-
-	if (result) {
-		ASSERT(TRUE);
-	}
+	if (result) ASSERT(TRUE);
 }
 
 void initRenderer(GameState *state, v2 windowSize) {
@@ -76,28 +73,15 @@ void initRenderer(GameState *state, v2 windowSize) {
 	glGenBuffers(ARRAY_COUNT(renderer->vbo), renderer->vbo);
 	GL_CHECK_ERROR();
 
+	// Bind buffers and configure vao, vao automatically intercepts
+	// glBindCalls and associates the state with that buffer for us
+	for (enum RenderMode mode = 0; mode < rendermode_count; mode++)
 	{
-		// Bind buffers and configure vao, vao automatically intercepts
-		// glBindCalls and associates the state with that buffer for us
-		glBindVertexArray(renderer->vao[rendermode_quad]);
-		glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo[rendermode_quad]);
+		glBindVertexArray(renderer->vao[mode]);
+		glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo[mode]);
 
 		glEnableVertexAttribArray(0);
 		u32 numVertexElements = 4;
-		u32 stride            = sizeof(Vertex);
-
-		glVertexAttribPointer(0, numVertexElements, GL_FLOAT,
-		                      GL_FALSE, stride, (GLvoid *)0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-	}
-
-	{
-		glBindVertexArray(renderer->vao[rendermode_triangle]);
-		glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo[rendermode_triangle]);
-
-		glEnableVertexAttribArray(0);
-		u32 numVertexElements = 3;
 		u32 stride            = sizeof(Vertex);
 
 		glVertexAttribPointer(0, numVertexElements, GL_FLOAT,
@@ -183,37 +167,44 @@ INTERNAL b32 getKeyStatus(KeyState *key, enum ReadKeyType readType,
 void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
                                   v2 windowSize, f32 dt)
 {
-	if (!state->init) {
+	if (!state->init)
+	{
 
 		memory_arenaInit(&state->persistentArena, memory->persistent,
 		                 memory->persistentSize);
-		memory_arenaInit(&state->transientArena, memory->transient,
-		                 memory->transientSize);
-
 		initAssetManager(state);
 		initRenderer(state, windowSize);
 
 		state->pixelsPerMeter = 70.0f;
 
 		{ // Init ship entity
-			Entity *ship    = &state->entityList[state->entityIndex++];
-			ship->id        = 0;
-			ship->pos       = V2(100.0f, 100.0f);
-			ship->hitbox    = V2(100.0f, 100.0f);
-			ship->size      = V2(100.0f, 100.0f);
-			ship->scale     = 1;
-			ship->type      = entitytype_ship;
-			ship->direction = direction_null;
-			ship->tex       = NULL;
-			ship->collides  = FALSE;
+			Entity *ship     = &state->entityList[state->entityIndex++];
+			ship->id         = 0;
+			ship->pos        = V2(100, 100);
+			ship->size       = V2(25.0f, 50.0f);
+			ship->hitbox     = ship->size;
+			ship->offset     = v2_scale(ship->size, 0.5f);
+			ship->scale      = 1;
+			ship->type       = entitytype_ship;
+			ship->direction  = direction_null;
+			ship->renderMode = rendermode_triangle;
+			ship->tex        = NULL;
+			ship->collides   = FALSE;
 		}
 
-		state->camera.pos = V2(0, 0);
+		state->camera.pos  = V2(0, 0);
 		state->camera.size = state->renderer.size;
+		state->init        = TRUE;
 
+		state->worldSize = windowSize;
 
-		state->init = TRUE;
+		debug_init(&state->persistentArena, windowSize,
+		           state->assetManager.font);
 	}
+
+	memory_arenaInit(&state->transientArena, memory->transient,
+	                 memory->transientSize);
+
 	{
 		KeyState *keys = state->input.keys;
 		for (enum KeyCode code = 0; code < keycode_count; code++)
@@ -244,40 +235,40 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		Entity *entity = &state->entityList[i];
 		ASSERT(entity->type != entitytype_invalid);
 
+		v2 pivotPoint = {0};
 		if (entity->type == entitytype_ship) {
 
-
-			v2 acceleration = {0};
+			v2 ddP = {0};
 			if (getKeyStatus(&state->input.keys[keycode_up], readkeytype_repeat,
 			                 0.0f, dt))
 			{
-				acceleration.y = 1.0f;
-			}
+				// TODO(doyle): Renderer creates upfacing triangles by default,
+				// but we need to offset rotation so that our base "0 degrees"
+				// is right facing for trig to work
+				Radians rotation = DEGREES_TO_RADIANS((entity->rotation + 90.0f));
+				v2 direction     = V2(math_cosf(rotation), math_sinf(rotation));
 
-			if (getKeyStatus(&state->input.keys[keycode_down],
-			                 readkeytype_repeat, 0.0f, dt))
-			{
-				acceleration.y = -1.0f;
+				ddP = v2_normalise(direction);
 			}
 
 			if (getKeyStatus(&state->input.keys[keycode_left],
 			                 readkeytype_repeat, 0.0f, dt))
 			{
-				acceleration.x = -1.0f;
+				entity->rotation += (120.0f) * dt;
 			}
 
 			if (getKeyStatus(&state->input.keys[keycode_right],
 			                 readkeytype_repeat, 0.0f, dt))
 			{
-				acceleration.x = 1.0f;
+				entity->rotation -= (120.0f) * dt;
 			}
 
-			if (acceleration.x != 0.0f && acceleration.y != 0.0f)
+			if (ddP.x != 0.0f && ddP.y != 0.0f)
 			{
 				// NOTE(doyle): Cheese it and pre-compute the vector for
 				// diagonal using pythagoras theorem on a unit triangle 1^2
 				// + 1^2 = c^2
-				acceleration = v2_scale(acceleration, 0.70710678118f);
+				ddP = v2_scale(ddP, 0.70710678118f);
 			}
 
 			/*
@@ -285,41 +276,77 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 			    newVelocity = a*t + oldVelocity
 			    newPos = (a*t^2)/2 + oldVelocity*t + oldPos
+
 			*/
 
-			acceleration = v2_scale(acceleration, state->pixelsPerMeter * 25);
+			ddP = v2_scale(ddP, state->pixelsPerMeter * 25);
 
-			v2 oldVelocity = entity->velocity;
-			v2 resistance = v2_scale(oldVelocity, 4.0f);
-			acceleration = v2_sub(acceleration, resistance);
+			v2 oldDp = entity->dP;
+			v2 resistance = v2_scale(oldDp, 2.0f);
+			ddP = v2_sub(ddP, resistance);
 
-			entity->velocity = v2_add(v2_scale(acceleration, dt), oldVelocity);
+			entity->dP = v2_add(v2_scale(ddP, dt), oldDp);
 
-			v2 halfAcceleration = v2_scale(acceleration, 0.5f);
-			v2 halfAccelerationDtSquared =
-			    v2_scale(halfAcceleration, (SQUARED(dt)));
-			v2 oldVelocityDt = v2_scale(oldVelocity, dt);
-			v2 oldPos = entity->pos;
-			entity->pos      = v2_add(
-			    v2_add(halfAccelerationDtSquared, oldVelocityDt), oldPos);
+			v2 ddPHalf          = v2_scale(ddP, 0.5f);
+			v2 ddPHalfDtSquared = v2_scale(ddPHalf, (SQUARED(dt)));
+			v2 oldDpDt          = v2_scale(oldDp, dt);
+			v2 oldPos           = entity->pos;
+			entity->pos = v2_add(v2_add(ddPHalfDtSquared, oldDpDt), oldPos);
+
+			pivotPoint = v2_scale(entity->size, 0.5f);
 		}
 
-		RenderFlags flags = renderflag_wireframe;
-		renderer_entity(&state->renderer, state->camera, entity, V2(0, 0),
-		                0, V4(0.4f, 0.8f, 1.0f, 1.0f), flags);
+		if (entity->pos.y >= state->worldSize.h)
+		{
+			entity->pos.y = 0;
+		}
+		else if (entity->pos.y < 0)
+		{
+			entity->pos.y = state->worldSize.h;
+		}
+
+		if (entity->pos.x >= state->worldSize.w)
+		{
+			entity->pos.x = 0;
+		}
+		else if (entity->pos.x < 0)
+		{
+			entity->pos.x = state->worldSize.w;
+		}
+
+		DEBUG_PUSH_VAR("Pos: %5.2f, %5.2f", entity->pos, "v2");
+		DEBUG_PUSH_VAR("Velocity: %5.2f, %5.2f", entity->dP, "v2");
+		DEBUG_PUSH_VAR("Rotation: %5.2f", entity->rotation, "f32");
+
+		RenderFlags flags = renderflag_wireframe | renderflag_no_texture;
+		renderer_entity(&state->renderer, state->camera, entity, pivotPoint, 0,
+		                 V4(0.4f, 0.8f, 1.0f, 1.0f), flags);
+
+		v2 rightAlignedP = v2_add(entity->pos, entity->hitbox);
+		renderer_rect(&state->renderer, state->camera, rightAlignedP, V2(10, 10),
+		              V2(0, 0), DEGREES_TO_RADIANS(entity->rotation), NULL,
+		              V4(0.4f, 0.8f, 1.0f, 1.0f), flags);
+
+		v2 leftAlignedP = entity->pos;
+		renderer_rect(&state->renderer, state->camera, leftAlignedP, V2(10, 10),
+		              V2(0, 0), DEGREES_TO_RADIANS(entity->rotation), NULL,
+		              V4(0.4f, 0.8f, 1.0f, 1.0f), flags);
 	}
 
 	TrianglePoints triangle = {0};
 	triangle.points[0] = V2(100, 200);
-	triangle.points[2] = V2(100, 300);
 	triangle.points[1] = V2(200, 100);
+	triangle.points[2] = V2(100, 300);
 
 	LOCAL_PERSIST Radians rotation = 0.0f;
 	rotation += DEGREES_TO_RADIANS(((60.0f) * dt));
 
-	RenderFlags flags = renderflag_wireframe;
+	RenderFlags flags = renderflag_wireframe | renderflag_no_texture;
 	renderer_triangle(&state->renderer, state->camera, triangle, V2(0, 0),
 	                  rotation, NULL, V4(1, 1, 1, 1), flags);
+
+	debug_drawUi(state, dt);
+	debug_clearCounter();
 
 	renderer_renderGroups(&state->renderer);
 }

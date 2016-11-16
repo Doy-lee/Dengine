@@ -7,15 +7,28 @@
 #define MATH_PI 3.14159265359f
 #define SQUARED(x) (x * x)
 #define ABS(x) ((x) > 0 ? (x) : -(x))
-#define DEGREES_TO_RADIANS(x) (x * (MATH_PI / 180.0f))
-#define RADIANS_TO_DEGREES(x) (x * (180.0f / MATH_PI))
+#define DEGREES_TO_RADIANS(x) ((x * (MATH_PI / 180.0f)))
+#define RADIANS_TO_DEGREES(x) ((x * (180.0f / MATH_PI)))
 #define SQRT(x) (sqrtf(x))
 
 typedef f32 Radians;
+typedef f32 Degrees;
 
 INTERNAL inline f32 math_acosf(f32 a)
 {
 	f32 result = acosf(a);
+	return result;
+}
+
+INTERNAL inline Radians math_cosf(Radians a)
+{
+	Radians result = cosf(a);
+	return result;
+}
+
+INTERNAL inline Radians math_sinf(Radians a)
+{
+	Radians result = sinf(a);
 	return result;
 }
 
@@ -24,6 +37,13 @@ INTERNAL inline f32 math_atan2f(f32 y, f32 x)
 	f32 result = atan2f(y, x);
 	return result;
 }
+
+INTERNAL inline f32 math_tanf(Radians angle)
+{
+	f32 result = tanf(angle);
+	return result;
+}
+
 
 /* VECTORS */
 typedef union v2

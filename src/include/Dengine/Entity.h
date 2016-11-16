@@ -3,6 +3,7 @@
 
 #include "Dengine/Assets.h"
 #include "Dengine/Common.h"
+#include "Dengine/Renderer.h"
 
 typedef struct AudioRenderer AudioRenderer;
 
@@ -40,12 +41,16 @@ typedef struct Entity
 	i32 numChilds;
 
 	v2 pos;
-	v2 velocity;
+	v2 dP;
+
 	v2 hitbox;
 	v2 size;
+	v2 offset;
+
+	enum RenderMode renderMode;
 
 	f32 scale;
-	f32 rotation;
+	Degrees rotation;
 
 	b32 invisible;
 

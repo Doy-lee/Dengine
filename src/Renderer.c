@@ -75,7 +75,7 @@ INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
 			// NOTE(doyle): Mark first vertex as degenerate vertex, but where we
 			// request wireframe mode- we can't use degenerate vertexes for line
 			// mode
-			if (!(flags & renderflag_wireframe)) group->vertexIndex++;
+			group->vertexIndex++;
 			group->init  = TRUE;
 			group->tex   = tex;
 			group->color = color;
@@ -158,6 +158,7 @@ INTERNAL void bufferRenderGroupToGL(Renderer *renderer, RenderGroup *group)
 INTERNAL void applyRotationToVertexes(v2 pos, v2 pivotPoint, Radians rotate,
                                       Vertex *vertexList, i32 vertexListSize)
 {
+	if (rotate == 0) return;
 	// NOTE(doyle): Move the world origin to the base position of the object.
 	// Then move the origin to the pivot point (e.g. center of object) and
 	// rotate from that point.
@@ -238,7 +239,6 @@ INTERNAL RenderQuad_ createRenderQuad(Renderer *renderer, v2 pos, v2 size,
 
 	result.vertex[3].pos      = V2(vertexPair.z, vertexPair.y); // Bottom right
 	result.vertex[3].texCoord = V2(texRectNdc.z, texRectNdc.y);
-	if (rotate == 0) return result;
 
 	// NOTE(doyle): Precalculate rotation on vertex positions
 	// NOTE(doyle): No translation/scale matrix as we pre-calculate it from
@@ -266,7 +266,6 @@ INTERNAL RenderTriangle_ createRenderTriangle(Renderer *renderer,
 	result.vertex[2].pos       = triangle.points[2];
 	result.vertex[2].texCoord  = V2(texRectNdc.z, texRectNdc.w);
 
-	if (rotate == 0) return result;
 	applyRotationToVertexes(triangle.points[0], pivotPoint, rotate,
 	                        result.vertex, ARRAY_COUNT(result.vertex));
 
@@ -286,35 +285,38 @@ INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *group)
 {
 	ASSERT(group->mode < rendermode_invalid);
 
-	u32 drawMethod = GL_TRIANGLE_STRIP;
 	if (group->flags & renderflag_wireframe)
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	else
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	GL_CHECK_ERROR();
+
+	if (group->flags & renderflag_no_texture)
 	{
-		drawMethod = GL_LINE_LOOP;
 		renderer->activeShaderId =
 		    renderer->shaderList[shaderlist_default_no_tex];
+		shader_use(renderer->activeShaderId);
 	}
 	else
 	{
 		renderer->activeShaderId = renderer->shaderList[shaderlist_default];
+		shader_use(renderer->activeShaderId);
+		Texture *tex = group->tex;
+		if (tex)
+		{
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, tex->id);
+			shader_uniformSet1i(renderer->activeShaderId, "tex", 0);
+			GL_CHECK_ERROR();
+		}
 	}
-
-	shader_use(renderer->activeShaderId);
 
 	/* Set color modulation value */
 	shader_uniformSetVec4f(renderer->activeShaderId, "spriteColor",
 	                       group->color);
-	GL_CHECK_ERROR();
-
-	Texture *tex = group->tex;
-	if (tex)
-	{
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex->id);
-		shader_uniformSet1i(renderer->activeShaderId, "tex", 0);
-	}
 
 	glBindVertexArray(renderer->vao[group->mode]);
-	glDrawArrays(drawMethod, 0, renderer->numVertexesInVbo);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
 	GL_CHECK_ERROR();
 	debug_countIncrement(debugcount_drawArrays);
 
@@ -322,6 +324,7 @@ INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *group)
 	glBindVertexArray(0);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	GL_CHECK_ERROR();
+
 }
 
 RenderTex renderer_createNullRenderTex(AssetManager *const assetManager)
@@ -344,44 +347,33 @@ void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
 	RenderQuad_ quad = createRenderQuad(renderer, posInCameraSpace, size,
 	                                    pivotPoint, rotate, *renderTex);
 
-	// addRenderQuadToRenderGroup
-	if (flags & renderflag_wireframe)
-	{
-		Vertex vertexList[4] = {quad.vertex[0], quad.vertex[1], quad.vertex[3],
-		                        quad.vertex[2]};
-		addVertexToRenderGroup(renderer, renderTex->tex, color, vertexList,
-		                       ARRAY_COUNT(vertexList), rendermode_quad,
-		                       flags);
-	}
-	else
-	{
-		/*
-		   NOTE(doyle): Entity rendering is always done in two pairs of
-		   triangles, i.e. quad. To batch render quads as a triangle strip, we
-		   need to create zero-area triangles which OGL will omit from
-		   rendering. Render groups are initialised with 1 degenerate vertex and
-		   then the first two vertexes sent to the render group are the same to
-		   form 1 zero-area triangle strip.
+	/*
+	   NOTE(doyle): Entity rendering is always done in two pairs of
+	   triangles, i.e. quad. To batch render quads as a triangle strip, we
+	   need to create zero-area triangles which OGL will omit from
+	   rendering. Render groups are initialised with 1 degenerate vertex and
+	   then the first two vertexes sent to the render group are the same to
+	   form 1 zero-area triangle strip.
 
-		   A degenerate vertex has to be copied from the last vertex in the
-		   rendering quad, to repeat this process as more entities are
-		   renderered.
+	   A degenerate vertex has to be copied from the last vertex in the
+	   rendering quad, to repeat this process as more entities are
+	   renderered.
 
-		   Alternative implementation is recognising if the rendered
-		   entity is the first in its render group, then we don't need to init
-		   a degenerate vertex, and only at the end of its vertex list. But on
-		   subsequent renders, we need a degenerate vertex at the front to
-		   create the zero-area triangle strip.
+	   Alternative implementation is recognising if the rendered
+	   entity is the first in its render group, then we don't need to init
+	   a degenerate vertex, and only at the end of its vertex list. But on
+	   subsequent renders, we need a degenerate vertex at the front to
+	   create the zero-area triangle strip.
 
-		   The first has been chosen for simplicity of code, at the cost of
-		   1 degenerate vertex at the start of each render group.
-		   */
+	   The first has been chosen for simplicity of code, at the cost of
+	   1 degenerate vertex at the start of each render group.
+	   */
+
 
 		Vertex vertexList[6] = {quad.vertex[0], quad.vertex[0], quad.vertex[1],
 		                        quad.vertex[2], quad.vertex[3], quad.vertex[3]};
 		addVertexToRenderGroup(renderer, renderTex->tex, color, vertexList,
 		                       ARRAY_COUNT(vertexList), rendermode_quad, flags);
-	}
 }
 
 void renderer_triangle(Renderer *const renderer, Rect camera,
@@ -401,9 +393,13 @@ void renderer_triangle(Renderer *const renderer, Rect camera,
 	RenderTriangle_ renderTriangle = createRenderTriangle(
 	    renderer, triangleInCamSpace, pivotPoint, rotate, *renderTex);
 
-	addVertexToRenderGroup(
-	    renderer, renderTex->tex, color, renderTriangle.vertex,
-	    ARRAY_COUNT(renderTriangle.vertex), rendermode_triangle, flags);
+	// NOTE(doyle): Create degenerate vertex setup
+	Vertex vertexList[5] = {renderTriangle.vertex[0], renderTriangle.vertex[0],
+	                        renderTriangle.vertex[1], renderTriangle.vertex[2],
+	                        renderTriangle.vertex[2]};
+
+	addVertexToRenderGroup(renderer, renderTex->tex, color, vertexList,
+	                       ARRAY_COUNT(vertexList), rendermode_triangle, flags);
 }
 
 void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
@@ -474,7 +470,7 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
 }
 
 void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
-                     v2 pivotPoint, Radians rotate, v4 color, RenderFlags flags)
+                     v2 pivotPoint, Degrees rotate, v4 color, RenderFlags flags)
 {
 	// TODO(doyle): Batch into render groups
 
@@ -518,8 +514,36 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 			renderTex.texRect = texRect;
 		}
 
-		renderer_rect(renderer, camera, entity->pos, entity->size, pivotPoint,
-		              entity->rotation + rotate, &renderTex, color, flags);
+		Radians totalRotation = DEGREES_TO_RADIANS((entity->rotation + rotate));
+		if (entity->renderMode == rendermode_quad)
+		{
+			renderer_rect(renderer, camera, entity->pos, entity->size,
+			              pivotPoint, totalRotation, &renderTex,
+			              color, flags);
+		}
+		else if (entity->renderMode == rendermode_triangle)
+		{
+			TrianglePoints triangle = {0};
+
+			v2 entityPWithOffset = v2_add(entity->pos, entity->offset);
+			v2 triangleTopPoint =
+			    V2(entityPWithOffset.x + (entity->size.w * 0.5f),
+			       entityPWithOffset.y + entity->size.h);
+
+			v2 triangleRightSide =
+			    V2(entityPWithOffset.x + entity->size.w, entityPWithOffset.y);
+
+			triangle.points[0] = entityPWithOffset;
+			triangle.points[1] = triangleRightSide;
+			triangle.points[2] = triangleTopPoint;
+
+			renderer_triangle(renderer, camera, triangle, pivotPoint,
+			                  totalRotation, &renderTex, color, flags);
+		}
+		else
+		{
+			ASSERT(INVALID_CODE_PATH);
+		}
 	}
 }
 

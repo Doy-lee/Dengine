@@ -27,6 +27,7 @@ void debug_recursivePrintXmlTree(XmlNode *root, i32 levelsDeep);
 
 void debug_countIncrement(enum DebugCount id);
 void debug_clearCounter();
+
 #define DEBUG_LOG(string) debug_consoleLog(string, __FILE__, __LINE__);
 void debug_consoleLog(char *string, char *file, int lineNum);
 

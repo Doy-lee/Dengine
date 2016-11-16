@@ -30,7 +30,7 @@ GLOBAL_VAR DebugState GLOBAL_debug;
 
 void debug_init(MemoryArena_ *arena, v2 windowSize, Font font)
 {
-	GLOBAL_debug.font          = font;
+	GLOBAL_debug.font = font;
 	GLOBAL_debug.callCount =
 	    memory_pushBytes(arena, debugcount_num * sizeof(i32));
 	GLOBAL_debug.stringLineGap = CAST(f32) font.verticalSpacing;
@@ -228,7 +228,7 @@ INTERNAL void updateAndRenderDebugStack(Renderer *renderer, MemoryArena_ *arena,
 	for (i32 i = 0; i < GLOBAL_debug.numDebugStrings; i++)
 	{
 		f32 rotate = 0;
-		v4 color   = V4(0, 0, 0, 1);
+		v4 color   = V4(1, 1, 1, 1);
 		renderer_staticString(
 		    renderer, arena, &GLOBAL_debug.font, GLOBAL_debug.debugStrings[i],
 		    GLOBAL_debug.currStringP, V2(0, 0), rotate, color, 0);
@@ -270,5 +270,7 @@ INTERNAL void renderConsole(Renderer *renderer, MemoryArena_ *arena)
 
 void debug_drawUi(GameState *state, f32 dt)
 {
+	updateAndRenderDebugStack(&state->renderer, &state->transientArena, dt);
+	renderConsole(&state->renderer, &state->transientArena);
 	debug_clearCounter();
 }

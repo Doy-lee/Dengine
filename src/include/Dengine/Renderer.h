@@ -32,6 +32,7 @@ typedef struct TrianglePoints {
 typedef u32 RenderFlags;
 enum RenderFlag {
 	renderflag_wireframe = 0x1,
+	renderflag_no_texture = 0x2,
 };
 
 enum RenderMode
@@ -47,6 +48,7 @@ typedef struct RenderGroup
 	b32 init;
 	RenderFlags flags;
 	enum RenderMode mode;
+	u32 glRenderMode;
 
 	Texture *tex;
 	v4 color;
@@ -112,7 +114,7 @@ inline void renderer_staticString(Renderer *const renderer, MemoryArena_ *arena,
 }
 
 void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
-                     v2 pivotPoint, Radians rotate, v4 color,
+                     v2 pivotPoint, Degrees rotate, v4 color,
                      RenderFlags flags);
 
 void renderer_renderGroups(Renderer *renderer);

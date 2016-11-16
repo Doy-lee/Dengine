@@ -15,6 +15,8 @@ typedef struct GameState {
 	i32 entityIndex;
 	f32 pixelsPerMeter;
 
+	v2 worldSize;
+
 	Rect camera;
 
 	AssetManager assetManager;
