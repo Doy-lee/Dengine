@@ -35,7 +35,7 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 
 #if 0
 	// Draw shadow
-	renderer_staticRect(renderer, v2_add(V2(1, 1), rect.pos), rect.size,
+	renderer_staticRect(renderer, v2_add(V2(1, 1), rect.min), rect.size,
 	                    V2(0, 0), 0, renderTex, V4(0, 0, 0, 1));
 #endif
 
@@ -68,29 +68,29 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 	{
 		// Draw outline
 		renderer_staticRect(renderer,
-		                    v2_add(V2(-2, -2), v2_add(buttonOffset, rect.pos)),
-		                    v2_add(V2(4, 4), rect.size), V2(0, 0), 0, &renderTex,
+		                    v2_add(V2(-2, -2), v2_add(buttonOffset, rect.min)),
+		                    v2_add(V2(4, 4), rect.max), V2(0, 0), 0, &renderTex,
 		                    buttonColor, 0);
 	}
 
-	renderer_staticRect(renderer, v2_add(buttonOffset, rect.pos), rect.size,
+	renderer_staticRect(renderer, v2_add(buttonOffset, rect.min), rect.max,
 	                    V2(0, 0), 0, &renderTex, buttonColor, 0);
 
 	if (label)
 	{
 		v2 labelDim = asset_stringDimInPixels(font, label);
-		v2 labelPos = rect.pos;
+		v2 labelPos = rect.min;
 
 		// Initially position the label to half the width of the button
-		labelPos.x += (rect.size.w * 0.5f);
+		labelPos.x += (rect.max.w * 0.5f);
 
 		// Move the label pos back half the length of the string (i.e.
 		// center it)
 		labelPos.x -= (CAST(f32) labelDim.w * 0.5f);
 
-		if (labelDim.h < rect.size.h)
+		if (labelDim.h < rect.max.h)
 		{
-			labelPos.y += (rect.size.h * 0.5f);
+			labelPos.y += (rect.max.h * 0.5f);
 			labelPos.y -= (CAST(f32)labelDim.h * 0.5f);
 		}
 
@@ -168,13 +168,13 @@ i32 userInterface_scrollbar(UiState *const uiState,
 	if (uiState->kbdItem == id)
 	{
 		// Draw outline
-		renderer_staticRect(renderer, v2_add(V2(-2, -2), scrollBarRect.pos),
-		                    v2_add(V2(4, 4), scrollBarRect.size), V2(0, 0), 0,
+		renderer_staticRect(renderer, v2_add(V2(-2, -2), scrollBarRect.min),
+		                    v2_add(V2(4, 4), scrollBarRect.max), V2(0, 0), 0,
 		                    &renderTex, V4(1, 0, 0, 1), 0);
 	}
 
 	// Render scroll bar background
-	renderer_staticRect(renderer, scrollBarRect.pos, scrollBarRect.size,
+	renderer_staticRect(renderer, scrollBarRect.min, scrollBarRect.max,
 	                    V2(0, 0), 0, &renderTex, V4(0.75f, 0.5f, 0.5f, 1), 0);
 
 	// Render scroll bar slider
@@ -183,8 +183,8 @@ i32 userInterface_scrollbar(UiState *const uiState,
 
 	f32 sliderPercentageOffset = (CAST(f32) *value / CAST(f32) maxValue);
 	f32 sliderYOffsetToBar =
-	    (scrollBarRect.size.h - sliderSize.h) * sliderPercentageOffset;
-	v2 sliderPos   = v2_add(scrollBarRect.pos, V2(0, sliderYOffsetToBar));
+	    (scrollBarRect.max.h - sliderSize.h) * sliderPercentageOffset;
+	v2 sliderPos   = v2_add(scrollBarRect.min, V2(0, sliderYOffsetToBar));
 
 	if (uiState->hotItem == id || uiState->activeItem == id)
 		sliderColor = V4(1.0f, 0, 0, 1);
@@ -228,16 +228,16 @@ i32 userInterface_scrollbar(UiState *const uiState,
 
 	if (uiState->activeItem == id)
 	{
-		f32 mouseYRelToRect = input.mouseP.y - scrollBarRect.pos.y;
+		f32 mouseYRelToRect = input.mouseP.y - scrollBarRect.min.y;
 
 		// Bounds check
 		if (mouseYRelToRect < 0)
 			mouseYRelToRect = 0;
-		else if (mouseYRelToRect > scrollBarRect.size.h)
-			mouseYRelToRect = scrollBarRect.size.h;
+		else if (mouseYRelToRect > scrollBarRect.max.h)
+			mouseYRelToRect = scrollBarRect.max.h;
 
 		f32 newSliderPercentOffset =
-		    (CAST(f32) mouseYRelToRect / scrollBarRect.size.h);
+		    (CAST(f32) mouseYRelToRect / scrollBarRect.max.h);
 
 		i32 newValue = CAST(i32)(newSliderPercentOffset * CAST(f32)maxValue);
 		if (newValue != *value)
@@ -282,27 +282,27 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
 	if (uiState->kbdItem == id)
 	{
 		// Draw outline
-		renderer_staticRect(renderer, v2_add(V2(-2, -2), rect.pos),
-		                    v2_add(V2(4, 4), rect.size), V2(0, 0), 0,
+		renderer_staticRect(renderer, v2_add(V2(-2, -2), rect.min),
+		                    v2_add(V2(4, 4), rect.max), V2(0, 0), 0,
 		                    &renderTex, V4(1.0f, 0, 0, 1), 0);
 	}
 
 	// Render text field
-	renderer_staticRect(renderer, rect.pos, rect.size, V2(0, 0), 0,
+	renderer_staticRect(renderer, rect.min, rect.max, V2(0, 0), 0,
 	                    &renderTex, V4(0.75f, 0.5f, 0.5f, 1), 0);
 
 	if (uiState->activeItem == id || uiState->hotItem == id)
 	{
-		renderer_staticRect(renderer, rect.pos, rect.size, V2(0, 0), 0,
+		renderer_staticRect(renderer, rect.min, rect.max, V2(0, 0), 0,
 		                    &renderTex, V4(0.75f, 0.75f, 0.0f, 1), 0);
 	}
 	else
 	{
-		renderer_staticRect(renderer, rect.pos, rect.size, V2(0, 0), 0,
+		renderer_staticRect(renderer, rect.min, rect.max, V2(0, 0), 0,
 		                    &renderTex, V4(0.5f, 0.5f, 0.5f, 1), 0);
 	}
 
-	v2 strPos = rect.pos;
+	v2 strPos = rect.min;
 	renderer_staticString(renderer, arena, font, string, strPos, V2(0, 0), 0,
 	                      V4(0, 0, 0, 1), 0);
 
@@ -365,10 +365,10 @@ i32 userInterface_window(UiState *const uiState, MemoryArena_ *const arena,
 
 	Rect rect = window->rect;
 	RenderTex nullRenderTex = renderer_createNullRenderTex(assetManager);
-	renderer_staticRect(renderer, rect.pos, rect.size, V2(0, 0), 0,
+	renderer_staticRect(renderer, rect.min, rect.max, V2(0, 0), 0,
 	                    &nullRenderTex, V4(0.25f, 0.25f, 0.5f, 0.5f), 0);
 
-	v2 menuTitleP = v2_add(rect.pos, V2(0, rect.size.h - 10));
+	v2 menuTitleP = v2_add(rect.min, V2(0, rect.max.h - 10));
 	renderer_staticString(renderer, arena, font, window->title, menuTitleP,
 	                      V2(0, 0), 0, V4(0, 0, 0, 1), 0);
 
@@ -444,11 +444,11 @@ i32 userInterface_window(UiState *const uiState, MemoryArena_ *const arena,
 			for (i32 i = 0; i < window->numChildUiItems; i++)
 			{
 				UiItem *childUi = &window->childUiItems[i];
-				childUi->rect.pos = v2_add(deltaP, childUi->rect.pos);
+				childUi->rect.min = v2_add(deltaP, childUi->rect.min);
 			}
 
 			DEBUG_PUSH_VAR("Delta Pos %4.2f, %4.2f", deltaP, "v2");
-			window->rect.pos = v2_add(deltaP, window->rect.pos);
+			window->rect.min = v2_add(deltaP, window->rect.min);
 		}
 		else
 		{

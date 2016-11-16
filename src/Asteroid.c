@@ -180,7 +180,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		{ // Init ship entity
 			Entity *ship     = &state->entityList[state->entityIndex++];
 			ship->id         = 0;
-			ship->pos        = V2(100, 100);
+			ship->pos        = V2(0, 0);
 			ship->size       = V2(25.0f, 50.0f);
 			ship->hitbox     = ship->size;
 			ship->offset     = v2_scale(ship->size, 0.5f);
@@ -192,9 +192,9 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			ship->collides   = FALSE;
 		}
 
-		state->camera.pos  = V2(0, 0);
-		state->camera.size = state->renderer.size;
-		state->init        = TRUE;
+		state->camera.min = V2(0, 0);
+		state->camera.max = state->renderer.size;
+		state->init       = TRUE;
 
 		state->worldSize = windowSize;
 
@@ -247,8 +247,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				// is right facing for trig to work
 				Radians rotation = DEGREES_TO_RADIANS((entity->rotation + 90.0f));
 				v2 direction     = V2(math_cosf(rotation), math_sinf(rotation));
-
-				ddP = v2_normalise(direction);
+				ddP = direction;
 			}
 
 			if (getKeyStatus(&state->input.keys[keycode_left],
@@ -322,14 +321,16 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		renderer_entity(&state->renderer, state->camera, entity, pivotPoint, 0,
 		                 V4(0.4f, 0.8f, 1.0f, 1.0f), flags);
 
-		v2 rightAlignedP = v2_add(entity->pos, entity->hitbox);
-		renderer_rect(&state->renderer, state->camera, rightAlignedP, V2(10, 10),
-		              V2(0, 0), DEGREES_TO_RADIANS(entity->rotation), NULL,
-		              V4(0.4f, 0.8f, 1.0f, 1.0f), flags);
+		v2 leftAlignedP = v2_sub(entity->pos, entity->offset);
+		renderer_rect(&state->renderer, state->camera, leftAlignedP,
+		              entity->size, v2_scale(entity->size, 0.5f),
+		              DEGREES_TO_RADIANS(entity->rotation), NULL,
+		              V4(1.0f, 0.8f, 1.0f, 1.0f), flags);
 
-		v2 leftAlignedP = entity->pos;
-		renderer_rect(&state->renderer, state->camera, leftAlignedP, V2(10, 10),
-		              V2(0, 0), DEGREES_TO_RADIANS(entity->rotation), NULL,
+		v2 rightAlignedP = v2_add(leftAlignedP, entity->size);
+		renderer_rect(&state->renderer, state->camera, rightAlignedP, V2(4, 4),
+		              v2_scale(pivotPoint, -1.0f),
+		              DEGREES_TO_RADIANS(entity->rotation), NULL,
 		              V4(0.4f, 0.8f, 1.0f, 1.0f), flags);
 	}
 

@@ -65,7 +65,7 @@ void entity_updateAnim(Entity *const entity, const f32 dt)
 
 	char *frameName    = anim->frameList[currEntityAnim->currFrame];
 	SubTexture texRect = asset_getAtlasSubTex(anim->atlas, frameName);
-	entity->size       = v2_scale(texRect.rect.size, entity->scale);
+	entity->size       = v2_scale(texRect.rect.max, entity->scale);
 }
 
 void entity_addAnim(AssetManager *const assetManager, Entity *const entity,

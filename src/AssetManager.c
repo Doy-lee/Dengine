@@ -666,7 +666,7 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena_ *arena
 								i32 valueLen = common_strlen(value);
 								i32 intValue = common_atoi(value, valueLen);
 
-								subTex.rect.pos.x = CAST(f32) intValue;
+								subTex.rect.min.x = CAST(f32) intValue;
 							}
 							else if (common_strcmp(subTexAttrib->name, "y") ==
 							         0)
@@ -675,7 +675,7 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena_ *arena
 								i32 valueLen = common_strlen(value);
 
 								i32 intValue = common_atoi(value, valueLen);
-								subTex.rect.pos.y = CAST(f32) intValue;
+								subTex.rect.min.y = CAST(f32) intValue;
 							}
 							else if (common_strcmp(subTexAttrib->name,
 							                       "width") == 0)
@@ -684,7 +684,7 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena_ *arena
 								i32 valueLen = common_strlen(value);
 								i32 intValue = common_atoi(value, valueLen);
 
-								subTex.rect.size.w = CAST(f32) intValue;
+								subTex.rect.max.w = CAST(f32) intValue;
 							}
 							else if (common_strcmp(subTexAttrib->name,
 							                       "height") == 0)
@@ -693,7 +693,7 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena_ *arena
 								i32 valueLen = common_strlen(value);
 								i32 intValue = common_atoi(value, valueLen);
 
-								subTex.rect.size.h = CAST(f32) intValue;
+								subTex.rect.max.h = CAST(f32) intValue;
 							}
 							else if (common_strcmp(subTexAttrib->name,
 							                       "hand_offset_x") == 0)
@@ -726,9 +726,9 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena_ *arena
 						// TODO(doyle): XML specifies 0,0 top left, we
 						// prefer 0,0 bottom right, so offset by size since 0,0
 						// is top left and size creates a bounding box below it
-						subTex.rect.pos.y = 1024 - subTex.rect.pos.y;
-						subTex.rect.pos.y -= subTex.rect.size.h;
-						subTex.offset.y = subTex.rect.size.h - subTex.offset.y;
+						subTex.rect.min.y = 1024 - subTex.rect.min.y;
+						subTex.rect.min.y -= subTex.rect.max.h;
+						subTex.offset.y = subTex.rect.max.h - subTex.offset.y;
 
 #ifdef DENGINE_DEBUG
 						ASSERT(key);

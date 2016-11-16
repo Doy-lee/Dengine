@@ -339,7 +339,7 @@ void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
                    RenderFlags flags)
 {
 	// NOTE(doyle): Bottom left and top right position of quad in world space
-	v2 posInCameraSpace = v2_sub(pos, camera.pos);
+	v2 posInCameraSpace = v2_sub(pos, camera.min);
 
 	RenderTex emptyRenderTex = {0};
 	if (!renderTex) renderTex = &emptyRenderTex;
@@ -385,7 +385,7 @@ void renderer_triangle(Renderer *const renderer, Rect camera,
 	       ARRAY_COUNT(triangleInCamSpace.points));
 
 	for (i32 i = 0; i < ARRAY_COUNT(triangleInCamSpace.points); i++)
-		triangleInCamSpace.points[i] = v2_sub(triangle.points[i], camera.pos);
+		triangleInCamSpace.points[i] = v2_sub(triangle.points[i], camera.min);
 
 	RenderTex emptyRenderTex = {0};
 	if (!renderTex) renderTex = &emptyRenderTex;
@@ -425,7 +425,7 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
 		Vertex *vertexList =
 		    memory_pushBytes(arena, numVertexesToAlloc * sizeof(Vertex));
 
-		v2 posInCameraSpace = v2_sub(pos, camera.pos);
+		v2 posInCameraSpace = v2_sub(pos, camera.min);
 		pos = posInCameraSpace;
 
 		// TODO(doyle): Find why font is 1px off, might be arial font semantics
@@ -443,9 +443,9 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
 			    asset_getAtlasSubTex(font->atlas, &CAST(char)codepoint);
 
 			v4 charTexRect      = {0};
-			charTexRect.vec2[0] = subTexture.rect.pos;
+			charTexRect.vec2[0] = subTexture.rect.min;
 			charTexRect.vec2[1] =
-			    v2_add(subTexture.rect.pos, subTexture.rect.size);
+			    v2_add(subTexture.rect.min, subTexture.rect.max);
 			flipTexCoord(&charTexRect, FALSE, TRUE);
 
 			RenderTex renderTex = {tex, charTexRect};
@@ -472,78 +472,63 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
 void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
                      v2 pivotPoint, Degrees rotate, v4 color, RenderFlags flags)
 {
-	// TODO(doyle): Batch into render groups
-
-	// NOTE(doyle): Pos + Size since the origin of an entity is it's bottom left
-	// corner. Add the two together so that the clipping point is the far right
-	// side of the entity
-	v2 rightAlignedP = v2_add(entity->pos, entity->hitbox);
-	v2 leftAlignedP = entity->pos;
-	if (math_pointInRect(camera, leftAlignedP) ||
-	    math_pointInRect(camera, rightAlignedP))
+	Radians totalRotation = DEGREES_TO_RADIANS((entity->rotation + rotate));
+	RenderTex renderTex   = {0};
+	if (entity->tex)
 	{
-
-		RenderTex renderTex = {0};
-		if (entity->tex)
+		EntityAnim *entityAnim = &entity->animList[entity->animListIndex];
+		v4 texRect             = {0};
+		if (entityAnim->anim)
 		{
-			EntityAnim *entityAnim = &entity->animList[entity->animListIndex];
-			v4 texRect = {0};
-			if (entityAnim->anim)
-			{
-				Animation *anim = entityAnim->anim;
-				char *frameName = anim->frameList[entityAnim->currFrame];
-				SubTexture subTex =
-				    asset_getAtlasSubTex(anim->atlas, frameName);
+			Animation *anim   = entityAnim->anim;
+			char *frameName   = anim->frameList[entityAnim->currFrame];
+			SubTexture subTex = asset_getAtlasSubTex(anim->atlas, frameName);
 
-				texRect.vec2[0] = subTex.rect.pos;
-				texRect.vec2[1] = v2_add(subTex.rect.pos, subTex.rect.size);
-				flipTexCoord(&texRect, entity->flipX, entity->flipY);
-			}
-			else
-			{
-				texRect = V4(0.0f, 0.0f, (f32)entity->tex->width,
-				             (f32)entity->tex->height);
-			}
-
-			if (entity->direction == direction_east)
-			{
-				flipTexCoord(&texRect, TRUE, FALSE);
-			}
-
-			renderTex.tex = entity->tex;
-			renderTex.texRect = texRect;
-		}
-
-		Radians totalRotation = DEGREES_TO_RADIANS((entity->rotation + rotate));
-		if (entity->renderMode == rendermode_quad)
-		{
-			renderer_rect(renderer, camera, entity->pos, entity->size,
-			              pivotPoint, totalRotation, &renderTex,
-			              color, flags);
-		}
-		else if (entity->renderMode == rendermode_triangle)
-		{
-			TrianglePoints triangle = {0};
-
-			v2 entityPWithOffset = v2_add(entity->pos, entity->offset);
-			v2 triangleTopPoint =
-			    V2(entityPWithOffset.x + (entity->size.w * 0.5f),
-			       entityPWithOffset.y + entity->size.h);
-
-			v2 triangleRightSide =
-			    V2(entityPWithOffset.x + entity->size.w, entityPWithOffset.y);
-
-			triangle.points[0] = entityPWithOffset;
-			triangle.points[1] = triangleRightSide;
-			triangle.points[2] = triangleTopPoint;
-
-			renderer_triangle(renderer, camera, triangle, pivotPoint,
-			                  totalRotation, &renderTex, color, flags);
+			texRect.vec2[0] = subTex.rect.min;
+			texRect.vec2[1] = v2_add(subTex.rect.min, subTex.rect.max);
+			flipTexCoord(&texRect, entity->flipX, entity->flipY);
 		}
 		else
 		{
-			ASSERT(INVALID_CODE_PATH);
+			texRect = V4(0.0f, 0.0f, (f32)entity->tex->width,
+			             (f32)entity->tex->height);
 		}
+
+		if (entity->direction == direction_east)
+		{
+			flipTexCoord(&texRect, TRUE, FALSE);
+		}
+
+		renderTex.tex     = entity->tex;
+		renderTex.texRect = texRect;
+	}
+
+	if (entity->renderMode == rendermode_quad)
+	{
+		renderer_rect(renderer, camera, entity->pos, entity->size, pivotPoint,
+		              totalRotation, &renderTex, color, flags);
+	}
+	else if (entity->renderMode == rendermode_triangle)
+	{
+		TrianglePoints triangle = {0};
+
+		v2 entityPWithOffset = v2_sub(entity->pos, entity->offset);
+		v2 triangleTopPoint  = V2(entityPWithOffset.x + (entity->size.w * 0.5f),
+		                         entityPWithOffset.y + entity->size.h);
+
+		v2 triangleRightSide =
+		    V2(entityPWithOffset.x + entity->size.w, entityPWithOffset.y);
+
+		triangle.points[0] = entityPWithOffset;
+		triangle.points[1] = triangleRightSide;
+		triangle.points[2] = triangleTopPoint;
+
+		renderer_triangle(renderer, camera, triangle, pivotPoint, totalRotation,
+		                  &renderTex, color, flags);
+	}
+	else
+	{
+		ASSERT(INVALID_CODE_PATH);
 	}
 }
 

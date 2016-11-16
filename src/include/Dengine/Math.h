@@ -70,8 +70,8 @@ typedef union v4
 
 typedef struct Rect
 {
-	v2 pos;
-	v2 size;
+	v2 min;
+	v2 max;
 } Rect;
 
 INTERNAL inline v2 V2i(const i32 x, const i32 y)
@@ -319,11 +319,11 @@ INTERNAL inline v4 mat4_mul_v4(const mat4 a, const v4 b)
 INTERNAL inline b32 math_pointInRect(Rect rect, v2 point)
 {
 	b32 outsideOfRectX = FALSE;
-	if (point.x < rect.pos.x || point.x > (rect.pos.x + rect.size.w))
+	if (point.x < rect.min.x || point.x > (rect.min.x + rect.max.w))
 		outsideOfRectX = TRUE;
 
 	b32 outsideOfRectY = FALSE;
-	if (point.y < rect.pos.y || point.y > (rect.pos.y + rect.size.h))
+	if (point.y < rect.min.y || point.y > (rect.min.y + rect.max.h))
 		outsideOfRectY = TRUE;
 
 	if (outsideOfRectX || outsideOfRectY) return FALSE;
