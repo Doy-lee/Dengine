@@ -53,6 +53,7 @@ void initRenderer(GameState *state, v2 windowSize) {
 	// NOTE(doyle): Value to map a screen coordinate to NDC coordinate
 	renderer->vertexNdcFactor =
 	    V2(1.0f / renderer->size.w, 1.0f / renderer->size.h);
+	renderer->groupIndexForVertexBatch = -1;
 
 	const mat4 projection =
 	    mat4_ortho(0.0f, renderer->size.w, 0.0f, renderer->size.h, 0.0f, 1.0f);
@@ -568,6 +569,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		              V4(1.0f, 0, 0, 1.0f), flags);
 	}
 
+#if 1
 	TrianglePoints triangle = {0};
 	triangle.points[0] = V2(100, 200);
 	triangle.points[1] = V2(200, 100);
@@ -582,6 +584,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 	debug_drawUi(state, dt);
 	debug_clearCounter();
+#endif
 
 	renderer_renderGroups(&state->renderer);
 }

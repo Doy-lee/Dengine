@@ -61,6 +61,12 @@ typedef struct RenderGroup
 
 } RenderGroup;
 
+enum VertexBatchState {
+	vertexbatchstate_off,
+	vertexbatchstate_initial_add,
+	vertexbatchstate_active,
+};
+
 typedef struct Renderer
 {
 	u32 shaderList[shaderlist_count];
@@ -68,6 +74,9 @@ typedef struct Renderer
 
 	u32 vao[rendermode_count];
 	u32 vbo[rendermode_count];
+
+	enum VertexBatchState vertexBatchState;
+	i32 groupIndexForVertexBatch;
 
 	i32 numVertexesInVbo;
 	v2 vertexNdcFactor;

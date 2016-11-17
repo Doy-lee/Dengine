@@ -18,15 +18,68 @@ typedef struct RenderTriangle
 	Vertex vertex[3];
 } RenderTriangle_;
 
-INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
-                                     Vertex *vertexList, i32 numVertexes,
-                                     enum RenderMode targetRenderMode,
-                                     RenderFlags flags)
+// NOTE(doyle): A vertex batch is the batch of vertexes comprised to make one
+// shape
+INTERNAL void beginVertexBatch(Renderer *renderer)
 {
+	ASSERT(renderer->vertexBatchState == vertexbatchstate_off);
+	ASSERT(renderer->groupIndexForVertexBatch == -1);
+	renderer->vertexBatchState = vertexbatchstate_initial_add;
+}
 
-#ifdef DENGINE_DEBUG
+/*
+   NOTE(doyle): Entity rendering is always done in two pairs of
+   triangles, i.e. quad. To batch render quads as a triangle strip, we
+   need to create zero-area triangles which OGL will omit from
+   rendering. Render groups are initialised with 1 degenerate vertex and
+   then the first two vertexes sent to the render group are the same to
+   form 1 zero-area triangle strip.
+
+   A degenerate vertex has to be copied from the last vertex in the
+   rendering quad, to repeat this process as more entities are
+   renderered.
+
+   Alternative implementation is recognising if the rendered
+   entity is the first in its render group, then we don't need to init
+   a degenerate vertex, and only at the end of its vertex list. But on
+   subsequent renders, we need a degenerate vertex at the front to
+   create the zero-area triangle strip.
+
+   The first has been chosen for simplicity of code, at the cost of
+   1 degenerate vertex at the start of each render group. The initial degenrate
+   vertexes are added in the add to vertex group and the ending degenerates at
+   on ending a vertex batch.
+   */
+INTERNAL void endVertexBatch(Renderer *renderer)
+{
+	ASSERT(renderer->vertexBatchState != vertexbatchstate_off);
+	ASSERT(renderer->groupIndexForVertexBatch != -1);
+
+	i32 numDegenerateVertexes = 2;
+	RenderGroup *group = &renderer->groups[renderer->groupIndexForVertexBatch];
+
+	i32 freeVertexSlots = renderer->groupCapacity - group->vertexIndex;
+	if (numDegenerateVertexes < freeVertexSlots)
+	{
+		Vertex degenerateVertex = group->vertexList[group->vertexIndex-1];
+		group->vertexList[group->vertexIndex++] = degenerateVertex;
+		group->vertexList[group->vertexIndex++] = degenerateVertex;
+	}
+
+	renderer->vertexBatchState         = vertexbatchstate_off;
+	renderer->groupIndexForVertexBatch = -1;
+}
+
+INTERNAL void addVertexToRenderGroup_(Renderer *renderer, Texture *tex,
+                                      v4 color, Vertex *vertexList,
+                                      i32 numVertexes,
+                                      enum RenderMode targetRenderMode,
+                                      RenderFlags flags)
+{
+	ASSERT(renderer->vertexBatchState != vertexbatchstate_off);
 	ASSERT(numVertexes > 0);
 
+#ifdef DENGINE_DEBUG
 	for (i32 i = 0; i < numVertexes; i++)
 		debug_countIncrement(debugcount_numVertex);
 #endif
@@ -72,9 +125,6 @@ INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
 			/* New group, unused so initialise it */
 			groupIsValid = TRUE;
 
-			// NOTE(doyle): Mark first vertex as degenerate vertex
-			group->vertexList[group->vertexIndex++] = vertexList[0];
-
 			group->init  = TRUE;
 			group->tex   = tex;
 			group->color = color;
@@ -89,7 +139,15 @@ INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
 		if (groupIsValid)
 		{
 			i32 freeVertexSlots = renderer->groupCapacity - group->vertexIndex;
-			if (numVertexes < freeVertexSlots)
+
+			// NOTE(doyle): Two at start, two at end
+			i32 numDegenerateVertexes = 0;
+			if (renderer->vertexBatchState == vertexbatchstate_initial_add)
+			{
+				numDegenerateVertexes = 2;
+			}
+
+			if ((numDegenerateVertexes + numVertexes) < freeVertexSlots)
 			{
 				if (i != 0)
 				{
@@ -106,6 +164,18 @@ INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
 	/* Valid group, add to the render group for rendering */
 	if (targetGroup)
 	{
+		if (renderer->vertexBatchState == vertexbatchstate_initial_add)
+		{
+			targetGroup->vertexList[targetGroup->vertexIndex++] = vertexList[0];
+			targetGroup->vertexList[targetGroup->vertexIndex++] = vertexList[0];
+			renderer->vertexBatchState = vertexbatchstate_active;
+
+			// NOTE(doyle): We swap groups to the front if it is valid, so
+			// target group should always be 0
+			ASSERT(renderer->groupIndexForVertexBatch == -1);
+			renderer->groupIndexForVertexBatch = 0;
+		}
+
 		for (i32 i = 0; i < numVertexes; i++)
 		{
 			targetGroup->vertexList[targetGroup->vertexIndex++] = vertexList[i];
@@ -346,33 +416,10 @@ void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
 	RenderQuad_ quad = createRenderQuad(renderer, posInCameraSpace, size,
 	                                    pivotPoint, rotate, *renderTex);
 
-	/*
-	   NOTE(doyle): Entity rendering is always done in two pairs of
-	   triangles, i.e. quad. To batch render quads as a triangle strip, we
-	   need to create zero-area triangles which OGL will omit from
-	   rendering. Render groups are initialised with 1 degenerate vertex and
-	   then the first two vertexes sent to the render group are the same to
-	   form 1 zero-area triangle strip.
-
-	   A degenerate vertex has to be copied from the last vertex in the
-	   rendering quad, to repeat this process as more entities are
-	   renderered.
-
-	   Alternative implementation is recognising if the rendered
-	   entity is the first in its render group, then we don't need to init
-	   a degenerate vertex, and only at the end of its vertex list. But on
-	   subsequent renders, we need a degenerate vertex at the front to
-	   create the zero-area triangle strip.
-
-	   The first has been chosen for simplicity of code, at the cost of
-	   1 degenerate vertex at the start of each render group.
-	   */
-
-
-		Vertex vertexList[6] = {quad.vertex[0], quad.vertex[0], quad.vertex[1],
-		                        quad.vertex[2], quad.vertex[3], quad.vertex[3]};
-		addVertexToRenderGroup(renderer, renderTex->tex, color, vertexList,
-		                       ARRAY_COUNT(vertexList), rendermode_quad, flags);
+	beginVertexBatch(renderer);
+	addVertexToRenderGroup_(renderer, renderTex->tex, color, quad.vertex,
+	                        ARRAY_COUNT(quad.vertex), rendermode_quad, flags);
+	endVertexBatch(renderer);
 }
 
 void renderer_polygon(Renderer *const renderer, Rect camera,
@@ -395,32 +442,23 @@ void renderer_polygon(Renderer *const renderer, Rect camera,
 	Vertex triangulationBaseVertex = {0};
 	triangulationBaseVertex.pos = triangulationBaseP;
 
-	addVertexToRenderGroup(renderer, renderTex->tex, color,
-	                       &triangulationBaseVertex, 1, rendermode_polygon,
-	                       flags);
-	RenderTriangle_ lastRenderTriForDegeneration = {0};
+
+	beginVertexBatch(renderer);
 	for (i32 i = 1; triangulationIndex < numTrisInTriangulation; i++)
 	{
+		ASSERT((i + 1) <= numPoints);
+
 		RenderTriangle_ tri = {0};
 		tri.vertex[0].pos  = triangulationBaseP;
 		tri.vertex[1].pos  = polygonPoints[i + 1];
 		tri.vertex[2].pos  = polygonPoints[i];
 
-		addVertexToRenderGroup(renderer, renderTex->tex, color, tri.vertex,
-		                       ARRAY_COUNT(tri.vertex), rendermode_polygon,
-		                       flags);
-
-		if (triangulationIndex++ >= numTrisInTriangulation)
-		{
-			lastRenderTriForDegeneration = tri;
-		}
+		addVertexToRenderGroup_(renderer, renderTex->tex, color, tri.vertex,
+		                        ARRAY_COUNT(tri.vertex), rendermode_polygon,
+		                        flags);
+		triangulationIndex++;
 	}
-	for (i32 i = 0; i < 3; i++)
-	{
-		addVertexToRenderGroup(renderer, renderTex->tex, color,
-		                       &lastRenderTriForDegeneration.vertex[2], 1,
-		                       rendermode_polygon, flags);
-	}
+	endVertexBatch(renderer);
 }
 
 void renderer_triangle(Renderer *const renderer, Rect camera,
@@ -440,13 +478,11 @@ void renderer_triangle(Renderer *const renderer, Rect camera,
 	RenderTriangle_ renderTriangle = createRenderTriangle(
 	    renderer, triangleInCamSpace, pivotPoint, rotate, *renderTex);
 
-	// NOTE(doyle): Create degenerate vertex setup
-	Vertex vertexList[5] = {renderTriangle.vertex[0], renderTriangle.vertex[0],
-	                        renderTriangle.vertex[1], renderTriangle.vertex[2],
-	                        renderTriangle.vertex[2]};
-
-	addVertexToRenderGroup(renderer, renderTex->tex, color, vertexList,
-	                       ARRAY_COUNT(vertexList), rendermode_triangle, flags);
+	beginVertexBatch(renderer);
+	addVertexToRenderGroup_(
+	    renderer, renderTex->tex, color, renderTriangle.vertex,
+	    ARRAY_COUNT(renderTriangle.vertex), rendermode_triangle, flags);
+	endVertexBatch(renderer);
 }
 
 void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
@@ -499,20 +535,13 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
 			RenderQuad_ quad    = createRenderQuad(renderer, pos, font->maxSize,
 			                                    pivotPoint, rotate, renderTex);
 
-			vertexList[vertexIndex++] = quad.vertex[0];
-			for (i32 i = 0; i < ARRAY_COUNT(quad.vertex); i++)
-			{
-				vertexList[vertexIndex++] = quad.vertex[i];
-			}
-			vertexList[vertexIndex++] = quad.vertex[3];
+			beginVertexBatch(renderer);
+			addVertexToRenderGroup_(renderer, tex, color, quad.vertex,
+			                        ARRAY_COUNT(quad.vertex), rendermode_quad,
+			                        flags);
+			endVertexBatch(renderer);
 			pos.x += metric.advance;
 		}
-
-		addVertexToRenderGroup(renderer, tex, color, vertexList,
-		                       numVertexesToAlloc, rendermode_quad, flags);
-		// TODO(doyle): Mem free
-		// PLATFORM_MEM_FREE(arena, vertexList,
-		//                  sizeof(Vertex) * numVertexesToAlloc);
 	}
 }
 
