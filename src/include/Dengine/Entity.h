@@ -10,9 +10,14 @@ typedef struct AudioRenderer AudioRenderer;
 enum Direction
 {
 	direction_north,
+	direction_northwest,
 	direction_west,
+	direction_southwest,
 	direction_south,
+	direction_southeast,
 	direction_east,
+	direction_northeast,
+	direction_count,
 	direction_null,
 	direction_num,
 };
@@ -21,6 +26,7 @@ enum EntityType
 {
 	entitytype_invalid,
 	entitytype_ship,
+	entitytype_asteroid,
 	entitytype_count,
 };
 
@@ -48,6 +54,8 @@ typedef struct Entity
 	v2 offset;
 
 	enum RenderMode renderMode;
+	v2 *vertexPoints;
+	i32 numVertexPoints;
 
 	f32 scale;
 	Degrees rotation;

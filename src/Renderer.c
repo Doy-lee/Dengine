@@ -72,10 +72,9 @@ INTERNAL void addVertexToRenderGroup(Renderer *renderer, Texture *tex, v4 color,
 			/* New group, unused so initialise it */
 			groupIsValid = TRUE;
 
-			// NOTE(doyle): Mark first vertex as degenerate vertex, but where we
-			// request wireframe mode- we can't use degenerate vertexes for line
-			// mode
-			group->vertexIndex++;
+			// NOTE(doyle): Mark first vertex as degenerate vertex
+			group->vertexList[group->vertexIndex++] = vertexList[0];
+
 			group->init  = TRUE;
 			group->tex   = tex;
 			group->color = color;
@@ -376,7 +375,7 @@ void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
 		                       ARRAY_COUNT(vertexList), rendermode_quad, flags);
 }
 
-void renderer_polygon(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
+void renderer_polygon(Renderer *const renderer, Rect camera,
                       v2 *polygonPoints, i32 numPoints, v2 pivotPoint,
                       Radians rotate, RenderTex *renderTex, v4 color,
                       RenderFlags flags)
@@ -390,9 +389,6 @@ void renderer_polygon(Renderer *const renderer, MemoryArena_ *arena, Rect camera
 	if (!renderTex) renderTex = &emptyRenderTex;
 
 	i32 numTrisInTriangulation = numPoints - 2;
-	RenderTriangle_ *polygonTriangulation = memory_pushBytes(
-	    arena, (sizeof(RenderTriangle_) * numTrisInTriangulation));
-
 	v2 triangulationBaseP = polygonPoints[0];
 	i32 triangulationIndex = 0;
 
@@ -402,24 +398,29 @@ void renderer_polygon(Renderer *const renderer, MemoryArena_ *arena, Rect camera
 	addVertexToRenderGroup(renderer, renderTex->tex, color,
 	                       &triangulationBaseVertex, 1, rendermode_polygon,
 	                       flags);
+	RenderTriangle_ lastRenderTriForDegeneration = {0};
 	for (i32 i = 1; triangulationIndex < numTrisInTriangulation; i++)
 	{
-		RenderTriangle_ *tri = &polygonTriangulation[triangulationIndex++];
-		tri->vertex[0].pos = triangulationBaseP;
-		tri->vertex[1].pos = polygonPoints[i + 1];
-		tri->vertex[2].pos = polygonPoints[i];
+		RenderTriangle_ tri = {0};
+		tri.vertex[0].pos  = triangulationBaseP;
+		tri.vertex[1].pos  = polygonPoints[i + 1];
+		tri.vertex[2].pos  = polygonPoints[i];
 
-		addVertexToRenderGroup(renderer, renderTex->tex, color, tri->vertex, 3,
+		addVertexToRenderGroup(renderer, renderTex->tex, color, tri.vertex,
+		                       ARRAY_COUNT(tri.vertex), rendermode_polygon,
+		                       flags);
+
+		if (triangulationIndex++ >= numTrisInTriangulation)
+		{
+			lastRenderTriForDegeneration = tri;
+		}
+	}
+	for (i32 i = 0; i < 3; i++)
+	{
+		addVertexToRenderGroup(renderer, renderTex->tex, color,
+		                       &lastRenderTriForDegeneration.vertex[2], 1,
 		                       rendermode_polygon, flags);
 	}
-	RenderTriangle_ tri = polygonTriangulation[numTrisInTriangulation-1];
-	addVertexToRenderGroup(renderer, renderTex->tex, color, &tri.vertex[2], 1,
-	                       rendermode_polygon, flags);
-	/*
-	// NOTE(doyle): Create degenerate vertex setup
-	Vertex triVertexList[5] = {tri->vertex[0], tri->vertex[0], tri->vertex[1],
-	                           tri->vertex[2], tri->vertex[2]};
-	*/
 }
 
 void renderer_triangle(Renderer *const renderer, Rect camera,
@@ -515,8 +516,9 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
 	}
 }
 
-void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
-                     v2 pivotPoint, Degrees rotate, v4 color, RenderFlags flags)
+void renderer_entity(Renderer *renderer, MemoryArena_ *transientArena,
+                     Rect camera, Entity *entity, v2 pivotPoint, Degrees rotate,
+                     v4 color, RenderFlags flags)
 {
 	// TODO(doyle): Add early exit on entities out of camera bounds
 	Radians totalRotation = DEGREES_TO_RADIANS((entity->rotation + rotate));
@@ -572,6 +574,23 @@ void renderer_entity(Renderer *renderer, Rect camera, Entity *entity,
 
 		renderer_triangle(renderer, camera, triangle, pivotPoint, totalRotation,
 		                  &renderTex, color, flags);
+	}
+	else if (entity->renderMode == rendermode_polygon)
+	{
+		ASSERT(entity->numVertexPoints > 3);
+		ASSERT(entity->vertexPoints);
+
+		v2 *offsetVertexPoints = memory_pushBytes(
+		    transientArena, entity->numVertexPoints * sizeof(v2));
+		for (i32 i = 0; i < entity->numVertexPoints; i++)
+		{
+			offsetVertexPoints[i] =
+			    v2_add(entity->vertexPoints[i], entity->pos);
+		}
+
+		renderer_polygon(renderer, camera, offsetVertexPoints,
+		                 entity->numVertexPoints, pivotPoint, totalRotation,
+		                 &renderTex, color, flags);
 	}
 	else
 	{

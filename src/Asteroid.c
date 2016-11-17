@@ -241,27 +241,24 @@ Basis getDefaultBasis(Entity *entity)
 
 #include <stdlib.h>
 #include <time.h>
-v2 *createAsteroidVertexList(MemoryArena_ *arena, v2 pos, i32 iterations)
+v2 *createAsteroidVertexList(MemoryArena_ *arena, i32 iterations,
+                             i32 asteroidRadius)
 {
 	f32 iterationAngle = 360.0f / iterations;
 	iterationAngle     = DEGREES_TO_RADIANS(iterationAngle);
 	v2 *result =
 	    memory_pushBytes(arena, iterations * sizeof(v2));
 
-	srand(time(NULL));
 	for (i32 i = 0; i < iterations; i++)
 	{
-		i32 randValue      = rand();
-		i32 asteroidRadius = (randValue % 100) + 50;
-
+		i32 randValue = rand();
 		result[i] = V2(math_cosf(iterationAngle * i) * asteroidRadius,
 		               math_sinf(iterationAngle * i) * asteroidRadius);
-		result[i] = v2_add(result[i], pos);
 
 #if 1
-		f32 displacementDist   = 0.25f * asteroidRadius;
+		f32 displacementDist   = 0.50f * asteroidRadius;
 		i32 vertexDisplacement =
-		    randValue % (i32)displacementDist + (i32)(displacementDist * 0.1f);
+		    randValue % (i32)displacementDist + (i32)(displacementDist * 0.25f);
 
 		i32 quadrantSize = iterations / 4;
 
@@ -296,16 +293,17 @@ v2 *createAsteroidVertexList(MemoryArena_ *arena, v2 pos, i32 iterations)
 	return result;
 }
 
-LOCAL_PERSIST v2 *asteroidVertexList = NULL;
-LOCAL_PERSIST f32 updateAsteroidListTimerThreshold = 1.0f;
-LOCAL_PERSIST f32 updateAsteroidListTimer          = 1.0f;
 void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
                                   v2 windowSize, f32 dt)
 {
 	i32 iterations = 16;
+
+	memory_arenaInit(&state->transientArena, memory->transient,
+	                 memory->transientSize);
+
 	if (!state->init)
 	{
-
+		srand(time(NULL));
 		memory_arenaInit(&state->persistentArena, memory->persistent,
 		                 memory->persistentSize);
 		initAssetManager(state);
@@ -314,8 +312,8 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		state->pixelsPerMeter = 70.0f;
 
 		{ // Init ship entity
-			Entity *ship     = &state->entityList[state->entityIndex++];
-			ship->id         = 0;
+			Entity *ship     = &state->entityList[state->entityIndex];
+			ship->id         = state->entityIndex++;
 			ship->pos        = V2(0, 0);
 			ship->size       = V2(25.0f, 50.0f);
 			ship->hitbox     = ship->size;
@@ -325,7 +323,35 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			ship->direction  = direction_null;
 			ship->renderMode = rendermode_triangle;
 			ship->tex        = NULL;
-			ship->collides   = FALSE;
+			ship->collides   = TRUE;
+
+			i32 numAsteroids = 10;
+			for (i32 i = 0; i < numAsteroids; i++)
+			{
+				Entity *asteroid = &state->entityList[state->entityIndex];
+				asteroid->id     = state->entityIndex++;
+
+				i32 randValue = rand();
+				i32 randX     = (randValue % (i32)windowSize.w);
+				i32 randY     = (randValue % (i32)windowSize.h);
+				asteroid->pos = V2i(randX, randY);
+
+				asteroid->size       = V2(100.0f, 100.0f);
+				asteroid->hitbox     = asteroid->size;
+				asteroid->offset     = v2_scale(asteroid->size, 0.5f);
+				asteroid->scale      = 1;
+				asteroid->type       = entitytype_asteroid;
+				asteroid->direction  = direction_null;
+				asteroid->renderMode = rendermode_polygon;
+
+				asteroid->numVertexPoints = 16;
+				asteroid->vertexPoints    = createAsteroidVertexList(
+				    &state->persistentArena, asteroid->numVertexPoints,
+				    (i32)(asteroid->size.x * 0.5f));
+
+				asteroid->tex      = NULL;
+				asteroid->collides = TRUE;
+			}
 		}
 
 		state->camera.min = V2(0, 0);
@@ -336,20 +362,6 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 		debug_init(&state->persistentArena, windowSize,
 		           state->assetManager.font);
-
-		asteroidVertexList =
-		    createAsteroidVertexList(&state->persistentArena, V2(500, 500), 16);
-	}
-
-	memory_arenaInit(&state->transientArena, memory->transient,
-	                 memory->transientSize);
-
-	updateAsteroidListTimer -= dt;
-	if (updateAsteroidListTimer < 0)
-	{
-		asteroidVertexList = createAsteroidVertexList(&state->persistentArena,
-		                                              V2(500, 500), iterations);
-		updateAsteroidListTimer = updateAsteroidListTimerThreshold;
 	}
 
 	{
@@ -411,19 +423,20 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				ddP          = direction;
 			}
 
+			Degrees rotationsPerSecond = 180.0f;
 			if (getKeyStatus(&state->input.keys[keycode_left],
 			                 readkeytype_repeat, 0.0f, dt))
 			{
-				entity->rotation += (120.0f) * dt;
+				entity->rotation += (rotationsPerSecond) * dt;
 			}
 
 			if (getKeyStatus(&state->input.keys[keycode_right],
 			                 readkeytype_repeat, 0.0f, dt))
 			{
-				entity->rotation -= (120.0f) * dt;
+				entity->rotation -= (rotationsPerSecond) * dt;
 			}
 
-			if (ddP.x != 0.0f && ddP.y != 0.0f)
+			if (ddP.x > 0.0f && ddP.y > 0.0f)
 			{
 				// NOTE(doyle): Cheese it and pre-compute the vector for
 				// diagonal using pythagoras theorem on a unit triangle 1^2
@@ -441,9 +454,9 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 			ddP = v2_scale(ddP, state->pixelsPerMeter * 25);
 
-			v2 oldDp = entity->dP;
+			v2 oldDp      = entity->dP;
 			v2 resistance = v2_scale(oldDp, 2.0f);
-			ddP = v2_sub(ddP, resistance);
+			ddP           = v2_sub(ddP, resistance);
 
 			entity->dP = v2_add(v2_scale(ddP, dt), oldDp);
 
@@ -458,22 +471,102 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			DEBUG_PUSH_VAR("Pos: %5.2f, %5.2f", entity->pos, "v2");
 			DEBUG_PUSH_VAR("Velocity: %5.2f, %5.2f", entity->dP, "v2");
 			DEBUG_PUSH_VAR("Rotation: %5.2f", entity->rotation, "f32");
-
-			RenderFlags flags = renderflag_wireframe | renderflag_no_texture;
-			renderer_entity(&state->renderer, state->camera, entity, pivotPoint, 0,
-					V4(0.4f, 0.8f, 1.0f, 1.0f), flags);
-
-			Basis entityBasis = getDefaultBasis(entity);
-			renderer_rect(&state->renderer, state->camera, entityBasis.basis,
-					V2(4, 4), entityBasis.pivotPoint,
-					DEGREES_TO_RADIANS(entity->rotation), NULL,
-					V4(1.0f, 0, 0, 1.0f), flags);
 		}
-	}
+		else if (entity->type == entitytype_asteroid)
+		{
 
-	renderer_polygon(&state->renderer, &state->transientArena, state->camera,
-	                 asteroidVertexList, iterations, V2(0, 0), 0, NULL,
-	                 V4(0.0f, 0.0f, 1.0f, 1.0f), 0);
+			i32 randValue = rand();
+			if (entity->direction == direction_null)
+			{
+				entity->direction = randValue % direction_count;
+			}
+
+			v2 ddP = {0};
+			switch (entity->direction)
+			{
+			case direction_north:
+			{
+				ddP.y = 1.0f;
+			}
+			break;
+
+			case direction_northwest:
+			{
+				ddP.x = 1.0f;
+				ddP.y = 1.0f;
+			}
+			break;
+
+			case direction_west:
+			{
+				ddP.x = -1.0f;
+			}
+			break;
+
+			case direction_southwest:
+			{
+				ddP.x = -1.0f;
+				ddP.y = -1.0f;
+			}
+			break;
+
+			case direction_south:
+			{
+				ddP.y = -1.0f;
+			}
+			break;
+
+			case direction_southeast:
+			{
+				ddP.x = 1.0f;
+				ddP.y = -1.0f;
+			}
+			break;
+
+			case direction_east:
+			{
+				ddP.x = 1.0f;
+			}
+			break;
+
+			case direction_northeast:
+			{
+				ddP.x = 1.0f;
+				ddP.y = 1.0f;
+			}
+			break;
+
+			default:
+			{
+				ASSERT(INVALID_CODE_PATH);
+			}
+			break;
+			}
+
+			f32 dirOffset = (randValue % 10) / 100.0f;
+			v2_scale(ddP, dirOffset);
+			ASSERT(ddP.x <= 1.0f && ddP.y <= 1.0f);
+
+			entity->dP          = v2_scale(ddP, state->pixelsPerMeter * 2);
+			v2 ddPHalf          = v2_scale(ddP, 0.5f);
+			v2 ddPHalfDtSquared = v2_scale(ddPHalf, (SQUARED(dt)));
+
+			v2 dPDt     = v2_scale(entity->dP, dt);
+
+			entity->pos = v2_add(v2_add(ddPHalfDtSquared, dPDt), entity->pos);
+		}
+
+		RenderFlags flags = renderflag_wireframe | renderflag_no_texture;
+		renderer_entity(&state->renderer, &state->transientArena, state->camera,
+		                entity, pivotPoint, 0, V4(0.4f, 0.8f, 1.0f, 1.0f),
+		                flags);
+
+		Basis entityBasis = getDefaultBasis(entity);
+		renderer_rect(&state->renderer, state->camera, entityBasis.basis,
+		              V2(4, 4), entityBasis.pivotPoint,
+		              DEGREES_TO_RADIANS(entity->rotation), NULL,
+		              V4(1.0f, 0, 0, 1.0f), flags);
+	}
 
 	TrianglePoints triangle = {0};
 	triangle.points[0] = V2(100, 200);

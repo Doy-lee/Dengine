@@ -272,5 +272,20 @@ void debug_drawUi(GameState *state, f32 dt)
 {
 	updateAndRenderDebugStack(&state->renderer, &state->transientArena, dt);
 	renderConsole(&state->renderer, &state->transientArena);
+
+	MemoryArena_ *transient = &state->transientArena;
+	i32 transientSizeInKbs  = transient->size / 1024;
+	i32 transientUsedInKbs  = transient->used / 1024;
+	v2 transientUsage       = V2i(transientUsedInKbs, transientSizeInKbs);
+	DEBUG_PUSH_VAR("Transient Size: %.0f", transient->size, "f32");
+	DEBUG_PUSH_VAR("Transient Usage: %.0f/%.0f", transientUsage, "v2");
+
+	MemoryArena_ *persistent = &state->persistentArena;
+	i32 persistentSizeInKbs  = persistent->size / 1024;
+	i32 persistentUsedInKbs  = persistent->used / 1024;
+	v2 persistentUsage       = V2i(persistentUsedInKbs, persistentSizeInKbs);
+	DEBUG_PUSH_VAR("Permanent Size: %.0f", persistent->size, "f32");
+	DEBUG_PUSH_VAR("Permanent Usage: %.0f/%.0f", persistentUsage, "v2");
+
 	debug_clearCounter();
 }
