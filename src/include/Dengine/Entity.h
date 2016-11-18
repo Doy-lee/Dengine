@@ -22,6 +22,27 @@ enum Direction
 	direction_num,
 };
 
+typedef struct Basis
+{
+	v2 pos;
+	v2 pivotPoint;
+} Basis;
+
+enum RectBaseline
+{
+	rectbaseline_top,
+	rectbaseline_topLeft,
+	rectbaseline_topRight,
+	rectbaseline_bottom,
+	rectbaseline_bottomRight,
+	rectbaseline_bottomLeft,
+	rectbaseline_left,
+	rectbaseline_right,
+	rectbaseline_center,
+	rectbaseline_count,
+
+};
+
 enum EntityType
 {
 	entitytype_invalid,
@@ -54,8 +75,8 @@ typedef struct Entity
 	v2 offset;
 
 	enum RenderMode renderMode;
-	v2 *vertexPoints;
 	i32 numVertexPoints;
+	v2 *vertexPoints;
 
 	f32 scale;
 	Degrees rotation;
@@ -83,5 +104,19 @@ typedef struct Entity
 	AudioRenderer *audioRenderer;
 	i32 numAudioRenderers;
 } Entity;
+
+SubTexture entity_getActiveSubTexture(Entity *const entity);
+void entity_setActiveAnim(Entity *const entity, const char *const animName);
+void entity_updateAnim(Entity *const entity, const f32 dt);
+void entity_addAnim(AssetManager *const assetManager, Entity *const entity,
+                    const char *const animName);
+
+Basis getBasis(Entity *entity, enum RectBaseline baseline);
+inline Basis getDefaultBasis(Entity *entity)
+{
+	Basis result = getBasis(entity, rectbaseline_bottomLeft);
+	return result;
+}
+
 
 #endif

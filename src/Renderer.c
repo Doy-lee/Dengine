@@ -427,32 +427,33 @@ void renderer_polygon(Renderer *const renderer, Rect camera,
                       Radians rotate, RenderTex *renderTex, v4 color,
                       RenderFlags flags)
 {
-	ASSERT(numPoints > 3);
+	ASSERT(numPoints >= 3);
 
 	for (i32 i = 0; i < numPoints; i++)
 		polygonPoints[i] = v2_sub(polygonPoints[i], camera.min);
 
+	// TODO(doyle): Do something with render texture
 	RenderTex emptyRenderTex  = {0};
 	if (!renderTex) renderTex = &emptyRenderTex;
 
-	i32 numTrisInTriangulation = numPoints - 2;
-	v2 triangulationBaseP = polygonPoints[0];
-	i32 triangulationIndex = 0;
-
+	v2 triangulationBaseP          = polygonPoints[0];
 	Vertex triangulationBaseVertex = {0};
-	triangulationBaseVertex.pos = triangulationBaseP;
+	triangulationBaseVertex.pos    = triangulationBaseP;
 
-
+	i32 numTrisInTriangulation = numPoints - 2;
+	i32 triangulationIndex     = 0;
 	beginVertexBatch(renderer);
 	for (i32 i = 1; triangulationIndex < numTrisInTriangulation; i++)
 	{
-		ASSERT((i + 1) <= numPoints);
+		ASSERT((i + 1) < numPoints);
 
 		RenderTriangle_ tri = {0};
 		tri.vertex[0].pos  = triangulationBaseP;
-		tri.vertex[1].pos  = polygonPoints[i + 1];
-		tri.vertex[2].pos  = polygonPoints[i];
+		tri.vertex[1].pos  = polygonPoints[i];
+		tri.vertex[2].pos  = polygonPoints[i + 1];
 
+		applyRotationToVertexes(triangulationBaseP, pivotPoint, rotate,
+		                        tri.vertex, 3);
 		addVertexToRenderGroup_(renderer, renderTex->tex, color, tri.vertex,
 		                        ARRAY_COUNT(tri.vertex), rendermode_polygon,
 		                        flags);
@@ -462,27 +463,13 @@ void renderer_polygon(Renderer *const renderer, Rect camera,
 }
 
 void renderer_triangle(Renderer *const renderer, Rect camera,
-                       TrianglePoints triangle, v2 pivotPoint, Radians rotate,
+                       TrianglePoints triangle, v2 pivotPoint, Degrees rotate,
                        RenderTex *renderTex, v4 color, RenderFlags flags)
 {
-	TrianglePoints triangleInCamSpace = {0};
-	ASSERT(ARRAY_COUNT(triangle.points) ==
-	       ARRAY_COUNT(triangleInCamSpace.points));
-
-	for (i32 i = 0; i < ARRAY_COUNT(triangleInCamSpace.points); i++)
-		triangleInCamSpace.points[i] = v2_sub(triangle.points[i], camera.min);
-
-	RenderTex emptyRenderTex = {0};
-	if (!renderTex) renderTex = &emptyRenderTex;
-
-	RenderTriangle_ renderTriangle = createRenderTriangle(
-	    renderer, triangleInCamSpace, pivotPoint, rotate, *renderTex);
-
-	beginVertexBatch(renderer);
-	addVertexToRenderGroup_(
-	    renderer, renderTex->tex, color, renderTriangle.vertex,
-	    ARRAY_COUNT(renderTriangle.vertex), rendermode_triangle, flags);
-	endVertexBatch(renderer);
+	Radians totalRotation = DEGREES_TO_RADIANS(rotate);
+	renderer_polygon(renderer, camera, triangle.points,
+	                 ARRAY_COUNT(triangle.points), pivotPoint, totalRotation,
+	                 renderTex, color, flags);
 }
 
 void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
@@ -588,25 +575,22 @@ void renderer_entity(Renderer *renderer, MemoryArena_ *transientArena,
 	}
 	else if (entity->renderMode == rendermode_triangle)
 	{
-		TrianglePoints triangle = {0};
-
-		v2 entityPWithOffset = v2_sub(entity->pos, entity->offset);
-		v2 triangleTopPoint  = V2(entityPWithOffset.x + (entity->size.w * 0.5f),
-		                         entityPWithOffset.y + entity->size.h);
-
+		Basis entityBasis   = getDefaultBasis(entity);
+		v2 triangleTopPoint = V2(entityBasis.pos.x + (entity->size.w * 0.5f),
+		                         entityBasis.pos.y + entity->size.h);
 		v2 triangleRightSide =
-		    V2(entityPWithOffset.x + entity->size.w, entityPWithOffset.y);
+		    V2(entityBasis.pos.x + entity->size.w, entityBasis.pos.y);
 
-		triangle.points[0] = entityPWithOffset;
-		triangle.points[1] = triangleRightSide;
-		triangle.points[2] = triangleTopPoint;
+		v2 entityPolygonPoints[] = {entityBasis.pos, triangleRightSide,
+		                            triangleTopPoint};
 
-		renderer_triangle(renderer, camera, triangle, pivotPoint, totalRotation,
-		                  &renderTex, color, flags);
+		renderer_polygon(renderer, camera, entityPolygonPoints,
+		                 ARRAY_COUNT(entityPolygonPoints), pivotPoint,
+		                 totalRotation, &renderTex, color, flags);
 	}
 	else if (entity->renderMode == rendermode_polygon)
 	{
-		ASSERT(entity->numVertexPoints > 3);
+		ASSERT(entity->numVertexPoints >= 3);
 		ASSERT(entity->vertexPoints);
 
 		v2 *offsetVertexPoints = memory_pushBytes(

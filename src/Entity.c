@@ -86,3 +86,53 @@ void entity_addAnim(AssetManager *const assetManager, Entity *const entity,
 
 	DEBUG_LOG("No more free entity animation slots");
 }
+
+Basis getBasis(Entity *entity, enum RectBaseline baseline)
+{
+	ASSERT(baseline < rectbaseline_count);
+
+	v2 basis = v2_sub(entity->pos, entity->offset);
+	v2 pivotPoint = v2_scale(entity->size, 0.5f);
+	v2 size = entity->size;
+	switch (baseline)
+	{
+		case rectbaseline_top:
+			basis.y += (size.h);
+			basis.x += (size.w * 0.5f);
+		    break;
+		case rectbaseline_topLeft:
+			basis.y += (size.h);
+		    break;
+		case rectbaseline_topRight:
+		    basis.y += (size.h);
+		    basis.x += (size.w);
+		    break;
+		case rectbaseline_bottom:
+			basis.x += (size.w * 0.5f);
+			break;
+		case rectbaseline_bottomRight:
+			basis.x += (size.w);
+			break;
+		case rectbaseline_left:
+			basis.y += (size.h * 0.5f);
+			break;
+		case rectbaseline_right:
+			basis.x += (size.w);
+			basis.y += (size.h * 0.5f);
+			break;
+
+		case rectbaseline_bottomLeft:
+		    break;
+		default:
+		    DEBUG_LOG(
+		        "getPosRelativeToRect() warning: baseline enum not recognised");
+			break;
+	}
+
+	Basis result      = {0};
+	result.pos        = basis;
+	result.pivotPoint = pivotPoint;
+
+	return result;
+}
+

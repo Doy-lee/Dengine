@@ -164,82 +164,6 @@ INTERNAL b32 getKeyStatus(KeyState *key, enum ReadKeyType readType,
 	return FALSE;
 }
 
-typedef struct Basis
-{
-	v2 basis;
-	v2 pivotPoint;
-} Basis;
-
-enum RectBaseline
-{
-	rectbaseline_top,
-	rectbaseline_topLeft,
-	rectbaseline_topRight,
-	rectbaseline_bottom,
-	rectbaseline_bottomRight,
-	rectbaseline_bottomLeft,
-	rectbaseline_left,
-	rectbaseline_right,
-	rectbaseline_center,
-	rectbaseline_count,
-
-};
-
-Basis getBasis(Entity *entity, enum RectBaseline baseline)
-{
-	ASSERT(baseline < rectbaseline_count);
-
-	v2 basis = v2_sub(entity->pos, entity->offset);
-	v2 pivotPoint = v2_scale(entity->size, 0.5f);
-	v2 size = entity->size;
-	switch (baseline)
-	{
-		case rectbaseline_top:
-			basis.y += (size.h);
-			basis.x += (size.w * 0.5f);
-		    break;
-		case rectbaseline_topLeft:
-			basis.y += (size.h);
-		    break;
-		case rectbaseline_topRight:
-		    basis.y += (size.h);
-		    basis.x += (size.w);
-		    break;
-		case rectbaseline_bottom:
-			basis.x += (size.w * 0.5f);
-			break;
-		case rectbaseline_bottomRight:
-			basis.x += (size.w);
-			break;
-		case rectbaseline_left:
-			basis.y += (size.h * 0.5f);
-			break;
-		case rectbaseline_right:
-			basis.x += (size.w);
-			basis.y += (size.h * 0.5f);
-			break;
-
-		case rectbaseline_bottomLeft:
-		    break;
-		default:
-		    DEBUG_LOG(
-		        "getPosRelativeToRect() warning: baseline enum not recognised");
-			break;
-	}
-
-	Basis result      = {0};
-	result.basis      = basis;
-	result.pivotPoint = pivotPoint;
-
-	return result;
-}
-
-Basis getDefaultBasis(Entity *entity)
-{
-	Basis result = getBasis(entity, rectbaseline_bottomLeft);
-	return result;
-}
-
 #include <stdlib.h>
 #include <time.h>
 v2 *createAsteroidVertexList(MemoryArena_ *arena, i32 iterations,
@@ -323,7 +247,6 @@ void moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
 		Entity *checkEntity = &state->entityList[i];
 		if (checkEntity->id == entity->id) continue;
 
-		
 	}
 
 	b32 moveValid = TRUE;
@@ -359,10 +282,25 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			ship->size       = V2(25.0f, 50.0f);
 			ship->hitbox     = ship->size;
 			ship->offset     = v2_scale(ship->size, 0.5f);
+
+			ship->numVertexPoints = 3;
+			ship->vertexPoints    = memory_pushBytes(
+			    &state->persistentArena, sizeof(v2) * ship->numVertexPoints);
+
+			Basis shipBasis     = getDefaultBasis(ship);
+			v2 triangleTopPoint = V2(shipBasis.pos.x + (ship->size.w * 0.5f),
+			                         shipBasis.pos.y + ship->size.h);
+			v2 triangleRightSide =
+			    V2(shipBasis.pos.x + ship->size.w, shipBasis.pos.y);
+
+			ship->vertexPoints[0] = shipBasis.pos;
+			ship->vertexPoints[1] = triangleRightSide;
+			ship->vertexPoints[2] = triangleTopPoint;
+
 			ship->scale      = 1;
 			ship->type       = entitytype_ship;
 			ship->direction  = direction_null;
-			ship->renderMode = rendermode_triangle;
+			ship->renderMode = rendermode_polygon;
 			ship->tex        = NULL;
 			ship->collides   = TRUE;
 
@@ -580,7 +518,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		                flags);
 
 		Basis entityBasis = getDefaultBasis(entity);
-		renderer_rect(&state->renderer, state->camera, entityBasis.basis,
+		renderer_rect(&state->renderer, state->camera, entityBasis.pos,
 		              V2(4, 4), entityBasis.pivotPoint,
 		              DEGREES_TO_RADIANS(entity->rotation), NULL,
 		              V4(1.0f, 0, 0, 1.0f), flags);
@@ -592,8 +530,8 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 	triangle.points[1] = V2(200, 100);
 	triangle.points[2] = V2(100, 300);
 
-	LOCAL_PERSIST Radians rotation = 0.0f;
-	rotation += DEGREES_TO_RADIANS(((60.0f) * dt));
+	LOCAL_PERSIST Degrees rotation = 0.0f;
+	rotation += (60.0f) * dt;
 
 	RenderFlags flags = renderflag_wireframe | renderflag_no_texture;
 	renderer_triangle(&state->renderer, state->camera, triangle, V2(0, 0),
