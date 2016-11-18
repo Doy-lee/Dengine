@@ -50,6 +50,7 @@ typedef union v2
 {
 	struct { f32 x, y; };
 	struct { f32 w, h; };
+	struct { f32 min, max; };
 	f32 e[2];
 } v2;
 
@@ -187,6 +188,18 @@ INTERNAL inline v2 v2_normalise(const v2 a)
 	f32 magnitude = v2_magnitude(V2(0, 0), a);
 	v2 result     = V2(a.x, a.y);
 	result        = v2_scale(a, 1 / magnitude);
+	return result;
+}
+
+INTERNAL inline b32 v2_intervalsOverlap(const v2 a, const v2 b) 
+{
+	b32 result = FALSE;
+	if ((a.min >= b.min && a.min <= b.max) ||
+	    (a.max >= b.min && a.max <= b.max))
+	{
+		result = TRUE;
+	}
+
 	return result;
 }
 

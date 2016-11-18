@@ -218,6 +218,79 @@ v2 *createAsteroidVertexList(MemoryArena_ *arena, i32 iterations,
 	return result;
 }
 
+v2 *createEntityEdgeList(MemoryArena_ *transientArena, Entity *entity)
+{
+	v2 *result = memory_pushBytes(transientArena,
+	                              sizeof(v2) * entity->numVertexPoints);
+
+	i32 numVertexes = entity->numVertexPoints;
+	for (i32 i = 0; i < numVertexes - 1; i++)
+	{
+		ASSERT((i + 1) < numVertexes);
+		result[i] =
+		    v2_sub(entity->vertexPoints[i + 1], entity->vertexPoints[i]);
+	}
+
+	// NOTE(doyle): Creating the last edge requires using the first
+	// vertex point which is at index 0
+	result[numVertexes - 1] =
+	    v2_sub(entity->vertexPoints[0], entity->vertexPoints[numVertexes - 1]);
+
+	return result;
+}
+
+b32 checkEntityProjectionOverlap(Entity *entity, Entity *checkEntity,
+                                 v2 *entityEdges)
+{
+	b32 result = TRUE;
+	for (i32 edgeIndex = 0; edgeIndex < entity->numVertexPoints && result;
+	     edgeIndex++)
+	{
+		v2 entityProjectionRange = {0};
+		entityProjectionRange.max =
+		    v2_dot(entity->vertexPoints[0], entityEdges[0]);
+		entityProjectionRange.max = entityProjectionRange.min;
+
+		for (i32 vertexIndex = 0; vertexIndex < entity->numVertexPoints;
+		     vertexIndex++)
+		{
+			f32 dist = v2_dot(entity->vertexPoints[vertexIndex],
+			                  entityEdges[edgeIndex]);
+
+			if (dist < entityProjectionRange.min)
+				entityProjectionRange.min = dist;
+			else if (dist > entityProjectionRange.max)
+				entityProjectionRange.max = dist;
+		}
+
+		v2 checkEntityProjectionRange = {0};
+		checkEntityProjectionRange.min =
+		    v2_dot(entity->vertexPoints[0], entityEdges[0]);
+		checkEntityProjectionRange.max = checkEntityProjectionRange.min;
+
+		for (i32 vertexIndex = 0; vertexIndex < checkEntity->numVertexPoints;
+		     vertexIndex++)
+		{
+			f32 dist = v2_dot(checkEntity->vertexPoints[vertexIndex],
+			                  entityEdges[edgeIndex]);
+
+			if (dist < checkEntityProjectionRange.min)
+				checkEntityProjectionRange.min = dist;
+			else if (dist > checkEntityProjectionRange.max)
+				checkEntityProjectionRange.max = dist;
+		}
+
+		if (!v2_intervalsOverlap(entityProjectionRange,
+		                         checkEntityProjectionRange))
+		{
+			result = FALSE;
+			return result;
+		}
+	}
+
+	return result;
+}
+
 void moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
 {
 	ASSERT(ABS(ddP.x) <= 1.0f && ABS(ddP.y) <= 1.0f);
@@ -242,15 +315,52 @@ void moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
 
 	v2 newPos = v2_add(v2_add(ddPHalfDtSquared, oldDpDt), oldPos);
 
-	for (i32 i = 0; i < state->entityIndex; i++)
+	b32 willCollide = FALSE;
+#if 0
+	if (entity->renderMode == rendermode_polygon && entity->collides)
 	{
-		Entity *checkEntity = &state->entityList[i];
-		if (checkEntity->id == entity->id) continue;
+		for (i32 i = 0; i < state->entityIndex; i++)
+		{
+			Entity *checkEntity = &state->entityList[i];
+			if (checkEntity->id == entity->id) continue;
 
+			if (checkEntity->renderMode == rendermode_polygon &&
+			    checkEntity->collides)
+			{
+				i32 numEntityEdges      = entity->numVertexPoints;
+				i32 numCheckEntityEdges = checkEntity->numVertexPoints;
+				v2 *entityEdges =
+				    createEntityEdgeList(&state->transientArena, entity);
+				v2 *checkEntityEdges =
+				    createEntityEdgeList(&state->transientArena, entity);
+
+				// Convert inplace the vector normal of the edges
+				for (i32 i = 0; i < numEntityEdges; i++)
+				{
+					entityEdges[i] = V2(entityEdges[i].y, -entityEdges[i].x);
+				}
+
+				for (i32 i = 0; i < numCheckEntityEdges; i++)
+				{
+					checkEntityEdges[i] =
+					    V2(entityEdges[i].y, -entityEdges[i].x);
+				}
+
+				if ((checkEntityProjectionOverlap(entity, checkEntity,
+				                                  entityEdges) &&
+				     checkEntityProjectionOverlap(entity, checkEntity,
+				                                  checkEntityEdges)))
+				{
+					willCollide = TRUE;
+				}
+			}
+
+			if (willCollide) break;
+		}
 	}
+#endif
 
-	b32 moveValid = TRUE;
-	if (moveValid)
+	if (!willCollide)
 	{
 		entity->dP  = newDp;
 		entity->pos = newPos;
