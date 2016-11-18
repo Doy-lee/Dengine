@@ -294,6 +294,46 @@ v2 *createAsteroidVertexList(MemoryArena_ *arena, i32 iterations,
 	return result;
 }
 
+void moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
+{
+	ASSERT(ABS(ddP.x) <= 1.0f && ABS(ddP.y) <= 1.0f);
+	/*
+	    Assuming acceleration A over t time, then integrate twice to get
+
+	    newVelocity = a*t + oldVelocity
+	    newPos = (a*t^2)/2 + oldVelocity*t + oldPos
+	*/
+
+	ddP           = v2_scale(ddP, state->pixelsPerMeter * ddPSpeed);
+	v2 oldDp      = entity->dP;
+	v2 resistance = v2_scale(oldDp, 2.0f);
+	ddP           = v2_sub(ddP, resistance);
+
+	v2 newDp = v2_add(v2_scale(ddP, dt), oldDp);
+
+	v2 ddPHalf          = v2_scale(ddP, 0.5f);
+	v2 ddPHalfDtSquared = v2_scale(ddPHalf, (SQUARED(dt)));
+	v2 oldDpDt          = v2_scale(oldDp, dt);
+	v2 oldPos           = entity->pos;
+
+	v2 newPos = v2_add(v2_add(ddPHalfDtSquared, oldDpDt), oldPos);
+
+	for (i32 i = 0; i < state->entityIndex; i++)
+	{
+		Entity *checkEntity = &state->entityList[i];
+		if (checkEntity->id == entity->id) continue;
+
+		
+	}
+
+	b32 moveValid = TRUE;
+	if (moveValid)
+	{
+		entity->dP  = newDp;
+		entity->pos = newPos;
+	}
+}
+
 void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
                                   v2 windowSize, f32 dt)
 {
@@ -408,9 +448,10 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		else if (entity->pos.x < 0)
 			entity->pos.x = state->worldSize.w;
 
+		f32 ddPSpeedInMs = 0;
+		v2 ddP           = {0};
 		if (entity->type == entitytype_ship)
 		{
-			v2 ddP = {0};
 			if (getKeyStatus(&state->input.keys[keycode_up], readkeytype_repeat,
 			                 0.0f, dt))
 			{
@@ -445,28 +486,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				ddP = v2_scale(ddP, 0.70710678118f);
 			}
 
-			/*
-			    Assuming acceleration A over t time, then integrate twice to get
-
-			    newVelocity = a*t + oldVelocity
-			    newPos = (a*t^2)/2 + oldVelocity*t + oldPos
-
-			*/
-
-			ddP = v2_scale(ddP, state->pixelsPerMeter * 25);
-
-			v2 oldDp      = entity->dP;
-			v2 resistance = v2_scale(oldDp, 2.0f);
-			ddP           = v2_sub(ddP, resistance);
-
-			entity->dP = v2_add(v2_scale(ddP, dt), oldDp);
-
-			v2 ddPHalf          = v2_scale(ddP, 0.5f);
-			v2 ddPHalfDtSquared = v2_scale(ddPHalf, (SQUARED(dt)));
-			v2 oldDpDt          = v2_scale(oldDp, dt);
-			v2 oldPos           = entity->pos;
-			entity->pos = v2_add(v2_add(ddPHalfDtSquared, oldDpDt), oldPos);
-
+			ddPSpeedInMs = 25;
 			pivotPoint = v2_scale(entity->size, 0.5f);
 
 			DEBUG_PUSH_VAR("Pos: %5.2f, %5.2f", entity->pos, "v2");
@@ -544,18 +564,15 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			break;
 			}
 
-			f32 dirOffset = (randValue % 10) / 100.0f;
+			f32 dirOffset = ((randValue % 10) + 1) / 100.0f;
 			v2_scale(ddP, dirOffset);
-			ASSERT(ddP.x <= 1.0f && ddP.y <= 1.0f);
 
-			entity->dP          = v2_scale(ddP, state->pixelsPerMeter * 2);
-			v2 ddPHalf          = v2_scale(ddP, 0.5f);
-			v2 ddPHalfDtSquared = v2_scale(ddPHalf, (SQUARED(dt)));
-
-			v2 dPDt     = v2_scale(entity->dP, dt);
-
-			entity->pos = v2_add(v2_add(ddPHalfDtSquared, dPDt), entity->pos);
+			// NOTE(doyle): Make asteroids start and move at constant speed
+			ddPSpeedInMs = 2;
+			entity->dP = v2_scale(ddP, state->pixelsPerMeter * ddPSpeedInMs);
 		}
+
+		moveEntity(state, entity, ddP, dt, ddPSpeedInMs);
 
 		RenderFlags flags = renderflag_wireframe | renderflag_no_texture;
 		renderer_entity(&state->renderer, &state->transientArena, state->camera,
