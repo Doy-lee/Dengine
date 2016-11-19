@@ -203,6 +203,11 @@ INTERNAL inline b32 v2_intervalsOverlap(const v2 a, const v2 b)
 	return result;
 }
 
+INTERNAL inline v2 v2_perpendicular(const v2 a) {
+	v2 result = {a.y, -a.x};
+	return result;
+}
+
 INTERNAL inline v3 v3_cross(const v3 a, const v3 b)
 {
 	/*

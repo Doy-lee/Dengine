@@ -25,10 +25,6 @@ typedef struct RenderTex
 	v4 texRect;
 } RenderTex;
 
-typedef struct TrianglePoints {
-	v2 points[3];
-} TrianglePoints;
-
 typedef u32 RenderFlags;
 enum RenderFlag {
 	renderflag_wireframe = 0x1,
@@ -41,7 +37,6 @@ enum RenderFlag {
 enum RenderMode
 {
 	rendermode_quad,
-	rendermode_triangle,
 	rendermode_polygon,
 	rendermode_count,
 	rendermode_invalid,
@@ -110,10 +105,6 @@ inline void renderer_staticRect(Renderer *const renderer, v2 pos, v2 size,
 	renderer_rect(renderer, staticCamera, pos, size, pivotPoint, rotate,
 	              renderTex, color, flags);
 }
-
-void renderer_triangle(Renderer *const renderer, Rect camera,
-                       TrianglePoints triangle, v2 pivotPoint, Radians rotate,
-                       RenderTex *renderTex, v4 color, RenderFlags flags);
 
 void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
                      Font *const font, const char *const string, v2 pos,

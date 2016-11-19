@@ -13,11 +13,6 @@ typedef struct RenderQuad
 	Vertex vertex[4];
 } RenderQuad_;
 
-typedef struct RenderTriangle
-{
-	Vertex vertex[3];
-} RenderTriangle_;
-
 // NOTE(doyle): A vertex batch is the batch of vertexes comprised to make one
 // shape
 INTERNAL void beginVertexBatch(Renderer *renderer)
@@ -317,30 +312,6 @@ INTERNAL RenderQuad_ createRenderQuad(Renderer *renderer, v2 pos, v2 size,
 	return result;
 }
 
-INTERNAL RenderTriangle_ createRenderTriangle(Renderer *renderer,
-                                              TrianglePoints triangle,
-                                              v2 pivotPoint, Radians rotate,
-                                              RenderTex renderTex)
-{
-	/* Convert texture coordinates to normalised texture coordinates */
-	v4 texRectNdc = getTexRectNormaliseDeviceCoords(renderTex);
-
-	RenderTriangle_ result = {0};
-	result.vertex[0].pos       = triangle.points[0];
-	result.vertex[0].texCoord  = V2(texRectNdc.x, texRectNdc.w);
-
-	result.vertex[1].pos       = triangle.points[1];
-	result.vertex[1].texCoord  = V2(texRectNdc.x, texRectNdc.y);
-
-	result.vertex[2].pos       = triangle.points[2];
-	result.vertex[2].texCoord  = V2(texRectNdc.z, texRectNdc.w);
-
-	applyRotationToVertexes(triangle.points[0], pivotPoint, rotate,
-	                        result.vertex, ARRAY_COUNT(result.vertex));
-
-	return result;
-}
-
 INTERNAL inline RenderQuad_
 createDefaultTexQuad(Renderer *renderer, RenderTex *renderTex)
 {
@@ -447,29 +418,19 @@ void renderer_polygon(Renderer *const renderer, Rect camera,
 	{
 		ASSERT((i + 1) < numPoints);
 
-		RenderTriangle_ tri = {0};
-		tri.vertex[0].pos  = triangulationBaseP;
-		tri.vertex[1].pos  = polygonPoints[i];
-		tri.vertex[2].pos  = polygonPoints[i + 1];
+		Vertex triangle[3] = {0};
+		triangle[0].pos    = triangulationBaseP;
+		triangle[1].pos    = polygonPoints[i];
+		triangle[2].pos    = polygonPoints[i + 1];
 
 		applyRotationToVertexes(triangulationBaseP, pivotPoint, rotate,
-		                        tri.vertex, 3);
-		addVertexToRenderGroup_(renderer, renderTex->tex, color, tri.vertex,
-		                        ARRAY_COUNT(tri.vertex), rendermode_polygon,
+		                        triangle, ARRAY_COUNT(triangle));
+		addVertexToRenderGroup_(renderer, renderTex->tex, color, triangle,
+		                        ARRAY_COUNT(triangle), rendermode_polygon,
 		                        flags);
 		triangulationIndex++;
 	}
 	endVertexBatch(renderer);
-}
-
-void renderer_triangle(Renderer *const renderer, Rect camera,
-                       TrianglePoints triangle, v2 pivotPoint, Degrees rotate,
-                       RenderTex *renderTex, v4 color, RenderFlags flags)
-{
-	Radians totalRotation = DEGREES_TO_RADIANS(rotate);
-	renderer_polygon(renderer, camera, triangle.points,
-	                 ARRAY_COUNT(triangle.points), pivotPoint, totalRotation,
-	                 renderTex, color, flags);
 }
 
 void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
@@ -573,21 +534,6 @@ void renderer_entity(Renderer *renderer, MemoryArena_ *transientArena,
 		renderer_rect(renderer, camera, entity->pos, entity->size, pivotPoint,
 		              totalRotation, &renderTex, color, flags);
 	}
-	else if (entity->renderMode == rendermode_triangle)
-	{
-		Basis entityBasis   = getDefaultBasis(entity);
-		v2 triangleTopPoint = V2(entityBasis.pos.x + (entity->size.w * 0.5f),
-		                         entityBasis.pos.y + entity->size.h);
-		v2 triangleRightSide =
-		    V2(entityBasis.pos.x + entity->size.w, entityBasis.pos.y);
-
-		v2 entityPolygonPoints[] = {entityBasis.pos, triangleRightSide,
-		                            triangleTopPoint};
-
-		renderer_polygon(renderer, camera, entityPolygonPoints,
-		                 ARRAY_COUNT(entityPolygonPoints), pivotPoint,
-		                 totalRotation, &renderTex, color, flags);
-	}
 	else if (entity->renderMode == rendermode_polygon)
 	{
 		ASSERT(entity->numVertexPoints >= 3);
@@ -595,14 +541,17 @@ void renderer_entity(Renderer *renderer, MemoryArena_ *transientArena,
 
 		v2 *offsetVertexPoints = memory_pushBytes(
 		    transientArena, entity->numVertexPoints * sizeof(v2));
+
 		for (i32 i = 0; i < entity->numVertexPoints; i++)
 		{
 			offsetVertexPoints[i] =
-			    v2_add(entity->vertexPoints[i], entity->pos);
+			    v2_add(entity->vertexPoints[i], entity->offset);
+			offsetVertexPoints[i] = v2_add(offsetVertexPoints[i], entity->pos);
 		}
 
 		renderer_polygon(renderer, camera, offsetVertexPoints,
-		                 entity->numVertexPoints, pivotPoint, totalRotation,
+		                 entity->numVertexPoints,
+		                 v2_add(entity->offset, pivotPoint), totalRotation,
 		                 &renderTex, color, flags);
 	}
 	else

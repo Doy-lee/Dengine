@@ -177,8 +177,11 @@ v2 *createAsteroidVertexList(MemoryArena_ *arena, i32 iterations,
 	for (i32 i = 0; i < iterations; i++)
 	{
 		i32 randValue = rand();
-		result[i] = V2(math_cosf(iterationAngle * i) * asteroidRadius,
-		               math_sinf(iterationAngle * i) * asteroidRadius);
+		
+		// NOTE(doyle): Sin/cos generate values from +-1, we want to create
+		// vertices that start from 0, 0 (i.e. strictly positive)
+		result[i] = V2(((math_cosf(iterationAngle * i) + 1) * asteroidRadius),
+		               ((math_sinf(iterationAngle * i) + 1) * asteroidRadius));
 
 #if 1
 		f32 displacementDist   = 0.50f * asteroidRadius;
@@ -239,6 +242,27 @@ v2 *createEntityEdgeList(MemoryArena_ *transientArena, Entity *entity)
 	return result;
 }
 
+v2 calculateProjectionRangeForEdge(Entity *entity, v2 edgeNormal)
+{
+	v2 result = {0};
+	result.max = v2_dot(entity->vertexPoints[0], edgeNormal);
+	result.max = result.min;
+
+	for (i32 vertexIndex = 0; vertexIndex < entity->numVertexPoints;
+	     vertexIndex++)
+	{
+		f32 dist =
+		    v2_dot(entity->vertexPoints[vertexIndex], edgeNormal);
+
+		if (dist < result.min)
+			result.min = dist;
+		else if (dist > result.max)
+			result.max = dist;
+	}
+
+	return result;
+}
+
 b32 checkEntityProjectionOverlap(Entity *entity, Entity *checkEntity,
                                  v2 *entityEdges)
 {
@@ -246,39 +270,10 @@ b32 checkEntityProjectionOverlap(Entity *entity, Entity *checkEntity,
 	for (i32 edgeIndex = 0; edgeIndex < entity->numVertexPoints && result;
 	     edgeIndex++)
 	{
-		v2 entityProjectionRange = {0};
-		entityProjectionRange.max =
-		    v2_dot(entity->vertexPoints[0], entityEdges[0]);
-		entityProjectionRange.max = entityProjectionRange.min;
-
-		for (i32 vertexIndex = 0; vertexIndex < entity->numVertexPoints;
-		     vertexIndex++)
-		{
-			f32 dist = v2_dot(entity->vertexPoints[vertexIndex],
-			                  entityEdges[edgeIndex]);
-
-			if (dist < entityProjectionRange.min)
-				entityProjectionRange.min = dist;
-			else if (dist > entityProjectionRange.max)
-				entityProjectionRange.max = dist;
-		}
-
-		v2 checkEntityProjectionRange = {0};
-		checkEntityProjectionRange.min =
-		    v2_dot(entity->vertexPoints[0], entityEdges[0]);
-		checkEntityProjectionRange.max = checkEntityProjectionRange.min;
-
-		for (i32 vertexIndex = 0; vertexIndex < checkEntity->numVertexPoints;
-		     vertexIndex++)
-		{
-			f32 dist = v2_dot(checkEntity->vertexPoints[vertexIndex],
-			                  entityEdges[edgeIndex]);
-
-			if (dist < checkEntityProjectionRange.min)
-				checkEntityProjectionRange.min = dist;
-			else if (dist > checkEntityProjectionRange.max)
-				checkEntityProjectionRange.max = dist;
-		}
+		v2 entityProjectionRange =
+		    calculateProjectionRangeForEdge(entity, entityEdges[edgeIndex]);
+		v2 checkEntityProjectionRange = calculateProjectionRangeForEdge(
+		    checkEntity, entityEdges[edgeIndex]);
 
 		if (!v2_intervalsOverlap(entityProjectionRange,
 		                         checkEntityProjectionRange))
@@ -337,13 +332,15 @@ void moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
 				// Convert inplace the vector normal of the edges
 				for (i32 i = 0; i < numEntityEdges; i++)
 				{
-					entityEdges[i] = V2(entityEdges[i].y, -entityEdges[i].x);
+					entityEdges[i] = v2_perpendicular(entityEdges[i]);
+					entityEdges[i] = v2_add(entityEdges[i], entity->pos);
 				}
 
 				for (i32 i = 0; i < numCheckEntityEdges; i++)
 				{
+					checkEntityEdges[i] = v2_perpendicular(checkEntityEdges[i]);
 					checkEntityEdges[i] =
-					    V2(entityEdges[i].y, -entityEdges[i].x);
+					    v2_add(checkEntityEdges[i], checkEntity->pos);
 				}
 
 				if ((checkEntityProjectionOverlap(entity, checkEntity,
@@ -355,7 +352,9 @@ void moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
 				}
 			}
 
-			if (willCollide) break;
+			if (willCollide) {
+				break;
+			}
 		}
 	}
 #endif
@@ -397,15 +396,13 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			ship->vertexPoints    = memory_pushBytes(
 			    &state->persistentArena, sizeof(v2) * ship->numVertexPoints);
 
-			Basis shipBasis     = getDefaultBasis(ship);
-			v2 triangleTopPoint = V2(shipBasis.pos.x + (ship->size.w * 0.5f),
-			                         shipBasis.pos.y + ship->size.h);
-			v2 triangleRightSide =
-			    V2(shipBasis.pos.x + ship->size.w, shipBasis.pos.y);
+			v2 triangleBaseP  = V2(0, 0);
+			v2 triangleTopP   = V2(ship->size.w * 0.5f, ship->size.h);
+			v2 triangleRightP = V2(ship->size.w, triangleBaseP.y);
 
-			ship->vertexPoints[0] = shipBasis.pos;
-			ship->vertexPoints[1] = triangleRightSide;
-			ship->vertexPoints[2] = triangleTopPoint;
+			ship->vertexPoints[0] = triangleBaseP;
+			ship->vertexPoints[1] = triangleRightP;
+			ship->vertexPoints[2] = triangleTopP;
 
 			ship->scale      = 1;
 			ship->type       = entitytype_ship;
@@ -414,7 +411,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			ship->tex        = NULL;
 			ship->collides   = TRUE;
 
-			i32 numAsteroids = 10;
+			i32 numAsteroids = 8;
 			for (i32 i = 0; i < numAsteroids; i++)
 			{
 				Entity *asteroid = &state->entityList[state->entityIndex];
@@ -427,13 +424,13 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 				asteroid->size       = V2(100.0f, 100.0f);
 				asteroid->hitbox     = asteroid->size;
-				asteroid->offset     = v2_scale(asteroid->size, 0.5f);
+				asteroid->offset     = V2(asteroid->size.w * -0.5f, 0);
 				asteroid->scale      = 1;
 				asteroid->type       = entitytype_asteroid;
 				asteroid->direction  = direction_null;
 				asteroid->renderMode = rendermode_polygon;
 
-				asteroid->numVertexPoints = 16;
+				asteroid->numVertexPoints = 8;
 				asteroid->vertexPoints    = createAsteroidVertexList(
 				    &state->persistentArena, asteroid->numVertexPoints,
 				    (i32)(asteroid->size.x * 0.5f));
@@ -535,8 +532,6 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			}
 
 			ddPSpeedInMs = 25;
-			pivotPoint = v2_scale(entity->size, 0.5f);
-
 			DEBUG_PUSH_VAR("Pos: %5.2f, %5.2f", entity->pos, "v2");
 			DEBUG_PUSH_VAR("Velocity: %5.2f, %5.2f", entity->dP, "v2");
 			DEBUG_PUSH_VAR("Rotation: %5.2f", entity->rotation, "f32");
@@ -617,39 +612,20 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 			// NOTE(doyle): Make asteroids start and move at constant speed
 			ddPSpeedInMs = 2;
-			entity->dP = v2_scale(ddP, state->pixelsPerMeter * ddPSpeedInMs);
+			entity->dP   = v2_scale(ddP, state->pixelsPerMeter * ddPSpeedInMs);
+			entity->rotation += (randValue % 20) * dt;
 		}
 
 		moveEntity(state, entity, ddP, dt, ddPSpeedInMs);
 
 		RenderFlags flags = renderflag_wireframe | renderflag_no_texture;
 		renderer_entity(&state->renderer, &state->transientArena, state->camera,
-		                entity, pivotPoint, 0, V4(0.4f, 0.8f, 1.0f, 1.0f),
-		                flags);
-
-		Basis entityBasis = getDefaultBasis(entity);
-		renderer_rect(&state->renderer, state->camera, entityBasis.pos,
-		              V2(4, 4), entityBasis.pivotPoint,
-		              DEGREES_TO_RADIANS(entity->rotation), NULL,
-		              V4(1.0f, 0, 0, 1.0f), flags);
+		                entity, V2(0, 0), 0,
+		                V4(0.4f, 0.8f, 1.0f, 1.0f), flags);
 	}
-
-#if 1
-	TrianglePoints triangle = {0};
-	triangle.points[0] = V2(100, 200);
-	triangle.points[1] = V2(200, 100);
-	triangle.points[2] = V2(100, 300);
-
-	LOCAL_PERSIST Degrees rotation = 0.0f;
-	rotation += (60.0f) * dt;
-
-	RenderFlags flags = renderflag_wireframe | renderflag_no_texture;
-	renderer_triangle(&state->renderer, state->camera, triangle, V2(0, 0),
-	                  rotation, NULL, V4(1, 1, 1, 1), flags);
 
 	debug_drawUi(state, dt);
 	debug_clearCounter();
-#endif
 
 	renderer_renderGroups(&state->renderer);
 }
