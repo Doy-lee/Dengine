@@ -48,6 +48,10 @@ typedef struct RenderGroup
 	RenderFlags flags;
 	enum RenderMode mode;
 
+	// NOTE(doyle): Only for when adding singular triangles in triangle strip
+	// mode
+	b32 clockwiseWinding;
+
 	Texture *tex;
 	v4 color;
 

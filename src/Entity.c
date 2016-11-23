@@ -96,7 +96,7 @@ v2 *entity_createVertexList(MemoryArena_ *transientArena, Entity *entity)
 
 	for (i32 i = 0; i < entity->numVertexPoints; i++)
 	{
-		result[i] = v2_sub(entity->vertexPoints[i], entity->offset);
+		result[i] = v2_add(entity->vertexPoints[i], entity->offset);
 		result[i] = v2_add(result[i], entity->pos);
 	}
 

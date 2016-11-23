@@ -172,8 +172,7 @@ v2 *createAsteroidVertexList(MemoryArena_ *arena, i32 iterations,
 {
 	f32 iterationAngle = 360.0f / iterations;
 	iterationAngle     = DEGREES_TO_RADIANS(iterationAngle);
-	v2 *result =
-	    memory_pushBytes(arena, iterations * sizeof(v2));
+	v2 *result         = memory_pushBytes(arena, iterations * sizeof(v2));
 
 	for (i32 i = 0; i < iterations; i++)
 	{
@@ -285,7 +284,8 @@ b32 checkEdgeProjectionOverlap(v2 *vertexList, i32 listSize,
 	return result;
 }
 
-b32 moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
+b32 moveEntity(GameState *state, Entity *entity, i32 entityIndex, v2 ddP,
+               f32 dt, f32 ddPSpeed)
 {
 	ASSERT(ABS(ddP.x) <= 1.0f && ABS(ddP.y) <= 1.0f);
 	/*
@@ -311,13 +311,14 @@ b32 moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
 
 	b32 willCollide = FALSE;
 
+	// TODO(doyle): Collision for rects, (need to create vertex list for it)
 #if 1
 	if (entity->renderMode == rendermode_polygon && entity->collides)
 	{
-		for (i32 i = 0; i < state->entityIndex; i++)
+		for (i32 i = entityIndex + 1; i < state->entityIndex; i++)
 		{
 			Entity *checkEntity = &state->entityList[i];
-			if (checkEntity->id == entity->id) continue;
+			ASSERT(checkEntity->id != entity->id);
 
 			if (checkEntity->renderMode == rendermode_polygon &&
 			    checkEntity->collides)
@@ -325,6 +326,7 @@ b32 moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
 				/* Create entity edge lists */
 				v2 *entityVertexListOffsetToP =
 				    entity_createVertexList(&state->transientArena, entity);
+
 				v2 *checkEntityVertexListOffsetToP = entity_createVertexList(
 				    &state->transientArena, checkEntity);
 
@@ -368,6 +370,7 @@ b32 moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
 	}
 #endif
 
+#if 0
 	if (!willCollide)
 	{
 		entity->dP  = newDp;
@@ -377,6 +380,11 @@ b32 moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
 	{
 		entity->dP  = v2_scale(newDp, -1.0f);
 	}
+
+#else
+	entity->dP  = newDp;
+	entity->pos = newPos;
+#endif
 
 	return willCollide;
 }
@@ -389,7 +397,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 	if (!state->init)
 	{
-		srand(time(NULL));
+		srand((u32)time(NULL));
 		memory_arenaInit(&state->persistentArena, memory->persistent,
 		                 memory->persistentSize);
 		initAssetManager(state);
@@ -397,12 +405,43 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 		state->pixelsPerMeter = 70.0f;
 
+		{ // Init asteroid entities
+			i32 numAsteroids = 1;
+			for (i32 i = 0; i < numAsteroids; i++)
+			{
+				Entity *asteroid = &state->entityList[state->entityIndex];
+				asteroid->id     = state->entityIndex++;
+
+				i32 randValue = rand();
+				i32 randX     = (randValue % (i32)windowSize.w);
+				i32 randY     = (randValue % (i32)windowSize.h);
+				asteroid->pos = V2i(100 + (i * 100), 500);
+
+				asteroid->size       = V2(100.0f, 100.0f);
+				asteroid->hitbox     = asteroid->size;
+				asteroid->offset     = V2(asteroid->size.w * -0.5f, 0);
+				asteroid->scale      = 1;
+				asteroid->rotation   = 45;
+				asteroid->type       = entitytype_asteroid;
+				asteroid->direction  = direction_null;
+				asteroid->renderMode = rendermode_polygon;
+
+				asteroid->numVertexPoints = i + 10;
+				asteroid->vertexPoints    = createAsteroidVertexList(
+						&state->persistentArena, asteroid->numVertexPoints,
+						(i32)(asteroid->size.x * 0.5f));
+
+				asteroid->tex      = NULL;
+				asteroid->collides = TRUE;
+			}
+		}
+
+#if 1
 		{ // Init ship entity
 			Entity *ship     = &state->entityList[state->entityIndex];
 			ship->id         = state->entityIndex++;
 			ship->pos        = V2(100, 100);
 			ship->size       = V2(25.0f, 50.0f);
-			ship->rotation   = 90.0f;
 			ship->hitbox     = ship->size;
 			ship->offset     = v2_scale(ship->size, 0.5f);
 
@@ -425,47 +464,9 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			ship->tex        = NULL;
 			ship->collides   = TRUE;
 
-			i32 numAsteroids = 1;
-			for (i32 i = 0; i < numAsteroids; i++)
-			{
-				Entity *asteroid = &state->entityList[state->entityIndex];
-				asteroid->id     = state->entityIndex++;
-
-				i32 randValue = rand();
-				i32 randX     = (randValue % (i32)windowSize.w);
-				i32 randY     = (randValue % (i32)windowSize.h);
-				asteroid->pos = V2i(500, 500);
-
-				asteroid->size       = V2(100.0f, 100.0f);
-				asteroid->hitbox     = asteroid->size;
-				asteroid->offset     = V2(asteroid->size.w * -0.5f, 0);
-				asteroid->scale      = 1;
-				asteroid->type       = entitytype_asteroid;
-				asteroid->direction  = direction_null;
-				asteroid->renderMode = rendermode_polygon;
-
-				asteroid->numVertexPoints = 8;
-				asteroid->vertexPoints    = createAsteroidVertexList(
-				    &state->persistentArena, asteroid->numVertexPoints,
-				    (i32)(asteroid->size.x * 0.5f));
-
-				asteroid->tex      = NULL;
-				asteroid->collides = TRUE;
-			}
-
-			Entity *square     = &state->entityList[state->entityIndex];
-			square->id         = state->entityIndex++;
-			square->pos        = V2(350, 350);
-			square->size       = V2(75.0f, 75.0f);
-			square->hitbox     = square->size;
-			square->offset     = v2_scale(square->size, 0.5f);
-			square->scale      = 1;
-			square->type       = entitytype_asteroid;
-			square->direction  = direction_null;
-			square->renderMode = rendermode_quad;
-			square->tex        = NULL;
-			square->collides   = TRUE;
 		}
+#endif
+
 
 		state->camera.min = V2(0, 0);
 		state->camera.max = state->renderer.size;
@@ -639,26 +640,31 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			v2_scale(ddP, dirOffset);
 
 			// NOTE(doyle): Make asteroids start and move at constant speed
-			ddPSpeedInMs = 2;
+			ddPSpeedInMs = 1;
 			entity->dP   = v2_scale(ddP, state->pixelsPerMeter * ddPSpeedInMs);
 #endif
-			entity->rotation += (randValue % 20) * dt;
+			entity->rotation += (60 * dt);
 		}
 
-		b32 willCollide = moveEntity(state, entity, ddP, dt, ddPSpeedInMs);
-
-		v4 entityCollisionColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
-
-		if (willCollide) entityCollisionColor = V4(1.0f, 0, 0, 1.0f);
+		b32 willCollide = moveEntity(state, entity, i, ddP, dt, ddPSpeedInMs);
+		v4 entityColor  = V4(1.0f, 1.0f, 1.0f, 1.0f);
+#if 1
+		if (willCollide)
+		{
+			entityColor = V4(1.0f, 1.0f, 0, 1.0f);
+		}
+#endif
 
 		RenderFlags flags = renderflag_wireframe | renderflag_no_texture;
 		renderer_entity(&state->renderer, &state->transientArena, state->camera,
 		                entity, V2(0, 0), 0,
-		                entityCollisionColor, flags);
+		                entityColor, flags);
 	}
 
+#if 0
 	debug_drawUi(state, dt);
 	debug_clearCounter();
+#endif
 
 	renderer_renderGroups(&state->renderer);
 }

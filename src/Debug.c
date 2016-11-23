@@ -287,5 +287,8 @@ void debug_drawUi(GameState *state, f32 dt)
 	DEBUG_PUSH_VAR("Permanent Size: %.0f", persistent->size, "f32");
 	DEBUG_PUSH_VAR("Permanent Usage: %.0f/%.0f", persistentUsage, "v2");
 
+	DEBUG_PUSH_VAR("Num Vertex: %d",
+	               GLOBAL_debug.callCount[debugcount_numVertex], "i32");
+
 	debug_clearCounter();
 }
