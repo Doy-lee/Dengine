@@ -6,6 +6,7 @@
 #include "Dengine/Renderer.h"
 
 typedef struct AudioRenderer AudioRenderer;
+typedef struct MemoryArena_ MemoryArena;
 
 enum Direction
 {
@@ -66,8 +67,6 @@ typedef struct Entity
 	f32 scale;
 	Degrees rotation;
 
-	b32 invisible;
-
 	enum EntityType type;
 	enum Direction direction;
 
@@ -95,4 +94,6 @@ void entity_setActiveAnim(Entity *const entity, const char *const animName);
 void entity_updateAnim(Entity *const entity, const f32 dt);
 void entity_addAnim(AssetManager *const assetManager, Entity *const entity,
                     const char *const animName);
+
+v2 *entity_createVertexList(MemoryArena_ *transientArena, Entity *entity);
 #endif

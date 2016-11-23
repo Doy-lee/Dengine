@@ -367,4 +367,37 @@ INTERNAL inline v2 math_getRectSize(v4 rect)
 	return result;
 }
 
+INTERNAL inline void math_applyRotationToVertexes(v2 pos, v2 pivotPoint,
+                                                  Radians rotate,
+                                                  v2 *vertexList,
+                                                  i32 vertexListSize)
+{
+	if (rotate == 0) return;
+	// NOTE(doyle): Move the world origin to the base position of the object.
+	// Then move the origin to the pivot point (e.g. center of object) and
+	// rotate from that point.
+	v2 pointOfRotation = v2_add(pivotPoint, pos);
+
+	mat4 rotateMat = mat4_translate(pointOfRotation.x, pointOfRotation.y, 0.0f);
+	rotateMat      = mat4_mul(rotateMat, mat4_rotate(rotate, 0.0f, 0.0f, 1.0f));
+	rotateMat      = mat4_mul(rotateMat, mat4_translate(-pointOfRotation.x,
+	                                               -pointOfRotation.y, 0.0f));
+
+	// TODO(doyle): Make it nice for 2d vector, stop using mat4
+	for (i32 i = 0; i < vertexListSize; i++)
+	{
+		// NOTE(doyle): Manual matrix multiplication since vertex pos is 2D and
+		// matrix is 4D
+		v2 oldP = vertexList[i];
+		v2 newP = {0};
+
+		newP.x = (oldP.x * rotateMat.e[0][0]) + (oldP.y * rotateMat.e[1][0]) +
+		         (rotateMat.e[3][0]);
+		newP.y = (oldP.x * rotateMat.e[0][1]) + (oldP.y * rotateMat.e[1][1]) +
+		         (rotateMat.e[3][1]);
+
+		vertexList[i] = newP;
+	}
+}
+
 #endif

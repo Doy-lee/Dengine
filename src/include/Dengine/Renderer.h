@@ -13,11 +13,11 @@ typedef struct MemoryArena MemoryArena_;
 typedef struct Shader Shader;
 typedef struct Texture Texture;
 
-typedef struct Vertex
+typedef struct RenderVertex
 {
 	v2 pos;
 	v2 texCoord;
-} Vertex;
+} RenderVertex;
 
 typedef struct RenderTex
 {
@@ -51,7 +51,7 @@ typedef struct RenderGroup
 	Texture *tex;
 	v4 color;
 
-	Vertex *vertexList;
+	RenderVertex *vertexList;
 	i32 vertexIndex;
 
 } RenderGroup;
@@ -82,9 +82,7 @@ typedef struct Renderer
 } Renderer;
 
 
-// TODO(doyle): Use z-index occluding for rendering
-RenderTex
-renderer_createNullRenderTex(AssetManager *const assetManager);
+RenderTex renderer_createNullRenderTex(AssetManager *const assetManager);
 
 // TODO(doyle): Clean up lines
 // Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }

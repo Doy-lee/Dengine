@@ -83,7 +83,7 @@ void initRenderer(GameState *state, v2 windowSize) {
 
 		glEnableVertexAttribArray(0);
 		u32 numVertexElements = 4;
-		u32 stride            = sizeof(Vertex);
+		u32 stride            = sizeof(RenderVertex);
 
 		glVertexAttribPointer(0, numVertexElements, GL_FLOAT,
 		                      GL_FALSE, stride, (GLvoid *)0);
@@ -98,8 +98,9 @@ void initRenderer(GameState *state, v2 windowSize) {
 	renderer->groupCapacity = 4096;
 	for (i32 i = 0; i < ARRAY_COUNT(renderer->groups); i++)
 	{
-		renderer->groups[i].vertexList = memory_pushBytes(
-		    &state->persistentArena, renderer->groupCapacity * sizeof(Vertex));
+		renderer->groups[i].vertexList =
+		    memory_pushBytes(&state->persistentArena,
+		                     renderer->groupCapacity * sizeof(RenderVertex));
 	}
 }
 
@@ -221,38 +222,36 @@ v2 *createAsteroidVertexList(MemoryArena_ *arena, i32 iterations,
 	return result;
 }
 
-v2 *createEntityEdgeList(MemoryArena_ *transientArena, Entity *entity)
+v2 *createNormalEdgeList(MemoryArena_ *transientArena, v2 *vertexList,
+                         i32 vertexListSize)
 {
-	v2 *result = memory_pushBytes(transientArena,
-	                              sizeof(v2) * entity->numVertexPoints);
-
-	i32 numVertexes = entity->numVertexPoints;
-	for (i32 i = 0; i < numVertexes - 1; i++)
+	v2 *result = memory_pushBytes(transientArena, sizeof(v2) * vertexListSize);
+	for (i32 i = 0; i < vertexListSize - 1; i++)
 	{
-		ASSERT((i + 1) < numVertexes);
-		result[i] =
-		    v2_sub(entity->vertexPoints[i + 1], entity->vertexPoints[i]);
+		ASSERT((i + 1) < vertexListSize);
+		result[i] = v2_sub(vertexList[i + 1], vertexList[i]);
+		result[i] = v2_perpendicular(result[i]);
 	}
 
 	// NOTE(doyle): Creating the last edge requires using the first
 	// vertex point which is at index 0
-	result[numVertexes - 1] =
-	    v2_sub(entity->vertexPoints[0], entity->vertexPoints[numVertexes - 1]);
+	result[vertexListSize - 1] =
+	    v2_sub(vertexList[0], vertexList[vertexListSize - 1]);
+	result[vertexListSize - 1] = v2_perpendicular(result[vertexListSize - 1]);
 
 	return result;
 }
 
-v2 calculateProjectionRangeForEdge(Entity *entity, v2 edgeNormal)
+v2 calculateProjectionRangeForEdge(v2 *vertexList, i32 vertexListSize,
+                                   v2 edgeNormal)
 {
 	v2 result = {0};
-	result.max = v2_dot(entity->vertexPoints[0], edgeNormal);
+	result.min = v2_dot(vertexList[0], edgeNormal);
 	result.max = result.min;
 
-	for (i32 vertexIndex = 0; vertexIndex < entity->numVertexPoints;
-	     vertexIndex++)
+	for (i32 vertexIndex = 0; vertexIndex < vertexListSize; vertexIndex++)
 	{
-		f32 dist =
-		    v2_dot(entity->vertexPoints[vertexIndex], edgeNormal);
+		f32 dist = v2_dot(vertexList[vertexIndex], edgeNormal);
 
 		if (dist < result.min)
 			result.min = dist;
@@ -263,20 +262,20 @@ v2 calculateProjectionRangeForEdge(Entity *entity, v2 edgeNormal)
 	return result;
 }
 
-b32 checkEntityProjectionOverlap(Entity *entity, Entity *checkEntity,
-                                 v2 *entityEdges)
+b32 checkEdgeProjectionOverlap(v2 *vertexList, i32 listSize,
+                               v2 *checkVertexList, i32 checkListSize,
+                               v2 *edgeList, i32 totalNumEdges)
 {
 	b32 result = TRUE;
-	for (i32 edgeIndex = 0; edgeIndex < entity->numVertexPoints && result;
-	     edgeIndex++)
+	for (i32 edgeIndex = 0; edgeIndex < totalNumEdges && result; edgeIndex++)
 	{
-		v2 entityProjectionRange =
-		    calculateProjectionRangeForEdge(entity, entityEdges[edgeIndex]);
-		v2 checkEntityProjectionRange = calculateProjectionRangeForEdge(
-		    checkEntity, entityEdges[edgeIndex]);
+		v2 projectionRange = calculateProjectionRangeForEdge(
+		    vertexList, listSize, edgeList[edgeIndex]);
 
-		if (!v2_intervalsOverlap(entityProjectionRange,
-		                         checkEntityProjectionRange))
+		v2 checkProjectionRange = calculateProjectionRangeForEdge(
+		    checkVertexList, checkListSize, edgeList[edgeIndex]);
+
+		if (!v2_intervalsOverlap(projectionRange, checkProjectionRange))
 		{
 			result = FALSE;
 			return result;
@@ -286,7 +285,7 @@ b32 checkEntityProjectionOverlap(Entity *entity, Entity *checkEntity,
 	return result;
 }
 
-void moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
+b32 moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
 {
 	ASSERT(ABS(ddP.x) <= 1.0f && ABS(ddP.y) <= 1.0f);
 	/*
@@ -311,7 +310,8 @@ void moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
 	v2 newPos = v2_add(v2_add(ddPHalfDtSquared, oldDpDt), oldPos);
 
 	b32 willCollide = FALSE;
-#if 0
+
+#if 1
 	if (entity->renderMode == rendermode_polygon && entity->collides)
 	{
 		for (i32 i = 0; i < state->entityIndex; i++)
@@ -322,31 +322,40 @@ void moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
 			if (checkEntity->renderMode == rendermode_polygon &&
 			    checkEntity->collides)
 			{
-				i32 numEntityEdges      = entity->numVertexPoints;
-				i32 numCheckEntityEdges = checkEntity->numVertexPoints;
-				v2 *entityEdges =
-				    createEntityEdgeList(&state->transientArena, entity);
-				v2 *checkEntityEdges =
-				    createEntityEdgeList(&state->transientArena, entity);
+				/* Create entity edge lists */
+				v2 *entityVertexListOffsetToP =
+				    entity_createVertexList(&state->transientArena, entity);
+				v2 *checkEntityVertexListOffsetToP = entity_createVertexList(
+				    &state->transientArena, checkEntity);
 
-				// Convert inplace the vector normal of the edges
-				for (i32 i = 0; i < numEntityEdges; i++)
+				v2 *entityEdgeList = createNormalEdgeList(
+				    &state->transientArena, entityVertexListOffsetToP,
+				    entity->numVertexPoints);
+
+				v2 *checkEntityEdgeList = createNormalEdgeList(
+				    &state->transientArena, checkEntityVertexListOffsetToP,
+				    checkEntity->numVertexPoints);
+
+				/* Combine both edge lists into one */
+				i32 totalNumEdges =
+				    checkEntity->numVertexPoints + entity->numVertexPoints;
+				v2 *edgeList = memory_pushBytes(&state->transientArena,
+				                                totalNumEdges * sizeof(v2));
+				for (i32 i = 0; i < entity->numVertexPoints; i++)
 				{
-					entityEdges[i] = v2_perpendicular(entityEdges[i]);
-					entityEdges[i] = v2_add(entityEdges[i], entity->pos);
+					edgeList[i] = entityEdgeList[i];
 				}
 
-				for (i32 i = 0; i < numCheckEntityEdges; i++)
+				for (i32 i = 0; i < checkEntity->numVertexPoints; i++)
 				{
-					checkEntityEdges[i] = v2_perpendicular(checkEntityEdges[i]);
-					checkEntityEdges[i] =
-					    v2_add(checkEntityEdges[i], checkEntity->pos);
+					edgeList[i + entity->numVertexPoints] =
+					    checkEntityEdgeList[i];
 				}
 
-				if ((checkEntityProjectionOverlap(entity, checkEntity,
-				                                  entityEdges) &&
-				     checkEntityProjectionOverlap(entity, checkEntity,
-				                                  checkEntityEdges)))
+				if (checkEdgeProjectionOverlap(
+				        entityVertexListOffsetToP, entity->numVertexPoints,
+				        checkEntityVertexListOffsetToP,
+				        checkEntity->numVertexPoints, edgeList, totalNumEdges))
 				{
 					willCollide = TRUE;
 				}
@@ -364,13 +373,17 @@ void moveEntity(GameState *state, Entity *entity, v2 ddP, f32 dt, f32 ddPSpeed)
 		entity->dP  = newDp;
 		entity->pos = newPos;
 	}
+	else
+	{
+		entity->dP  = v2_scale(newDp, -1.0f);
+	}
+
+	return willCollide;
 }
 
 void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
                                   v2 windowSize, f32 dt)
 {
-	i32 iterations = 16;
-
 	memory_arenaInit(&state->transientArena, memory->transient,
 	                 memory->transientSize);
 
@@ -387,8 +400,9 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		{ // Init ship entity
 			Entity *ship     = &state->entityList[state->entityIndex];
 			ship->id         = state->entityIndex++;
-			ship->pos        = V2(0, 0);
+			ship->pos        = V2(100, 100);
 			ship->size       = V2(25.0f, 50.0f);
+			ship->rotation   = 90.0f;
 			ship->hitbox     = ship->size;
 			ship->offset     = v2_scale(ship->size, 0.5f);
 
@@ -411,7 +425,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			ship->tex        = NULL;
 			ship->collides   = TRUE;
 
-			i32 numAsteroids = 8;
+			i32 numAsteroids = 1;
 			for (i32 i = 0; i < numAsteroids; i++)
 			{
 				Entity *asteroid = &state->entityList[state->entityIndex];
@@ -420,7 +434,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				i32 randValue = rand();
 				i32 randX     = (randValue % (i32)windowSize.w);
 				i32 randY     = (randValue % (i32)windowSize.h);
-				asteroid->pos = V2i(randX, randY);
+				asteroid->pos = V2i(500, 500);
 
 				asteroid->size       = V2(100.0f, 100.0f);
 				asteroid->hitbox     = asteroid->size;
@@ -438,6 +452,19 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				asteroid->tex      = NULL;
 				asteroid->collides = TRUE;
 			}
+
+			Entity *square     = &state->entityList[state->entityIndex];
+			square->id         = state->entityIndex++;
+			square->pos        = V2(350, 350);
+			square->size       = V2(75.0f, 75.0f);
+			square->hitbox     = square->size;
+			square->offset     = v2_scale(square->size, 0.5f);
+			square->scale      = 1;
+			square->type       = entitytype_asteroid;
+			square->direction  = direction_null;
+			square->renderMode = rendermode_quad;
+			square->tex        = NULL;
+			square->collides   = TRUE;
 		}
 
 		state->camera.min = V2(0, 0);
@@ -546,6 +573,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			}
 
 			v2 ddP = {0};
+#if 0
 			switch (entity->direction)
 			{
 			case direction_north:
@@ -613,15 +641,20 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			// NOTE(doyle): Make asteroids start and move at constant speed
 			ddPSpeedInMs = 2;
 			entity->dP   = v2_scale(ddP, state->pixelsPerMeter * ddPSpeedInMs);
+#endif
 			entity->rotation += (randValue % 20) * dt;
 		}
 
-		moveEntity(state, entity, ddP, dt, ddPSpeedInMs);
+		b32 willCollide = moveEntity(state, entity, ddP, dt, ddPSpeedInMs);
+
+		v4 entityCollisionColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
+
+		if (willCollide) entityCollisionColor = V4(1.0f, 0, 0, 1.0f);
 
 		RenderFlags flags = renderflag_wireframe | renderflag_no_texture;
 		renderer_entity(&state->renderer, &state->transientArena, state->camera,
 		                entity, V2(0, 0), 0,
-		                V4(0.4f, 0.8f, 1.0f, 1.0f), flags);
+		                entityCollisionColor, flags);
 	}
 
 	debug_drawUi(state, dt);

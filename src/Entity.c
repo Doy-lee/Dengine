@@ -1,6 +1,8 @@
 #include "Dengine/Entity.h"
 #include "Dengine/AssetManager.h"
 #include "Dengine/Debug.h"
+#include "Dengine/Math.h"
+#include "Dengine/MemoryArena.h"
 
 SubTexture entity_getActiveSubTexture(Entity *const entity)
 {
@@ -86,3 +88,22 @@ void entity_addAnim(AssetManager *const assetManager, Entity *const entity,
 
 	DEBUG_LOG("No more free entity animation slots");
 }
+
+v2 *entity_createVertexList(MemoryArena_ *transientArena, Entity *entity)
+{
+	v2 *result =
+	    memory_pushBytes(transientArena, entity->numVertexPoints * sizeof(v2));
+
+	for (i32 i = 0; i < entity->numVertexPoints; i++)
+	{
+		result[i] = v2_sub(entity->vertexPoints[i], entity->offset);
+		result[i] = v2_add(result[i], entity->pos);
+	}
+
+	math_applyRotationToVertexes(result[0], entity->offset,
+	                             DEGREES_TO_RADIANS(entity->rotation), result,
+	                             entity->numVertexPoints);
+
+	return result;
+}
+
