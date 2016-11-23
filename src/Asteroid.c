@@ -389,6 +389,34 @@ b32 moveEntity(GameState *state, Entity *entity, i32 entityIndex, v2 ddP,
 	return willCollide;
 }
 
+INTERNAL void addAsteroid(GameState *state, v2 windowSize)
+{
+	Entity *asteroid = &state->entityList[state->entityIndex];
+	asteroid->id     = state->entityIndex++;
+
+	i32 randValue = rand();
+	i32 randX     = (randValue % (i32)windowSize.w);
+	i32 randY     = (randValue % (i32)windowSize.h);
+	asteroid->pos = V2i(randX, randY);
+
+	asteroid->size       = V2(75.0f, 75.0f);
+	asteroid->hitbox     = asteroid->size;
+	asteroid->offset     = V2(asteroid->size.w * -0.5f, 0);
+	asteroid->scale      = 1;
+	asteroid->rotation   = 45;
+	asteroid->type       = entitytype_asteroid;
+	asteroid->direction  = direction_null;
+	asteroid->renderMode = rendermode_polygon;
+
+	asteroid->numVertexPoints = 10;
+	asteroid->vertexPoints    = createAsteroidVertexList(
+	    &state->persistentArena, asteroid->numVertexPoints,
+	    (i32)(asteroid->size.x * 0.5f));
+
+	asteroid->tex      = NULL;
+	asteroid->collides = TRUE;
+}
+
 void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
                                   v2 windowSize, f32 dt)
 {
@@ -406,34 +434,9 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		state->pixelsPerMeter = 70.0f;
 
 		{ // Init asteroid entities
-			i32 numAsteroids = 1;
+			i32 numAsteroids = 15;
 			for (i32 i = 0; i < numAsteroids; i++)
-			{
-				Entity *asteroid = &state->entityList[state->entityIndex];
-				asteroid->id     = state->entityIndex++;
-
-				i32 randValue = rand();
-				i32 randX     = (randValue % (i32)windowSize.w);
-				i32 randY     = (randValue % (i32)windowSize.h);
-				asteroid->pos = V2i(100 + (i * 100), 500);
-
-				asteroid->size       = V2(100.0f, 100.0f);
-				asteroid->hitbox     = asteroid->size;
-				asteroid->offset     = V2(asteroid->size.w * -0.5f, 0);
-				asteroid->scale      = 1;
-				asteroid->rotation   = 45;
-				asteroid->type       = entitytype_asteroid;
-				asteroid->direction  = direction_null;
-				asteroid->renderMode = rendermode_polygon;
-
-				asteroid->numVertexPoints = i + 10;
-				asteroid->vertexPoints    = createAsteroidVertexList(
-						&state->persistentArena, asteroid->numVertexPoints,
-						(i32)(asteroid->size.x * 0.5f));
-
-				asteroid->tex      = NULL;
-				asteroid->collides = TRUE;
-			}
+				addAsteroid(state, windowSize);
 		}
 
 #if 1
@@ -501,6 +504,12 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				    keyState->newHalfTransitionCount;
 			}
 		}
+	}
+
+	if (getKeyStatus(&state->input.keys[keycode_left_square_bracket],
+	                 readkeytype_repeat, 0.2f, dt))
+	{
+		addAsteroid(state, windowSize);
 	}
 
 	for (i32 i = 0; i < state->entityIndex; i++)
@@ -574,7 +583,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			}
 
 			v2 ddP = {0};
-#if 0
+#if 1
 			switch (entity->direction)
 			{
 			case direction_north:
@@ -642,8 +651,8 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			// NOTE(doyle): Make asteroids start and move at constant speed
 			ddPSpeedInMs = 1;
 			entity->dP   = v2_scale(ddP, state->pixelsPerMeter * ddPSpeedInMs);
-#endif
 			entity->rotation += (60 * dt);
+#endif
 		}
 
 		b32 willCollide = moveEntity(state, entity, i, ddP, dt, ddPSpeedInMs);
@@ -661,7 +670,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		                entityColor, flags);
 	}
 
-#if 0
+#if 1
 	debug_drawUi(state, dt);
 	debug_clearCounter();
 #endif

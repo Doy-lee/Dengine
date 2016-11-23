@@ -191,9 +191,20 @@ INTERNAL inline v2 v2_normalise(const v2 a)
 	return result;
 }
 
-INTERNAL inline b32 v2_intervalsOverlap(const v2 a, const v2 b) 
+INTERNAL inline b32 v2_intervalsOverlap(v2 a, v2 b)
 {
 	b32 result = FALSE;
+	
+	f32 lenOfA = a.max - a.min;
+	f32 lenOfB = b.max - b.min;
+
+	if (lenOfA > lenOfB)
+	{
+		v2 tmp = a;
+		a      = b;
+		b      = tmp;
+	}
+
 	if ((a.min >= b.min && a.min <= b.max) ||
 	    (a.max >= b.min && a.max <= b.max))
 	{
