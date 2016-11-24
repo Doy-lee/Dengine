@@ -172,8 +172,13 @@ i32 main(void)
 	memory.transientSize = transientSize;
 	memory.transient     = PLATFORM_MEM_ALLOC_(NULL, transientSize, u8);
 
-	GameState gameState = {0};
-	glfwSetWindowUserPointer(window, CAST(void *)(&gameState));
+	MemoryArena_ gameArena = {0};
+	memory_arenaInit(&gameArena, memory.persistent, memory.persistentSize);
+
+	GameState *gameState = MEMORY_PUSH_STRUCT(&gameArena, GameState);
+	gameState->persistentArena = gameArena;
+
+	glfwSetWindowUserPointer(window, CAST(void *)(gameState));
 
 	/*
 	 *******************
@@ -203,7 +208,7 @@ i32 main(void)
 		glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		asteroid_gameUpdateAndRender(&gameState, &memory, windowSize,
+		asteroid_gameUpdateAndRender(gameState, &memory, windowSize,
 		                             secondsElapsed);
 		GL_CHECK_ERROR();
 
@@ -233,7 +238,7 @@ i32 main(void)
 			char textBuffer[256];
 			snprintf(textBuffer, ARRAY_COUNT(textBuffer),
 			         "Dengine | %f ms/f | %f fps | Entity Count: %d",
-			         msPerFrame, framesPerSecond, gameState.entityIndex);
+			         msPerFrame, framesPerSecond, gameState->world.entityIndex);
 
 			glfwSetWindowTitle(window, textBuffer);
 			titleUpdateFrequencyInSeconds = 0.5f;

@@ -8,22 +8,34 @@
 #include "Dengine/Platform.h"
 #include "Dengine/Renderer.h"
 
+typedef struct World
+{
+	MemoryArena_ entityArena;
+
+	v2 *entityVertexListCache[entitytype_count];
+	Entity entityList[1024];
+	i32 entityIndex;
+
+	u32 entityIdCounter;
+
+	f32 pixelsPerMeter;
+	v2 worldSize;
+	Rect camera;
+
+	// TODO(doyle): Ensure we change this if it gets too big
+	b32 collisionTable[entitytype_count][entitytype_count];
+} World;
+
 typedef struct GameState {
 	b32 init;
 
-	Entity entityList[1024];
-	i32 entityIndex;
-	f32 pixelsPerMeter;
-
-	v2 worldSize;
-
-	Rect camera;
-
+	World world;
 	AssetManager assetManager;
 	KeyInput input;
 
 	MemoryArena_ transientArena;
 	MemoryArena_ persistentArena;
+
 
 	Renderer renderer;
 } GameState;

@@ -410,5 +410,23 @@ INTERNAL inline void math_applyRotationToVertexes(v2 pos, v2 pivotPoint,
 		vertexList[i] = newP;
 	}
 }
+INTERNAL inline f32 math_lerp(f32 a, f32 t, f32 b)
+{
+	/*
+	    Linear blend between two values. We having a starting point "a", and
+	    the distance to "b" is defined as (b - a). Then we can say
+
+	    a + t(b - a)
+
+	    As our linear blend fn. We start from "a" and choosing a t from 0->1
+	    will vary the value of (b - a) towards b. If we expand this, this
+	    becomes
+
+	    a + (t * b) - (a * t) == (1 - t)a + t*b
+	*/
+	f32 result = ((1 - t) * a) + (t * b);
+
+	return result;
+}
 
 #endif

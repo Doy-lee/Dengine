@@ -273,19 +273,27 @@ void debug_drawUi(GameState *state, f32 dt)
 	updateAndRenderDebugStack(&state->renderer, &state->transientArena, dt);
 	renderConsole(&state->renderer, &state->transientArena);
 
-	MemoryArena_ *transient = &state->transientArena;
-	i32 transientSizeInKbs  = transient->size / 1024;
-	i32 transientUsedInKbs  = transient->used / 1024;
-	v2 transientUsage       = V2i(transientUsedInKbs, transientSizeInKbs);
-	DEBUG_PUSH_VAR("Transient Size: %.0f", transient->size, "f32");
-	DEBUG_PUSH_VAR("Transient Usage: %.0f/%.0f", transientUsage, "v2");
+	{ // Print Memory Arena Info
+		DEBUG_PUSH_STRING("== MEMORY ARENAS ==");
+		MemoryArena_ *transient = &state->transientArena;
+		i32 transientSizeInKbs  = transient->size / 1024;
+		i32 transientUsedInKbs  = transient->used / 1024;
+		v2 transientUsage       = V2i(transientUsedInKbs, transientSizeInKbs);
+		DEBUG_PUSH_VAR("Transient Usage: %.0f/%.0f", transientUsage, "v2");
 
-	MemoryArena_ *persistent = &state->persistentArena;
-	i32 persistentSizeInKbs  = persistent->size / 1024;
-	i32 persistentUsedInKbs  = persistent->used / 1024;
-	v2 persistentUsage       = V2i(persistentUsedInKbs, persistentSizeInKbs);
-	DEBUG_PUSH_VAR("Permanent Size: %.0f", persistent->size, "f32");
-	DEBUG_PUSH_VAR("Permanent Usage: %.0f/%.0f", persistentUsage, "v2");
+		MemoryArena_ *persistent = &state->persistentArena;
+		i32 persistentSizeInKbs  = persistent->size / 1024;
+		i32 persistentUsedInKbs  = persistent->used / 1024;
+		v2 persistentUsage = V2i(persistentUsedInKbs, persistentSizeInKbs);
+		DEBUG_PUSH_VAR("Permanent Usage: %.0f/%.0f", persistentUsage, "v2");
+
+		MemoryArena_ *entityArena = &state->world.entityArena;
+		i32 entitySizeInKbs       = entityArena->size / 1024;
+		i32 entityUsedInKbs       = entityArena->used / 1024;
+		v2 entityUsage            = V2i(entityUsedInKbs, entitySizeInKbs);
+		DEBUG_PUSH_VAR("Entity Usage: %.0f/%.0f", entityUsage, "v2");
+		DEBUG_PUSH_STRING("== ==");
+	}
 
 	DEBUG_PUSH_VAR("Num Vertex: %d",
 	               GLOBAL_debug.callCount[debugcount_numVertex], "i32");

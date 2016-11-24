@@ -28,6 +28,7 @@ enum EntityType
 	entitytype_invalid,
 	entitytype_ship,
 	entitytype_asteroid,
+	entitytype_bullet,
 	entitytype_count,
 };
 
@@ -42,10 +43,7 @@ typedef struct EntityAnim
 
 typedef struct Entity
 {
-	i32 id;
-
-	i32 childIds[8];
-	i32 numChilds;
+	u32 id;
 
 	v2 pos;
 	v2 dP;
@@ -53,11 +51,11 @@ typedef struct Entity
 	v2 hitbox;
 	v2 size;
 
-	// NOTE(doyle): Offset from origin point to the entity's considered "center"
-	// point, all operations work from this point, i.e. rotation, movement,
-	// collision detection
-	// If this is a polygon, the offset should be from the 1st vertex point
-	// specified
+	/*
+	   NOTE(doyle): Offset is the vector to shift the polygons "origin" to the
+	   world origin. In our case this should strictly be negative as we have
+	   a requirement that all vertex points must be strictly positive.
+   */
 	v2 offset;
 
 	enum RenderMode renderMode;
@@ -70,16 +68,10 @@ typedef struct Entity
 	enum EntityType type;
 	enum Direction direction;
 
+	v4 color;
 	Texture *tex;
 	b32 flipX;
 	b32 flipY;
-
-	// TODO(doyle): Two collision flags, we want certain entities to collide
-	// with certain types of entities only (i.e. projectile from hero to enemy,
-	// only collides with enemy). Having two flags is redundant, but! it does
-	// allow for early-exit in collision check if the entity doesn't collide at
-	// all
-	b32 collides;
 
 	EntityAnim animList[16];
 	i32 animListIndex;
@@ -95,5 +87,6 @@ void entity_updateAnim(Entity *const entity, const f32 dt);
 void entity_addAnim(AssetManager *const assetManager, Entity *const entity,
                     const char *const animName);
 
-v2 *entity_createVertexList(MemoryArena_ *transientArena, Entity *entity);
+v2 *entity_generateUpdatedVertexList(MemoryArena_ *transientArena,
+                                     Entity *entity);
 #endif

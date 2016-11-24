@@ -574,11 +574,15 @@ void renderer_entity(Renderer *renderer, MemoryArena_ *transientArena,
 		renderTex.texRect = texRect;
 	}
 
+	// TODO(doyle): Proper blending
+	v4 renderColor = color;
+	if (v4_equals(color, V4(0, 0, 0, 0))) renderColor = entity->color;
+
 	if (entity->renderMode == rendermode_quad)
 	{
 		renderer_rect(renderer, camera, entity->pos, entity->size,
 		              v2_add(entity->offset, pivotPoint), totalRotation,
-		              &renderTex, color, flags);
+		              &renderTex, entity->color, flags);
 	}
 	else if (entity->renderMode == rendermode_polygon)
 	{
@@ -586,12 +590,12 @@ void renderer_entity(Renderer *renderer, MemoryArena_ *transientArena,
 		ASSERT(entity->vertexPoints);
 
 		v2 *offsetVertexPoints =
-		    entity_createVertexList(transientArena, entity);
+		    entity_generateUpdatedVertexList(transientArena, entity);
 
 		renderer_polygon(renderer, camera, offsetVertexPoints,
 		                 entity->numVertexPoints,
 		                 v2_add(entity->offset, pivotPoint), totalRotation,
-		                 &renderTex, color, flags);
+		                 &renderTex, renderColor, flags);
 	}
 	else
 	{
