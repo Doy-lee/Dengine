@@ -77,10 +77,6 @@ typedef struct Entity
 
 	EntityAnim animList[16];
 	i32 animListIndex;
-
-	// TODO(doyle): Audio mixing instead of multiple renderers
-	AudioRenderer *audioRenderer;
-	i32 numAudioRenderers;
 } Entity;
 
 SubTexture entity_getActiveSubTexture(Entity *const entity);

@@ -6,46 +6,89 @@ void initAssetManager(GameState *state)
 	AssetManager *assetManager = &state->assetManager;
 	MemoryArena_ *arena        = &state->persistentArena;
 
-	i32 audioEntries         = 32;
-	assetManager->audio.size = audioEntries;
-	assetManager->audio.entries =
-	    memory_pushBytes(arena, audioEntries * sizeof(HashTableEntry));
-
 	i32 texAtlasEntries         = 8;
 	assetManager->texAtlas.size = texAtlasEntries;
 	assetManager->texAtlas.entries =
 	    memory_pushBytes(arena, texAtlasEntries * sizeof(HashTableEntry));
-
-	i32 texEntries              = 32;
-	assetManager->textures.size = texEntries;
-	assetManager->textures.entries =
-	    memory_pushBytes(arena, texEntries * sizeof(HashTableEntry));
 
 	i32 animEntries          = 1024;
 	assetManager->anims.size = animEntries;
 	assetManager->anims.entries =
 	    memory_pushBytes(arena, animEntries * sizeof(HashTableEntry));
 
-	/* Create empty 1x1 4bpp black texture */
-	u32 bitmap   = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
-	Texture *tex = asset_getFreeTexSlot(assetManager, arena, "nullTex");
-	*tex         = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
+	{ // Init texture assets
+		i32 texEntries              = 32;
+		assetManager->textures.size = texEntries;
+		assetManager->textures.entries =
+		    memory_pushBytes(arena, texEntries * sizeof(HashTableEntry));
 
-	/* Load shaders */
-	asset_loadShaderFiles(
-	    assetManager, arena, "data/shaders/default_tex.vert.glsl",
-	    "data/shaders/default_tex.frag.glsl", shaderlist_default);
+		/* Create empty 1x1 4bpp black texture */
+		u32 bitmap   = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
+		Texture *tex = asset_getFreeTexSlot(assetManager, arena, "nullTex");
+		*tex         = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
 
-	asset_loadShaderFiles(
-	    assetManager, arena, "data/shaders/default_no_tex.vert.glsl",
-	    "data/shaders/default_no_tex.frag.glsl", shaderlist_default_no_tex);
+		i32 result = asset_loadTTFont(assetManager, arena,
+		                              "C:/Windows/Fonts/Arialbd.ttf");
+	}
 
-	i32 result =
-	    asset_loadTTFont(assetManager, arena, "C:/Windows/Fonts/Arialbd.ttf");
-	if (result) ASSERT(TRUE);
+	{ // Init shaders assets
+		asset_loadShaderFiles(
+		    assetManager, arena, "data/shaders/default_tex.vert.glsl",
+		    "data/shaders/default_tex.frag.glsl", shaderlist_default);
+
+		asset_loadShaderFiles(
+		    assetManager, arena, "data/shaders/default_no_tex.vert.glsl",
+		    "data/shaders/default_no_tex.frag.glsl", shaderlist_default_no_tex);
+	}
+
+	{ // Init audio assets
+
+		i32 audioEntries         = 32;
+		assetManager->audio.size = audioEntries;
+		assetManager->audio.entries =
+		    memory_pushBytes(arena, audioEntries * sizeof(HashTableEntry));
+
+		i32 result = asset_loadVorbis(assetManager, arena,
+		                              "data/audio/Asteroids/bang_large.ogg",
+		                              "bang_large");
+		ASSERT(!result);
+		result = asset_loadVorbis(assetManager, arena,
+		                          "data/audio/Asteroids/bang_medium.ogg",
+		                          "bang_medium");
+		ASSERT(!result);
+		result = asset_loadVorbis(assetManager, arena,
+		                          "data/audio/Asteroids/bang_small.ogg",
+		                          "bang_small");
+		ASSERT(!result);
+		result = asset_loadVorbis(assetManager, arena,
+		                          "data/audio/Asteroids/beat1.ogg", "beat1");
+		ASSERT(!result);
+		result = asset_loadVorbis(assetManager, arena,
+		                          "data/audio/Asteroids/beat2.ogg", "beat2");
+		ASSERT(!result);
+		result = asset_loadVorbis(assetManager, arena,
+		                          "data/audio/Asteroids/extra_ship.ogg",
+		                          "extra_ship");
+		ASSERT(!result);
+		result = asset_loadVorbis(assetManager, arena,
+		                          "data/audio/Asteroids/fire.ogg", "fire");
+		ASSERT(!result);
+		result = asset_loadVorbis(assetManager, arena,
+		                          "data/audio/Asteroids/saucer_big.ogg",
+		                          "saucer_big");
+		ASSERT(!result);
+		result = asset_loadVorbis(assetManager, arena,
+		                          "data/audio/Asteroids/saucer_small.ogg",
+		                          "saucer_small");
+		ASSERT(!result);
+		result = asset_loadVorbis(assetManager, arena,
+		                          "data/audio/Asteroids/thrust.ogg", "thrust");
+		ASSERT(!result);
+	}
 }
 
-void initRenderer(GameState *state, v2 windowSize) {
+void initRenderer(GameState *state, v2 windowSize)
+{
 	AssetManager *assetManager = &state->assetManager;
 	Renderer *renderer         = &state->renderer;
 	renderer->size             = windowSize;
@@ -446,6 +489,20 @@ INTERNAL void setCollisionRule(World *world, enum EntityType a,
 	world->collisionTable[b][a] = rule;
 }
 
+INTERNAL AudioRenderer *getFreeAudioRenderer(World *world)
+{
+	for (i32 i = 0; i < world->numAudioRenderers; i++)
+	{
+		AudioRenderer *renderer = &world->audioRenderer[i];
+		if (renderer->state == audiostate_stopped)
+		{
+			return renderer;
+		}
+	}
+
+	return NULL;
+}
+
 void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
                                   v2 windowSize, f32 dt)
 {
@@ -460,6 +517,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		srand((u32)time(NULL));
 		initAssetManager(state);
 		initRenderer(state, windowSize);
+		audio_init(&state->audioManager);
 
 		world->pixelsPerMeter = 70.0f;
 
@@ -473,8 +531,15 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			Entity *nullEntity = &world->entityList[world->entityIndex++];
 			nullEntity->id     = world->entityIdCounter++;
 		}
+
 		{ // Init asteroid entities
 			world->numAsteroids = 15;
+		}
+
+		{ // Init audio renderer
+			world->numAudioRenderers = 6;
+			world->audioRenderer     = MEMORY_PUSH_ARRAY(
+			    &world->entityArena, world->numAudioRenderers, AudioRenderer);
 		}
 
 		{ // Init ship entity
@@ -595,6 +660,18 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			                 readkeytype_delayedRepeat, 0.05f, dt))
 			{
 				addBullet(world, entity);
+
+				AudioRenderer *audioRenderer = getFreeAudioRenderer(world);
+				if (audioRenderer)
+				{
+					AudioVorbis *fire =
+					    asset_getVorbis(&state->assetManager, "fire");
+					// TODO(doyle): Atm transient arena is not used, this is
+					// just to fill out the arguments
+					audio_playVorbis(&state->transientArena,
+					                 &state->audioManager, audioRenderer, fire,
+					                 1);
+				}
 			}
 
 			if (ddP.x > 0.0f && ddP.y > 0.0f)
@@ -704,7 +781,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				continue;
 			}
 
-			ddPSpeedInMs     = 25;
+			ddPSpeedInMs     = 10;
 			Radians rotation = DEGREES_TO_RADIANS((entity->rotation + 90.0f));
 			ddP              = V2(math_cosf(rotation), math_sinf(rotation));
 			entity->dP = v2_scale(ddP, world->pixelsPerMeter * ddPSpeedInMs);
@@ -749,16 +826,39 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			if (colliderA->type == entitytype_asteroid)
 			{
 				ASSERT(colliderB->type == entitytype_bullet);
-
 				world->entityList[collisionIndex] =
 				    world->entityList[--world->entityIndex];
-
 				world->entityList[i--] =
 				    world->entityList[--world->entityIndex];
-
 				world->asteroidCounter--;
-
 				ASSERT(world->asteroidCounter >= 0);
+
+				AudioRenderer *audioRenderer = getFreeAudioRenderer(world);
+				if (audioRenderer)
+				{
+
+					char *sound;
+					i32 choice = rand() % 3;
+					if (choice == 0)
+					{
+						sound = "bang_small";
+					}
+					else if (choice == 1)
+					{
+						sound = "bang_medium";
+					}
+					else
+					{
+						sound = "bang_large";
+					}
+
+					AudioVorbis *explode =
+					    asset_getVorbis(&state->assetManager, sound);
+					audio_playVorbis(&state->transientArena,
+					                 &state->audioManager, audioRenderer,
+					                 explode, 1);
+				}
+
 				continue;
 			}
 		}
@@ -767,6 +867,13 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		renderer_entity(&state->renderer, &state->transientArena, world->camera,
 		                entity, V2(0, 0), 0,
 		                collideColor, flags);
+	}
+
+	for (i32 i = 0; i < world->numAudioRenderers; i++)
+	{
+		AudioRenderer *audioRenderer = &world->audioRenderer[i];
+		audio_updateAndPlay(&state->transientArena, &state->audioManager,
+		                    audioRenderer);
 	}
 
 #if 1

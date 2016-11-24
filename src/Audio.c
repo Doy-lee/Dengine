@@ -299,6 +299,9 @@ const i32 audio_streamPlayVorbis(MemoryArena_ *arena, AudioManager *audioManager
                                  AudioVorbis *vorbis, i32 numPlays)
 {
 
+	// TODO(doyle): Streaming leaks memory, we don't free the "copy audio"
+	ASSERT(INVALID_CODE_PATH);
+
 	i32 result = initRendererForPlayback(arena, audioManager, audioRenderer,
 	                                     vorbis, numPlays);
 	// NOTE(doyle): We make a copy of the audio vorbis file using all the same

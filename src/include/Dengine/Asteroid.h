@@ -2,6 +2,7 @@
 #define ASTEROID_H
 
 #include "Dengine/AssetManager.h"
+#include "Dengine/Audio.h"
 #include "Dengine/Common.h"
 #include "Dengine/Entity.h"
 #include "Dengine/MemoryArena.h"
@@ -23,6 +24,10 @@ typedef struct World
 	v2 *asteroidVertexCache[10];
 	v2 *bulletVertexCache;
 
+	// TODO(doyle): Audio mixing instead of multiple renderers
+	AudioRenderer *audioRenderer;
+	i32 numAudioRenderers;
+
 	f32 pixelsPerMeter;
 	v2 worldSize;
 	Rect camera;
@@ -34,14 +39,15 @@ typedef struct World
 typedef struct GameState {
 	b32 init;
 
-	World world;
-	AssetManager assetManager;
-	KeyInput input;
-
 	MemoryArena_ transientArena;
 	MemoryArena_ persistentArena;
 
+	AudioManager audioManager;
+	AssetManager assetManager;
+	KeyInput input;
 	Renderer renderer;
+	World world;
+
 } GameState;
 
 void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
