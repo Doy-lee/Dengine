@@ -23,9 +23,11 @@ enum Direction
 	direction_num,
 };
 
+#define NULL_ENTITY_ID 0
 enum EntityType
 {
 	entitytype_invalid,
+	entitytype_null,
 	entitytype_ship,
 	entitytype_asteroid,
 	entitytype_bullet,

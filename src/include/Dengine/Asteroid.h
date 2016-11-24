@@ -15,8 +15,13 @@ typedef struct World
 	v2 *entityVertexListCache[entitytype_count];
 	Entity entityList[1024];
 	i32 entityIndex;
-
 	u32 entityIdCounter;
+
+	u32 asteroidCounter;
+	u32 numAsteroids;
+
+	v2 *asteroidVertexCache[10];
+	v2 *bulletVertexCache;
 
 	f32 pixelsPerMeter;
 	v2 worldSize;
@@ -35,7 +40,6 @@ typedef struct GameState {
 
 	MemoryArena_ transientArena;
 	MemoryArena_ persistentArena;
-
 
 	Renderer renderer;
 } GameState;

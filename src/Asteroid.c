@@ -286,7 +286,7 @@ b32 checkEdgeProjectionOverlap(v2 *vertexList, i32 listSize,
 	return result;
 }
 
-INTERNAL b32 moveEntity(World *world, MemoryArena_ *transientArena,
+INTERNAL u32 moveEntity(World *world, MemoryArena_ *transientArena,
                         Entity *entity, i32 entityIndex, v2 ddP, f32 dt,
                         f32 ddPSpeed)
 {
@@ -312,12 +312,12 @@ INTERNAL b32 moveEntity(World *world, MemoryArena_ *transientArena,
 
 	v2 newPos = v2_add(v2_add(ddPHalfDtSquared, oldDpDt), oldPos);
 
-	b32 willCollide = FALSE;
-
+	i32 collisionIndex = -1;
 	// TODO(doyle): Collision for rects, (need to create vertex list for it)
-#if 1
-	for (i32 i = entityIndex + 1; i < world->entityIndex; i++)
+	for (i32 i = 1; i < world->entityIndex; i++)
 	{
+		if (i == entityIndex) continue;
+
 		Entity *checkEntity = &world->entityList[i];
 		ASSERT(checkEntity->id != entity->id);
 
@@ -362,38 +362,23 @@ INTERNAL b32 moveEntity(World *world, MemoryArena_ *transientArena,
 			        checkEntityVertexListOffsetToP,
 			        checkEntity->numVertexPoints, edgeList, totalNumEdges))
 			{
-				willCollide = TRUE;
+				collisionIndex = i;
 			}
 		}
 
-		if (willCollide)
-		{
-			break;
-		}
-	}
-#endif
-
-#if 0
-	if (!willCollide)
-	{
-		entity->dP  = newDp;
-		entity->pos = newPos;
-	}
-	else
-	{
-		entity->dP  = v2_scale(newDp, -1.0f);
+		if (collisionIndex != -1) break;
 	}
 
-#else
 	entity->dP  = newDp;
 	entity->pos = newPos;
-#endif
 
-	return willCollide;
+	return collisionIndex;
 }
 
 INTERNAL void addAsteroid(World *world, v2 windowSize)
 {
+	world->asteroidCounter++;
+
 	Entity *asteroid = &world->entityList[world->entityIndex++];
 	asteroid->id     = world->entityIdCounter++;
 
@@ -410,10 +395,16 @@ INTERNAL void addAsteroid(World *world, v2 windowSize)
 	asteroid->renderMode = rendermode_polygon;
 
 	asteroid->numVertexPoints = 10;
-	asteroid->vertexPoints    = createAsteroidVertexList(
-	    &world->entityArena, asteroid->numVertexPoints,
-	    (i32)(asteroid->size.w * 0.5f));
 
+	i32 cacheIndex = randValue % ARRAY_COUNT(world->asteroidVertexCache);
+	if (!world->asteroidVertexCache[cacheIndex])
+	{
+		world->asteroidVertexCache[cacheIndex] = createAsteroidVertexList(
+		    &world->entityArena, asteroid->numVertexPoints,
+		    (i32)(asteroid->size.w * 0.5f));
+	}
+
+	asteroid->vertexPoints = world->asteroidVertexCache[cacheIndex];
 	asteroid->color = V4(0.0f, 0.5f, 0.5f, 1.0f);
 }
 
@@ -429,14 +420,17 @@ INTERNAL void addBullet(World *world, Entity *shooter)
 	bullet->rotation   = shooter->rotation;
 	bullet->renderMode = rendermode_quad;
 
-	// TODO(doyle): Figure out how to free this memory on entity delete. A free list?
-	bullet->vertexPoints =
-	    memory_pushBytes(&world->entityArena, sizeof(v2) * 4);
-	bullet->vertexPoints[0] = V2(0, bullet->size.h);
-	bullet->vertexPoints[1] = V2(0, 0);
-	bullet->vertexPoints[2] = V2(bullet->size.w, 0);
-	bullet->vertexPoints[3] = bullet->size;
+	if (!world->bulletVertexCache)
+	{
+		world->bulletVertexCache =
+		    memory_pushBytes(&world->entityArena, sizeof(v2) * 4);
+		world->bulletVertexCache[0] = V2(0, bullet->size.h);
+		world->bulletVertexCache[1] = V2(0, 0);
+		world->bulletVertexCache[2] = V2(bullet->size.w, 0);
+		world->bulletVertexCache[3] = bullet->size;
+	}
 
+	bullet->vertexPoints = world->bulletVertexCache;
 	bullet->numVertexPoints = 4;
 
 	bullet->type  = entitytype_bullet;
@@ -475,10 +469,12 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		u8 *arenaBase = state->transientArena.base + state->transientArena.size;
 		memory_arenaInit(&world->entityArena, arenaBase, entityArenaSize);
 
+		{ // Init null entity
+			Entity *nullEntity = &world->entityList[world->entityIndex++];
+			nullEntity->id     = world->entityIdCounter++;
+		}
 		{ // Init asteroid entities
-			i32 numAsteroids = 15;
-			for (i32 i = 0; i < numAsteroids; i++)
-				addAsteroid(world, windowSize);
+			world->numAsteroids = 15;
 		}
 
 		{ // Init ship entity
@@ -524,6 +520,9 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		           state->assetManager.font);
 	}
 
+	for (u32 i = world->asteroidCounter; i < world->numAsteroids; i++)
+		addAsteroid(world, windowSize);
+
 	{
 		KeyState *keys = state->input.keys;
 		for (enum KeyCode code = 0; code < keycode_count; code++)
@@ -555,24 +554,13 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		addAsteroid(world, windowSize);
 	}
 
-	for (i32 i = 0; i < world->entityIndex; i++)
+	ASSERT(world->entityList[0].id == NULL_ENTITY_ID);
+	for (i32 i = 1; i < world->entityIndex; i++)
 	{
 		Entity *entity = &world->entityList[i];
 		ASSERT(entity->type != entitytype_invalid);
 
 		v2 pivotPoint = {0};
-
-		// Loop entity around world
-		if (entity->pos.y >= world->worldSize.h)
-			entity->pos.y = 0;
-		else if (entity->pos.y < 0)
-			entity->pos.y = world->worldSize.h;
-
-		if (entity->pos.x >= world->worldSize.w)
-			entity->pos.x = 0;
-		else if (entity->pos.x < 0)
-			entity->pos.x = world->worldSize.w;
-
 		f32 ddPSpeedInMs = 0;
 		v2 ddP           = {0};
 		if (entity->type == entitytype_ship)
@@ -604,7 +592,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			}
 
 			if (getKeyStatus(&state->input.keys[keycode_space],
-			                 readkeytype_delayedRepeat, 0.0f, dt))
+			                 readkeytype_delayedRepeat, 0.05f, dt))
 			{
 				addBullet(world, entity);
 			}
@@ -637,7 +625,6 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			}
 
 			v2 ddP = {0};
-#if 1
 			switch (entity->direction)
 			{
 			case direction_north:
@@ -707,30 +694,71 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			ddPSpeedInMs = 1;
 			entity->dP   = v2_scale(ddP, world->pixelsPerMeter * ddPSpeedInMs);
 			entity->rotation += (60 * dt);
-#endif
 		}
 		else if (entity->type == entitytype_bullet)
 		{
-			ddPSpeedInMs     = 5;
+			if (!math_pointInRect(world->camera, entity->pos))
+			{
+				world->entityList[i--] =
+				    world->entityList[--world->entityIndex];
+				continue;
+			}
+
+			ddPSpeedInMs     = 25;
 			Radians rotation = DEGREES_TO_RADIANS((entity->rotation + 90.0f));
 			ddP              = V2(math_cosf(rotation), math_sinf(rotation));
 			entity->dP = v2_scale(ddP, world->pixelsPerMeter * ddPSpeedInMs);
+
 		}
 
-		b32 willCollide = moveEntity(world, &state->transientArena, entity, i,
-		                             ddP, dt, ddPSpeedInMs);
+		// Loop entity around world
+		if (entity->pos.y >= world->worldSize.h)
+			entity->pos.y = 0;
+		else if (entity->pos.y < 0)
+			entity->pos.y = world->worldSize.h;
+
+		if (entity->pos.x >= world->worldSize.w)
+			entity->pos.x = 0;
+		else if (entity->pos.x < 0)
+			entity->pos.x = world->worldSize.w;
+
+		i32 collisionIndex = moveEntity(world, &state->transientArena, entity,
+		                                i, ddP, dt, ddPSpeedInMs);
+
 		v4 collideColor = {0};
-		if (willCollide)
+		if (collisionIndex != -1)
 		{
-			collideColor = V4(1.0f, 0, 0, 0.5f);
-		}
+			ASSERT(collisionIndex < world->entityIndex);
 
-		if (entity->type == entitytype_bullet)
-		{
-			if (!math_pointInRect(world->camera, entity->pos))
+			Entity *collideEntity = &world->entityList[collisionIndex];
+
+			Entity *colliderA;
+			Entity *colliderB;
+
+			if (collideEntity->type < entity->type)
 			{
-				world->entityList[i] = world->entityList[--world->entityIndex];
-				i--;
+				colliderA = collideEntity;
+				colliderB = entity;
+			}
+			else
+			{
+				colliderA = entity;
+				colliderB = collideEntity;
+			}
+
+			if (colliderA->type == entitytype_asteroid)
+			{
+				ASSERT(colliderB->type == entitytype_bullet);
+
+				world->entityList[collisionIndex] =
+				    world->entityList[--world->entityIndex];
+
+				world->entityList[i--] =
+				    world->entityList[--world->entityIndex];
+
+				world->asteroidCounter--;
+
+				ASSERT(world->asteroidCounter >= 0);
 				continue;
 			}
 		}
