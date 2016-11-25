@@ -160,6 +160,7 @@ INTERNAL b32 getKeyStatus(KeyState *key, enum ReadKeyType readType,
                           f32 delayInterval, f32 dt)
 {
 
+	// TODO(doyle): Don't let get key status modify keyinput state
 	if (!key->endedDown) return FALSE;
 
 	switch(readType)
@@ -437,7 +438,6 @@ enum AsteroidSize
 typedef struct {
 	v2 pos;
 	v2 dP;
-	enum Direction direction;
 } AsteroidSpec;
 
 INTERNAL void addAsteroidWithSpec(World *world, enum AsteroidSize asteroidSize,
@@ -516,12 +516,11 @@ INTERNAL void addAsteroidWithSpec(World *world, enum AsteroidSize asteroidSize,
 			ASSERT(INVALID_CODE_PATH);
 		}
 		asteroid->pos       = newP;
-		asteroid->direction = direction_null;
 	}
 	else
 	{
 		asteroid->pos       = spec->pos;
-		asteroid->direction = spec->direction;
+		asteroid->dP        = spec->dP;
 	}
 
 	asteroid->size            = size;
@@ -666,7 +665,6 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 			ship->scale      = 1;
 			ship->type       = entitytype_ship;
-			ship->direction  = direction_null;
 			ship->renderMode = rendermode_polygon;
 			ship->color      = V4(1.0f, 0.5f, 0.5f, 1.0f);
 		}
@@ -800,63 +798,80 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		{
 
 			i32 randValue = rand();
-			if (entity->direction == direction_null)
+
+			// NOTE(doyle): If it is a new asteroid with no dp set, we need to
+			// set a initial dp for it to move from.
+			v2 localDp = {0};
+			if ((i32)entity->dP.x == 0 && (i32)entity->dP.y == 0)
 			{
-				entity->direction = randValue % direction_count;
+				enum Direction direction = randValue % direction_count;
+				switch (direction)
+				{
+				case direction_north:
+				case direction_northwest:
+				{
+					localDp.x = 1.0f;
+					localDp.y = 1.0f;
+				}
+				break;
+
+				case direction_west:
+				case direction_southwest:
+				{
+					localDp.x = -1.0f;
+					localDp.y = -1.0f;
+				}
+				break;
+
+				case direction_south:
+				case direction_southeast:
+				{
+					localDp.x = 1.0f;
+					localDp.y = -1.0f;
+				}
+				break;
+
+				case direction_east:
+				case direction_northeast:
+				{
+					localDp.x = 1.0f;
+					localDp.y = 1.0f;
+				}
+				break;
+
+				default:
+				{
+					ASSERT(INVALID_CODE_PATH);
+				}
+				break;
+				}
+			}
+			// NOTE(doyle): Otherwise, if it has pre-existing dp, maintain our
+			// direction by extrapolating from it's current dp
+			else
+			{
+				if (entity->dP.x >= 0) localDp.x = 1.0f;
+				else localDp.x = -1.0f;
+
+				if (entity->dP.y >= 0) localDp.y = 1.0f;
+				else localDp.y = -1.0f;
 			}
 
-			v2 ddP = {0};
-			switch (entity->direction)
+			/*
+			   NOTE(doyle): We compare current dP with the calculated dP. In the
+			   event we want to artificially boost the asteroid, we set a higher
+			   dP on creation, which will have a higher dP than the default dP
+			   we calculate. So here we choose to keep it until it decays enough
+			   that the default dP of the asteroid is accepted.
+			 */
+			v2 newDp     = v2_scale(localDp, world->pixelsPerMeter * 1.5f);
+			f32 newDpSum = ABS(newDp.x) + ABS(newDp.y);
+			f32 oldDpSum = ABS(entity->dP.x) + ABS(entity->dP.y);
+
+			if (newDpSum > oldDpSum)
 			{
-
-			case direction_north:
-			case direction_northwest:
-			{
-				ddP.x = 1.0f;
-				ddP.y = 1.0f;
+				entity->dP = newDp;
 			}
-			break;
-
-			case direction_west:
-			case direction_southwest:
-			{
-				ddP.x = -1.0f;
-				ddP.y = -1.0f;
-			}
-			break;
-
-			case direction_south:
-			case direction_southeast:
-			{
-				ddP.x = 1.0f;
-				ddP.y = -1.0f;
-			}
-			break;
-
-			case direction_east:
-			case direction_northeast:
-			{
-				ddP.x = 1.0f;
-				ddP.y = 1.0f;
-			}
-			break;
-
-			default:
-			{
-				ASSERT(INVALID_CODE_PATH);
-			}
-			break;
-			}
-
-			f32 dirOffsetX = ((randValue % 10) + 1) / 100.0f;
-			f32 dirOffsetY = ((randValue % 10) + 1) / 100.0f;
-			v2_hadamard(ddP, V2(dirOffsetX, dirOffsetY));
-
-			// NOTE(doyle): Make asteroids start and move at constant speed by
-			// ensuring that dP is "refreshed" with non-decaying acceleration
-			ddPSpeedInMs = 1;
-			entity->dP   = v2_scale(ddP, world->pixelsPerMeter * ddPSpeedInMs);
-			entity->rotation += (60 * dt);
 		}
 		else if (entity->type == entitytype_bullet)
 		{
@@ -867,10 +882,10 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				continue;
 			}
 
-			ddPSpeedInMs     = 10;
+			f32 dPMultiplier     = 10;
 			Radians rotation = DEGREES_TO_RADIANS((entity->rotation + 90.0f));
 			ddP              = V2(math_cosf(rotation), math_sinf(rotation));
-			entity->dP = v2_scale(ddP, world->pixelsPerMeter * ddPSpeedInMs);
+			entity->dP = v2_scale(ddP, world->pixelsPerMeter * dPMultiplier);
 
 		}
 
@@ -916,24 +931,20 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				{
 					AsteroidSpec spec = {0};
 					spec.pos          = colliderA->pos;
-					spec.dP           = v2_scale(colliderA->dP, -1.0f);
-					spec.direction    = invertDirection(colliderA->direction);
+					spec.dP           = v2_scale(colliderA->dP, -2.0f);
 					addAsteroidWithSpec(world, asteroidsize_small, &spec);
 				}
 				else if (colliderA->type == entitytype_asteroid_large)
 				{
 					AsteroidSpec spec = {0};
 					spec.pos          = colliderA->pos;
-					spec.dP           = v2_scale(colliderA->dP, -1.0f);
-					spec.direction    = invertDirection(colliderA->direction);
+					spec.dP           = v2_scale(colliderA->dP, -4.0f);
 					addAsteroidWithSpec(world, asteroidsize_medium, &spec);
 
 					spec.dP        = v2_perpendicular(spec.dP);
-					spec.direction = rotateDirectionWest90(spec.direction);
 					addAsteroidWithSpec(world, asteroidsize_small, &spec);
 
 					spec.dP        = v2_perpendicular(colliderA->dP);
-					spec.direction = invertDirection(spec.direction);
 					addAsteroidWithSpec(world, asteroidsize_small, &spec);
 				}
 
