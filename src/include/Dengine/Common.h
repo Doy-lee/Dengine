@@ -44,6 +44,13 @@ u8 *common_memset(u8 *const ptr, const i32 value, const i32 numBytes);
 void common_itoa(i32 value, char *buf, i32 bufSize);
 i32 common_atoi(const char *string, const i32 len);
 
+inline b32 common_isSet(u32 bitfield, u32 flags)
+{
+	b32 result = FALSE;
+	if ((bitfield & flags) == flags) result = TRUE;
+
+	return result;
+}
 
 //-----------------------------------------------------------------------------
 // MurmurHash2, by Austin Appleby

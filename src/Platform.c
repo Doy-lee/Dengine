@@ -94,3 +94,88 @@ i32 platform_readFileToBuffer(MemoryArena_ *arena, const char *const filePath,
 
 	return 0;
 }
+
+void platform_processInputBuffer(InputBuffer *inputBuffer, f32 dt)
+{
+	KeyState *keyBuffer = inputBuffer->keys;
+	for (enum KeyCode code = 0; code < keycode_count; code++)
+	{
+		KeyState *key = &keyBuffer[code];
+
+		u32 halfTransitionCount =
+		    key->newHalfTransitionCount - key->oldHalfTransitionCount;
+
+		if (halfTransitionCount > 0)
+		{
+			b32 transitionCountIsOdd = ((halfTransitionCount & 1) == 1);
+			if (transitionCountIsOdd)
+			{
+				/* If it was not last ended down, then update interval if
+				 * necessary */
+				if (!common_isSet(key->flags, keystateflag_ended_down))
+				{
+					if (key->delayInterval > 0) key->delayInterval -= dt;
+
+					key->flags |= keystateflag_pressed_on_curr_frame;
+				}
+				key->flags ^= keystateflag_ended_down;
+			}
+		}
+		else
+		{
+			key->flags &= (~keystateflag_pressed_on_curr_frame);
+		}
+
+		key->newHalfTransitionCount = key->oldHalfTransitionCount;
+	}
+}
+
+b32 platform_queryKey(KeyState *key, enum ReadKeyType readType,
+                      f32 delayInterval)
+{
+
+	if (!common_isSet(key->flags, keystateflag_ended_down)) return FALSE;
+
+	switch (readType)
+	{
+	case readkeytype_one_shot:
+	{
+		if (common_isSet(key->flags, keystateflag_pressed_on_curr_frame))
+			return TRUE;
+	}
+	break;
+
+	case readkeytype_repeat:
+	case readkeytype_delay_repeat:
+	{
+		if (common_isSet(key->flags, keystateflag_pressed_on_curr_frame))
+		{
+			if (readType == readkeytype_delay_repeat)
+			{
+				// TODO(doyle): Let user set arbitrary delay after initial input
+				key->delayInterval = 2 * delayInterval;
+			}
+			else
+			{
+				key->delayInterval = delayInterval;
+			}
+			return TRUE;
+		}
+		else if (key->delayInterval <= 0.0f)
+		{
+			key->delayInterval = delayInterval;
+			return TRUE;
+		}
+	}
+	break;
+
+	default:
+	{
+		ASSERT(INVALID_CODE_PATH);
+	}
+	break;
+	}
+
+	return FALSE;
+}
+

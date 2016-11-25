@@ -56,7 +56,8 @@ INTERNAL void keyCallback(GLFWwindow *window, int key, int scancode, int action,
 			i32 offset = 0;
 			if (key >= 'A' && key <= 'Z')
 			{
-				if (!game->input.keys[keycode_leftShift].endedDown)
+				KeyState *leftShiftKey = &game->input.keys[keycode_leftShift];
+				if (!common_isSet(leftShiftKey->flags, keystateflag_ended_down))
 					offset = 'a' - 'A';
 			}
 

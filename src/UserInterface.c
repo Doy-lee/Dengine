@@ -7,7 +7,7 @@
 i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
                          AssetManager *const assetManager,
                          Renderer *const renderer, Font *const font,
-                         const KeyInput input, const i32 id, const Rect rect,
+                         const InputBuffer input, const i32 id, const Rect rect,
                          const char *const label)
 {
 	if (math_pointInRect(rect, input.mouseP))
@@ -23,7 +23,8 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 		    uiState->activeItem == uiState->debugWindow.id ||
 			uiState->activeItem == 0)
 		{
-			if (input.keys[keycode_mouseLeft].endedDown)
+			if (common_isSet(input.keys[keycode_mouseLeft].flags,
+			                 keystateflag_ended_down))
 			{
 				uiState->activeItem = id;
 			}
@@ -124,9 +125,9 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 
 	// If button is hot and active, but mouse button is not
 	// down, the user must have clicked the button.
-	if (!input.keys[keycode_mouseLeft].endedDown &&
-	    uiState->hotItem == id &&
-	    uiState->activeItem == id)
+	if (!common_isSet(input.keys[keycode_mouseLeft].flags,
+	                  keystateflag_ended_down) &&
+	    uiState->hotItem == id && uiState->activeItem == id)
 	{
 		return id;
 	}
@@ -136,7 +137,7 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 
 i32 userInterface_scrollbar(UiState *const uiState,
                             AssetManager *const assetManager,
-                            Renderer *const renderer, const KeyInput input,
+                            Renderer *const renderer, const InputBuffer input,
                             const i32 id, const Rect scrollBarRect,
                             i32 *const value, const i32 maxValue)
 {
@@ -151,7 +152,8 @@ i32 userInterface_scrollbar(UiState *const uiState,
 		    uiState->activeItem == uiState->debugWindow.id ||
 			uiState->activeItem == 0)
 		{
-			if (input.keys[keycode_mouseLeft].endedDown)
+			if (common_isSet(input.keys[keycode_mouseLeft].flags,
+			                 keystateflag_ended_down))
 			{
 				uiState->activeItem = id;
 			}
@@ -253,7 +255,7 @@ i32 userInterface_scrollbar(UiState *const uiState,
 i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
                             AssetManager *const assetManager,
                             Renderer *const renderer, Font *const font,
-                            KeyInput input, const i32 id, const Rect rect,
+                            InputBuffer input, const i32 id, const Rect rect,
                             char *const string)
 {
 	i32 strLen = common_strlen(string);
@@ -266,7 +268,8 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
 		    uiState->activeItem == uiState->debugWindow.id ||
 			uiState->activeItem == 0)
 		{
-			if (input.keys[keycode_mouseLeft].endedDown)
+			if (common_isSet(input.keys[keycode_mouseLeft].flags,
+			                 keystateflag_ended_down))
 			{
 				uiState->activeItem = id;
 			}
@@ -338,9 +341,9 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
 		}
 	}
 
-	if (!input.keys[keycode_mouseLeft].endedDown &&
-	    uiState->hotItem == id &&
-	    uiState->activeItem == id)
+	if (!common_isSet(input.keys[keycode_mouseLeft].flags,
+	                  keystateflag_ended_down) &&
+	    uiState->hotItem == id && uiState->activeItem == id)
 	{
 		uiState->kbdItem = id;
 	}
@@ -354,12 +357,14 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
 i32 userInterface_window(UiState *const uiState, MemoryArena_ *const arena,
                          AssetManager *const assetManager,
                          Renderer *const renderer, Font *const font,
-                         const KeyInput input, WindowState *window)
+                         const InputBuffer input, WindowState *window)
 {
 	if (math_pointInRect(window->rect, input.mouseP))
 	{
 		uiState->hotItem = window->id;
-		if (uiState->activeItem == 0 && input.keys[keycode_mouseLeft].endedDown)
+		if (uiState->activeItem == 0 &&
+		    common_isSet(input.keys[keycode_mouseLeft].flags,
+		                 keystateflag_ended_down))
 			uiState->activeItem = window->id;
 	}
 
@@ -425,7 +430,8 @@ i32 userInterface_window(UiState *const uiState, MemoryArena_ *const arena,
 
 	if (window->windowHeld)
 	{
-		if (!input.keys[keycode_mouseLeft].endedDown)
+		if (!common_isSet(input.keys[keycode_mouseLeft].flags,
+		                  keystateflag_ended_down))
 		{
 			window->windowHeld          = FALSE;
 			window->prevFrameWindowHeld = FALSE;
@@ -458,10 +464,9 @@ i32 userInterface_window(UiState *const uiState, MemoryArena_ *const arena,
 		window->prevMouseP = input.mouseP;
 	}
 
-
-	if (!input.keys[keycode_mouseLeft].endedDown &&
-	    uiState->hotItem == window->id &&
-	    uiState->activeItem == window->id)
+	if (!common_isSet(input.keys[keycode_mouseLeft].flags,
+	                  keystateflag_ended_down) &&
+	    uiState->hotItem == window->id && uiState->activeItem == window->id)
 	{
 		return window->id;
 	}

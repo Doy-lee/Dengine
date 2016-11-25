@@ -46,7 +46,7 @@ typedef struct GameState {
 
 	AudioManager audioManager;
 	AssetManager assetManager;
-	KeyInput input;
+	InputBuffer input;
 	Renderer renderer;
 	World world;
 

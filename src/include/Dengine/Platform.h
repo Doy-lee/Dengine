@@ -119,19 +119,33 @@ enum KeyCode
 	keycode_null,
 };
 
+/*
+   NOTE(doyle): EndedDown describes the last state the key was in and is
+   _NOT_ the same as pressed on current frame. They key may of have been
+   held down over multiple frames, so endedDown will remain true.
+
+   Pressed on current frame captures if it was just pressed on this frame
+   only.
+*/
+enum KeyStateFlag
+{
+	keystateflag_ended_down            = (1 << 0),
+	keystateflag_pressed_on_curr_frame = (1 << 1),
+};
+
 typedef struct KeyState
 {
 	f32 delayInterval;
 	u32 oldHalfTransitionCount;
 	u32 newHalfTransitionCount;
-	b32 endedDown;
+	u32 flags;
 } KeyState;
 
-typedef struct KeyInput
+typedef struct InputBuffer
 {
 	v2 mouseP;
 	KeyState keys[keycode_count];
-} KeyInput;
+} InputBuffer;
 
 typedef struct PlatformFileRead
 {
@@ -155,4 +169,22 @@ void platform_closeFileRead(MemoryArena_ *arena, PlatformFileRead *file);
 i32 platform_readFileToBuffer(MemoryArena_ *arena, const char *const filePath,
                               PlatformFileRead *file);
 
+/*
+   NOTE(doyle): The keyinput functions are technically not for "communicating to
+   the platform layer", but I've decided to group it here alongside the input
+   data definitions. Since we require that the platform layer writes directly
+   into our input buffer located in the game state.
+ */
+#define KEY_DELAY_NONE 0.0f
+
+enum ReadKeyType
+{
+	readkeytype_one_shot,
+	readkeytype_delay_repeat,
+	readkeytype_repeat,
+	readkeytype_count,
+};
+void platform_processInputBuffer(InputBuffer *inputBuffer, f32 dt);
+b32 platform_queryKey(KeyState *key, enum ReadKeyType readType,
+                      f32 delayInterval);
 #endif

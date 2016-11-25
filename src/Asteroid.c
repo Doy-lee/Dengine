@@ -147,68 +147,6 @@ void initRenderer(GameState *state, v2 windowSize)
 	}
 }
 
-enum ReadKeyType
-{
-	readkeytype_oneShot,
-	readkeytype_delayedRepeat,
-	readkeytype_repeat,
-	readkeytype_count,
-};
-
-#define KEY_DELAY_NONE 0.0f
-INTERNAL b32 getKeyStatus(KeyState *key, enum ReadKeyType readType,
-                          f32 delayInterval, f32 dt)
-{
-
-	// TODO(doyle): Don't let get key status modify keyinput state
-	if (!key->endedDown) return FALSE;
-
-	switch(readType)
-	{
-	case readkeytype_oneShot:
-	{
-		if (key->newHalfTransitionCount > key->oldHalfTransitionCount)
-			return TRUE;
-		break;
-	}
-	case readkeytype_repeat:
-	case readkeytype_delayedRepeat:
-	{
-		if (key->newHalfTransitionCount > key->oldHalfTransitionCount)
-		{
-			if (readType == readkeytype_delayedRepeat)
-			{
-				// TODO(doyle): Let user set arbitrary delay after initial input
-				key->delayInterval = 2 * delayInterval;
-			}
-			else
-			{
-				key->delayInterval = delayInterval;
-			}
-			return TRUE;
-		}
-		else if (key->delayInterval <= 0.0f)
-		{
-			key->delayInterval = delayInterval;
-			return TRUE;
-		}
-		else
-		{
-			key->delayInterval -= dt;
-		}
-		break;
-	}
-	default:
-#ifdef DENGINE_DEBUG
-		DEBUG_LOG("getKeyStatus() error: Invalid ReadKeyType enum");
-		ASSERT(INVALID_CODE_PATH);
-#endif
-		break;
-	}
-
-	return FALSE;
-}
-
 #include <stdlib.h>
 #include <time.h>
 v2 *createAsteroidVertexList(MemoryArena_ *arena, i32 iterations,
@@ -697,33 +635,10 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 	for (u32 i = world->asteroidCounter; i < world->numAsteroids; i++)
 		addAsteroid(world, (rand() % asteroidsize_count));
 
-	{
-		KeyState *keys = state->input.keys;
-		for (enum KeyCode code = 0; code < keycode_count; code++)
-		{
-			KeyState *keyState = &keys[code];
+	platform_processInputBuffer(&state->input, dt);
 
-			u32 halfTransitionCount = keyState->newHalfTransitionCount -
-			                          keyState->oldHalfTransitionCount;
-
-			if (halfTransitionCount > 0)
-			{
-				b32 transitionCountIsOdd = ((halfTransitionCount & 1) == 1);
-
-				if (transitionCountIsOdd)
-				{
-					if (keyState->endedDown) keyState->endedDown = FALSE;
-					else keyState->endedDown = TRUE;
-				}
-
-				keyState->oldHalfTransitionCount =
-				    keyState->newHalfTransitionCount;
-			}
-		}
-	}
-
-	if (getKeyStatus(&state->input.keys[keycode_left_square_bracket],
-	                 readkeytype_repeat, 0.2f, dt))
+	if (platform_queryKey(&state->input.keys[keycode_left_square_bracket],
+	                 readkeytype_repeat, 0.2f))
 	{
 		addAsteroid(world, (rand() % asteroidsize_count));
 	}
@@ -739,8 +654,8 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		v2 ddP           = {0};
 		if (entity->type == entitytype_ship)
 		{
-			if (getKeyStatus(&state->input.keys[keycode_up], readkeytype_repeat,
-			                 0.0f, dt))
+			if (platform_queryKey(&state->input.keys[keycode_up],
+			                      readkeytype_repeat, 0.0f))
 			{
 				// TODO(doyle): Renderer creates upfacing triangles by default,
 				// but we need to offset rotation so that our base "0 degrees"
@@ -753,20 +668,20 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			}
 
 			Degrees rotationsPerSecond = 180.0f;
-			if (getKeyStatus(&state->input.keys[keycode_left],
-			                 readkeytype_repeat, 0.0f, dt))
+			if (platform_queryKey(&state->input.keys[keycode_left],
+			                      readkeytype_repeat, 0.0f))
 			{
-				entity->rotation += (rotationsPerSecond) * dt;
+				entity->rotation += (rotationsPerSecond)*dt;
 			}
 
-			if (getKeyStatus(&state->input.keys[keycode_right],
-			                 readkeytype_repeat, 0.0f, dt))
+			if (platform_queryKey(&state->input.keys[keycode_right],
+			                      readkeytype_repeat, 0.0f))
 			{
-				entity->rotation -= (rotationsPerSecond) * dt;
+				entity->rotation -= (rotationsPerSecond)*dt;
 			}
 
-			if (getKeyStatus(&state->input.keys[keycode_space],
-			                 readkeytype_delayedRepeat, 0.05f, dt))
+			if (platform_queryKey(&state->input.keys[keycode_space],
+			                      readkeytype_one_shot, KEY_DELAY_NONE))
 			{
 				addBullet(world, entity);
 
@@ -882,11 +797,9 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				continue;
 			}
 
-			f32 dPMultiplier     = 10;
 			Radians rotation = DEGREES_TO_RADIANS((entity->rotation + 90.0f));
-			ddP              = V2(math_cosf(rotation), math_sinf(rotation));
-			entity->dP = v2_scale(ddP, world->pixelsPerMeter * dPMultiplier);
-
+			v2 localDp       = V2(math_cosf(rotation), math_sinf(rotation));
+			entity->dP       = v2_scale(localDp, world->pixelsPerMeter * 10);
 		}
 
 		/* Loop entity around world */

@@ -79,23 +79,23 @@ inline i32 userInterface_generateId(UiState *const uiState)
 i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
                          AssetManager *const assetManager,
                          Renderer *const renderer, Font *const font,
-                         const KeyInput input, const i32 id, const Rect rect,
+                         const InputBuffer input, const i32 id, const Rect rect,
                          const char *const label);
 
 i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
                             AssetManager *const assetManager,
                             Renderer *const renderer, Font *const font,
-                            KeyInput input, const i32 id, const Rect rect,
+                            InputBuffer input, const i32 id, const Rect rect,
                             char *const string);
 
 i32 userInterface_scrollbar(UiState *const uiState,
                             AssetManager *const assetManager,
-                            Renderer *const renderer, const KeyInput input,
+                            Renderer *const renderer, const InputBuffer input,
                             const i32 id, const Rect scrollBarRect,
                             i32 *const value, const i32 maxValue);
 
 i32 userInterface_window(UiState *const uiState, MemoryArena_ *const arena,
                          AssetManager *const assetManager,
                          Renderer *const renderer, Font *const font,
-                         const KeyInput input, WindowState *window);
+                         const InputBuffer input, WindowState *window);
 #endif
