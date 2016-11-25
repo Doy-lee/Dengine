@@ -341,6 +341,14 @@ INTERNAL u32 moveEntity(World *world, MemoryArena_ *transientArena,
 	    newPos = (a*t^2)/2 + oldVelocity*t + oldPos
 	*/
 
+	if (ddP.x > 0.0f && ddP.y > 0.0f)
+	{
+		// NOTE(doyle): Cheese it and pre-compute the vector for
+		// diagonal using pythagoras theorem on a unit triangle 1^2
+		// + 1^2 = c^2
+		ddP = v2_scale(ddP, 0.70710678118f);
+	}
+
 	ddP           = v2_scale(ddP, world->pixelsPerMeter * ddPSpeed);
 	v2 oldDp      = entity->dP;
 	v2 resistance = v2_scale(oldDp, 2.0f);
@@ -418,37 +426,131 @@ INTERNAL u32 moveEntity(World *world, MemoryArena_ *transientArena,
 	return collisionIndex;
 }
 
-INTERNAL void addAsteroid(World *world, v2 windowSize)
+enum AsteroidSize
+{
+	asteroidsize_small,
+	asteroidsize_medium,
+	asteroidsize_large,
+	asteroidsize_count,
+};
+
+typedef struct {
+	v2 pos;
+	v2 dP;
+	enum Direction direction;
+} AsteroidSpec;
+
+INTERNAL void addAsteroidWithSpec(World *world, enum AsteroidSize asteroidSize,
+                                  AsteroidSpec *spec)
 {
 	world->asteroidCounter++;
+
+	enum EntityType type;
+	v2 size;
+	v2 **vertexCache = NULL;
+
+	if (asteroidSize == asteroidsize_small)
+	{
+		size        = V2i(25, 25);
+		type        = entitytype_asteroid_small;
+		vertexCache = world->asteroidSmallVertexCache;
+	}
+	else if (asteroidSize == asteroidsize_medium)
+	{
+		size        = V2i(50, 50);
+		type        = entitytype_asteroid_medium;
+		vertexCache = world->asteroidMediumVertexCache;
+	}
+	else if (asteroidSize == asteroidsize_large)
+	{
+		type        = entitytype_asteroid_large;
+		size        = V2i(100, 100);
+		vertexCache = world->asteroidLargeVertexCache;
+	}
+	else
+	{
+		ASSERT(INVALID_CODE_PATH);
+	}
 
 	Entity *asteroid = &world->entityList[world->entityIndex++];
 	asteroid->id     = world->entityIdCounter++;
 
 	i32 randValue = rand();
-	i32 randX     = (randValue % (i32)windowSize.w);
-	i32 randY     = (randValue % (i32)windowSize.h);
-	asteroid->pos = V2i(randX, randY);
+	if (!spec)
+	{
+		i32 randX = (randValue % (i32)world->worldSize.w);
+		i32 randY = (randValue % (i32)world->worldSize.h);
 
-	asteroid->size       = V2(100.0f, 100.0f);
-	asteroid->hitbox     = asteroid->size;
-	asteroid->offset     = v2_scale(asteroid->size, -0.5f);
-	asteroid->type       = entitytype_asteroid;
-	asteroid->direction  = direction_null;
-	asteroid->renderMode = rendermode_polygon;
+		v2 midpoint = v2_scale(world->worldSize, 0.5f);
 
+		Rect topLeftQuadrant = {V2(0, midpoint.y),
+		                        V2(midpoint.x, world->worldSize.y)};
+		Rect botLeftQuadrant  = {V2(0, 0), midpoint};
+		Rect topRightQuadrant = {midpoint, world->worldSize};
+		Rect botRightQuadrant = {V2(midpoint.x, 0),
+		                         V2(world->worldSize.x, midpoint.y)};
+
+		// NOTE(doyle): Off-screen so asteroids "float" into view. There's no
+		// particular order, just pushing things offscreen when they get
+		// generated
+		// to float back into game space
+		v2 newP = V2i(randX, randY);
+		if (math_pointInRect(topLeftQuadrant, newP))
+		{
+			newP.y += midpoint.y;
+		}
+		else if (math_pointInRect(botLeftQuadrant, newP))
+		{
+			newP.x -= midpoint.x;
+		}
+		else if (math_pointInRect(topRightQuadrant, newP))
+		{
+			newP.y -= midpoint.y;
+		}
+		else if (math_pointInRect(botRightQuadrant, newP))
+		{
+			newP.x += midpoint.x;
+		}
+		else
+		{
+			ASSERT(INVALID_CODE_PATH);
+		}
+		asteroid->pos       = newP;
+		asteroid->direction = direction_null;
+	}
+	else
+	{
+		asteroid->pos       = spec->pos;
+		asteroid->direction = spec->direction;
+	}
+
+	asteroid->size            = size;
+	asteroid->hitbox          = asteroid->size;
+	asteroid->offset          = v2_scale(asteroid->size, -0.5f);
+	asteroid->type            = type;
+	asteroid->renderMode      = rendermode_polygon;
 	asteroid->numVertexPoints = 10;
 
-	i32 cacheIndex = randValue % ARRAY_COUNT(world->asteroidVertexCache);
-	if (!world->asteroidVertexCache[cacheIndex])
+	i32 cacheIndex = randValue % ARRAY_COUNT(world->asteroidSmallVertexCache);
+	ASSERT(ARRAY_COUNT(world->asteroidSmallVertexCache) ==
+	       ARRAY_COUNT(world->asteroidMediumVertexCache));
+	ASSERT(ARRAY_COUNT(world->asteroidSmallVertexCache) ==
+	       ARRAY_COUNT(world->asteroidLargeVertexCache));
+
+	if (!vertexCache[cacheIndex])
 	{
-		world->asteroidVertexCache[cacheIndex] = createAsteroidVertexList(
+		vertexCache[cacheIndex] = createAsteroidVertexList(
 		    &world->entityArena, asteroid->numVertexPoints,
 		    (i32)(asteroid->size.w * 0.5f));
 	}
 
-	asteroid->vertexPoints = world->asteroidVertexCache[cacheIndex];
+	asteroid->vertexPoints = vertexCache[cacheIndex];
 	asteroid->color = V4(0.0f, 0.5f, 0.5f, 1.0f);
+}
+
+INTERNAL void addAsteroid(World *world, enum AsteroidSize asteroidSize)
+{
+	addAsteroidWithSpec(world, asteroidSize, NULL);
 }
 
 INTERNAL void addBullet(World *world, Entity *shooter)
@@ -570,9 +672,18 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		}
 
 		{ // Global Collision Rules
-			setCollisionRule(world, entitytype_ship, entitytype_asteroid, TRUE);
-			setCollisionRule(world, entitytype_bullet, entitytype_asteroid,
+			setCollisionRule(world, entitytype_ship, entitytype_asteroid_small,
 			                 TRUE);
+			setCollisionRule(world, entitytype_ship, entitytype_asteroid_medium,
+			                 TRUE);
+			setCollisionRule(world, entitytype_ship, entitytype_asteroid_large,
+			                 TRUE);
+			setCollisionRule(world, entitytype_bullet,
+			                 entitytype_asteroid_small, TRUE);
+			setCollisionRule(world, entitytype_bullet,
+			                 entitytype_asteroid_medium, TRUE);
+			setCollisionRule(world, entitytype_bullet,
+			                 entitytype_asteroid_large, TRUE);
 		}
 
 		world->camera.min = V2(0, 0);
@@ -586,7 +697,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 	}
 
 	for (u32 i = world->asteroidCounter; i < world->numAsteroids; i++)
-		addAsteroid(world, windowSize);
+		addAsteroid(world, (rand() % asteroidsize_count));
 
 	{
 		KeyState *keys = state->input.keys;
@@ -616,7 +727,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 	if (getKeyStatus(&state->input.keys[keycode_left_square_bracket],
 	                 readkeytype_repeat, 0.2f, dt))
 	{
-		addAsteroid(world, windowSize);
+		addAsteroid(world, (rand() % asteroidsize_count));
 	}
 
 	ASSERT(world->entityList[0].id == NULL_ENTITY_ID);
@@ -674,14 +785,6 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				}
 			}
 
-			if (ddP.x > 0.0f && ddP.y > 0.0f)
-			{
-				// NOTE(doyle): Cheese it and pre-compute the vector for
-				// diagonal using pythagoras theorem on a unit triangle 1^2
-				// + 1^2 = c^2
-				ddP = v2_scale(ddP, 0.70710678118f);
-			}
-
 			ddPSpeedInMs = 25;
 			DEBUG_PUSH_VAR("Pos: %5.2f, %5.2f", entity->pos, "v2");
 			DEBUG_PUSH_VAR("Velocity: %5.2f, %5.2f", entity->dP, "v2");
@@ -692,7 +795,8 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			              DEGREES_TO_RADIANS(entity->rotation), NULL,
 			              V4(1.0f, 1.0f, 1.0f, 1.0f), renderflag_no_texture);
 		}
-		else if (entity->type == entitytype_asteroid)
+		else if (entity->type >= entitytype_asteroid_small &&
+		         entity->type <= entitytype_asteroid_large)
 		{
 
 			i32 randValue = rand();
@@ -704,12 +808,8 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			v2 ddP = {0};
 			switch (entity->direction)
 			{
-			case direction_north:
-			{
-				ddP.y = 1.0f;
-			}
-			break;
 
+			case direction_north:
 			case direction_northwest:
 			{
 				ddP.x = 1.0f;
@@ -718,11 +818,6 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			break;
 
 			case direction_west:
-			{
-				ddP.x = -1.0f;
-			}
-			break;
-
 			case direction_southwest:
 			{
 				ddP.x = -1.0f;
@@ -731,11 +826,6 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			break;
 
 			case direction_south:
-			{
-				ddP.y = -1.0f;
-			}
-			break;
-
 			case direction_southeast:
 			{
 				ddP.x = 1.0f;
@@ -744,11 +834,6 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			break;
 
 			case direction_east:
-			{
-				ddP.x = 1.0f;
-			}
-			break;
-
 			case direction_northeast:
 			{
 				ddP.x = 1.0f;
@@ -763,8 +848,9 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			break;
 			}
 
-			f32 dirOffset = ((randValue % 10) + 1) / 100.0f;
-			v2_scale(ddP, dirOffset);
+			f32 dirOffsetX = ((randValue % 10) + 1) / 100.0f;
+			f32 dirOffsetY = ((randValue % 10) + 1) / 100.0f;
+			v2_hadamard(ddP, V2(dirOffsetX, dirOffsetY));
 
 			// NOTE(doyle): Make asteroids start and move at constant speed by
 			// ensuring that dP is "refreshed" with non-decaying acceleration
@@ -788,7 +874,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 		}
 
-		// Loop entity around world
+		/* Loop entity around world */
 		if (entity->pos.y >= world->worldSize.h)
 			entity->pos.y = 0;
 		else if (entity->pos.y < 0)
@@ -823,8 +909,34 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				colliderB = collideEntity;
 			}
 
-			if (colliderA->type == entitytype_asteroid)
+			if (colliderA->type >= entitytype_asteroid_small &&
+			    colliderA->type <= entitytype_asteroid_large)
 			{
+				if (colliderA->type == entitytype_asteroid_medium)
+				{
+					AsteroidSpec spec = {0};
+					spec.pos          = colliderA->pos;
+					spec.dP           = v2_scale(colliderA->dP, -1.0f);
+					spec.direction    = invertDirection(colliderA->direction);
+					addAsteroidWithSpec(world, asteroidsize_small, &spec);
+				}
+				else if (colliderA->type == entitytype_asteroid_large)
+				{
+					AsteroidSpec spec = {0};
+					spec.pos          = colliderA->pos;
+					spec.dP           = v2_scale(colliderA->dP, -1.0f);
+					spec.direction    = invertDirection(colliderA->direction);
+					addAsteroidWithSpec(world, asteroidsize_medium, &spec);
+
+					spec.dP        = v2_perpendicular(spec.dP);
+					spec.direction = rotateDirectionWest90(spec.direction);
+					addAsteroidWithSpec(world, asteroidsize_small, &spec);
+
+					spec.dP        = v2_perpendicular(colliderA->dP);
+					spec.direction = invertDirection(spec.direction);
+					addAsteroidWithSpec(world, asteroidsize_small, &spec);
+				}
+
 				ASSERT(colliderB->type == entitytype_bullet);
 				world->entityList[collisionIndex] =
 				    world->entityList[--world->entityIndex];
@@ -836,7 +948,6 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				AudioRenderer *audioRenderer = getFreeAudioRenderer(world);
 				if (audioRenderer)
 				{
-
 					char *sound;
 					i32 choice = rand() % 3;
 					if (choice == 0)

@@ -5,10 +5,12 @@
 #include "Dengine/Common.h"
 
 #define MATH_PI 3.14159265359f
-#define SQUARED(x) (x * x)
 #define ABS(x) ((x) > 0 ? (x) : -(x))
 #define DEGREES_TO_RADIANS(x) ((x * (MATH_PI / 180.0f)))
 #define RADIANS_TO_DEGREES(x) ((x * (180.0f / MATH_PI)))
+#define MAX(a, b) ((a) < (b) ? (b) : (a))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define SQUARED(x) ((x) * (x))
 #define SQRT(x) (sqrtf(x))
 
 typedef f32 Radians;
@@ -137,7 +139,7 @@ INTERNAL inline v##num v##num##_scale(const v##num a, const f32 b) \
 	for (i32 i = 0; i < ##num; i++) { result.e[i] = a.e[i] * b; } \
 	return result; \
 } \
-INTERNAL inline v##num v##num##_mul(const v##num a, const v##num b) \
+INTERNAL inline v##num v##num##_hadamard(const v##num a, const v##num b) \
 { \
 	v##num result; \
 	for (i32 i = 0; i < ##num; i++) { result.e[i] = a.e[i] * b.e[i]; } \

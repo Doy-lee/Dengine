@@ -23,13 +23,41 @@ enum Direction
 	direction_num,
 };
 
+INTERNAL inline enum Direction invertDirection(enum Direction direction)
+{
+	enum Direction result = (direction + 4) % direction_count;
+
+	return result;
+}
+
+INTERNAL inline enum Direction rotateDirectionWest90(enum Direction direction)
+{
+	enum Direction result = (direction + 2) % direction_count;
+
+	return result;
+}
+
+INTERNAL inline enum Direction rotateDirectionEast90(enum Direction direction)
+{
+	enum Direction result = (direction + 2) % direction_count;
+
+	return result;
+}
+
+
 #define NULL_ENTITY_ID 0
 enum EntityType
 {
 	entitytype_invalid,
 	entitytype_null,
 	entitytype_ship,
-	entitytype_asteroid,
+
+	// NOTE(doyle): Asteroids must be grouped since we use >= and <= logic to
+	// combine asteroid logic together
+	entitytype_asteroid_small,
+	entitytype_asteroid_medium,
+	entitytype_asteroid_large,
+
 	entitytype_bullet,
 	entitytype_count,
 };

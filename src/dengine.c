@@ -163,8 +163,8 @@ i32 main(void)
 	 *******************
 	 */
 	Memory memory = {0};
-	MemoryIndex persistentSize = MEGABYTES(128);
-	MemoryIndex transientSize  = MEGABYTES(128);
+	MemoryIndex persistentSize = MEGABYTES(32);
+	MemoryIndex transientSize  = MEGABYTES(32);
 
 	memory.persistentSize = persistentSize;
 	memory.persistent     = PLATFORM_MEM_ALLOC_(NULL, persistentSize, u8);

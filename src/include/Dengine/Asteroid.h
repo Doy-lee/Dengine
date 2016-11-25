@@ -20,8 +20,10 @@ typedef struct World
 
 	u32 asteroidCounter;
 	u32 numAsteroids;
+	v2 *asteroidSmallVertexCache[3];
+	v2 *asteroidMediumVertexCache[3];
+	v2 *asteroidLargeVertexCache[3];
 
-	v2 *asteroidVertexCache[10];
 	v2 *bulletVertexCache;
 
 	// TODO(doyle): Audio mixing instead of multiple renderers
