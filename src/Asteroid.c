@@ -495,24 +495,24 @@ INTERNAL void addBullet(World *world, Entity *shooter)
 	Entity *bullet = &world->entityList[world->entityIndex++];
 	bullet->id     = world->entityIdCounter++;
 
-	bullet->offset     = v2_scale(bullet->size, -0.5f);
-	bullet->pos        = v2_add(shooter->pos, bullet->offset);
-	bullet->hitbox     = bullet->size;
+	bullet->pos        = shooter->pos;
 	bullet->size       = V2(2.0f, 20.0f);
+	bullet->offset     = v2_scale(bullet->size, -0.5f);
+	bullet->hitbox     = bullet->size;
 	bullet->rotation   = shooter->rotation;
-	bullet->renderMode = rendermode_quad;
+	bullet->renderMode = rendermode_polygon;
 
 	if (!world->bulletVertexCache)
 	{
 		world->bulletVertexCache =
-		    memory_pushBytes(&world->entityArena, sizeof(v2) * 4);
+		    MEMORY_PUSH_ARRAY(&world->entityArena, 4, v2);
 		world->bulletVertexCache[0] = V2(0, bullet->size.h);
 		world->bulletVertexCache[1] = V2(0, 0);
 		world->bulletVertexCache[2] = V2(bullet->size.w, 0);
 		world->bulletVertexCache[3] = bullet->size;
 	}
 
-	bullet->vertexPoints = world->bulletVertexCache;
+	bullet->vertexPoints    = world->bulletVertexCache;
 	bullet->numVertexPoints = 4;
 
 	bullet->type  = entitytype_bullet;
@@ -540,6 +540,19 @@ INTERNAL AudioRenderer *getFreeAudioRenderer(World *world)
 	}
 
 	return NULL;
+}
+
+INTERNAL void deleteEntity(World *world, i32 entityIndex)
+{
+	ASSERT(entityIndex > 0);
+	ASSERT(entityIndex < ARRAY_COUNT(world->entityList));
+
+	/* Last entity replaces the entity to delete */
+	world->entityList[entityIndex] = world->entityList[world->entityIndex - 1];
+
+	/* Make sure the replaced entity from end of list is cleared out */
+	Entity emptyEntity = {0};
+	world->entityList[--world->entityIndex] = emptyEntity;
 }
 
 void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
@@ -649,7 +662,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		Entity *entity = &world->entityList[i];
 		ASSERT(entity->type != entitytype_invalid);
 
-		v2 pivotPoint = {0};
+		v2 pivotPoint    = {0};
 		f32 ddPSpeedInMs = 0;
 		v2 ddP           = {0};
 		if (entity->type == entitytype_ship)
@@ -662,22 +675,8 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				// is right facing for trig to work
 				Radians rotation =
 				    DEGREES_TO_RADIANS((entity->rotation + 90.0f));
-
 				v2 direction = V2(math_cosf(rotation), math_sinf(rotation));
 				ddP          = direction;
-			}
-
-			Degrees rotationsPerSecond = 180.0f;
-			if (platform_queryKey(&state->input.keys[keycode_left],
-			                      readkeytype_repeat, 0.0f))
-			{
-				entity->rotation += (rotationsPerSecond)*dt;
-			}
-
-			if (platform_queryKey(&state->input.keys[keycode_right],
-			                      readkeytype_repeat, 0.0f))
-			{
-				entity->rotation -= (rotationsPerSecond)*dt;
 			}
 
 			if (platform_queryKey(&state->input.keys[keycode_space],
@@ -697,6 +696,20 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 					                 1);
 				}
 			}
+
+			Degrees rotationsPerSecond = 180.0f;
+			if (platform_queryKey(&state->input.keys[keycode_left],
+			                      readkeytype_repeat, 0.0f))
+			{
+				entity->rotation += (rotationsPerSecond)*dt;
+			}
+
+			if (platform_queryKey(&state->input.keys[keycode_right],
+			                      readkeytype_repeat, 0.0f))
+			{
+				entity->rotation -= (rotationsPerSecond)*dt;
+			}
+			entity->rotation = (f32)((i32)entity->rotation);
 
 			ddPSpeedInMs = 25;
 			DEBUG_PUSH_VAR("Pos: %5.2f, %5.2f", entity->pos, "v2");
@@ -792,14 +805,13 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		{
 			if (!math_pointInRect(world->camera, entity->pos))
 			{
-				world->entityList[i--] =
-				    world->entityList[--world->entityIndex];
+				deleteEntity(world, i--);
 				continue;
 			}
 
 			Radians rotation = DEGREES_TO_RADIANS((entity->rotation + 90.0f));
 			v2 localDp       = V2(math_cosf(rotation), math_sinf(rotation));
-			entity->dP       = v2_scale(localDp, world->pixelsPerMeter * 10);
+			entity->dP       = v2_scale(localDp, world->pixelsPerMeter * 5);
 		}
 
 		/* Loop entity around world */
@@ -862,11 +874,12 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 				}
 
 				ASSERT(colliderB->type == entitytype_bullet);
-				world->entityList[collisionIndex] =
-				    world->entityList[--world->entityIndex];
-				world->entityList[i--] =
-				    world->entityList[--world->entityIndex];
+
+				deleteEntity(world, collisionIndex);
+
+				deleteEntity(world, i--);
 				world->asteroidCounter--;
+
 				ASSERT(world->asteroidCounter >= 0);
 
 				AudioRenderer *audioRenderer = getFreeAudioRenderer(world);

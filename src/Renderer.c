@@ -443,6 +443,54 @@ void renderer_polygon(Renderer *const renderer, Rect camera,
 {
 	ASSERT(numPoints >= 3);
 
+	{ // Validate polygon is CCW
+		/*
+		   NOTE(doyle): Polygon vertexes must be specified in a CCW order!
+		   This check utilises the equation for calculating the bounding area
+		   of a polygon by decomposing the shapes into line segments and
+		   calculating the area under the segment. On cartesian plane, if the
+		   polygon is CCW, then by creating these "area" calculatings in
+		   sequential order, we'll produce negative valued areas since we
+		   determine line segment length by subtracting x2-x1.
+
+		   Better explanation over here
+		   http://blog.element84.com/polygon-winding.html
+		*/
+
+		f32 areaSum = 0.0f;
+		for (i32 i = 0; i < numPoints - 1; i++)
+		{
+			f32 lengthX = polygonPoints[i + 1].x - polygonPoints[i].x;
+
+			// NOTE(doyle): The height of a line segment is actually (y1 + y2)/2
+			// But since the (1/2) is a constant factor we can get rid of for
+			// checking the winding order..
+			// i.e. a negative number halved is still always negative.
+			f32 lengthY = polygonPoints[i + 1].y + polygonPoints[i].y;
+
+			areaSum += (lengthX * lengthY);
+		}
+
+		f32 lengthX = polygonPoints[0].x - polygonPoints[numPoints - 1].x;
+		f32 lengthY = polygonPoints[0].y + polygonPoints[numPoints - 1].y;
+		areaSum += (lengthX * lengthY);
+
+		if (areaSum < 0)
+		{
+			// NOTE(doyle): Is counter clockwise
+		}
+		else if (areaSum > 0)
+		{
+			// NOTE(doyle): Is clockwise
+			ASSERT(INVALID_CODE_PATH);
+		}
+		else
+		{
+			// NOTE(doyle): CW + CCW combination, i.e. figure 8 shape
+			ASSERT(INVALID_CODE_PATH);
+		}
+	}
+
 	for (i32 i           = 0; i < numPoints; i++)
 		polygonPoints[i] = v2_sub(polygonPoints[i], camera.min);
 
