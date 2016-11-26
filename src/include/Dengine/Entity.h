@@ -58,6 +58,8 @@ enum EntityType
 	entitytype_asteroid_medium,
 	entitytype_asteroid_large,
 
+	entitytype_particle,
+
 	entitytype_bullet,
 	entitytype_count,
 };
@@ -77,6 +79,7 @@ typedef struct Entity
 
 	v2 pos;
 	v2 dP;
+	v2 particleInitDp;
 
 	v2 hitbox;
 	v2 size;

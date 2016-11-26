@@ -813,6 +813,22 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			v2 localDp       = V2(math_cosf(rotation), math_sinf(rotation));
 			entity->dP       = v2_scale(localDp, world->pixelsPerMeter * 5);
 		}
+		else if (entity->type == entitytype_particle)
+		{
+			f32 diff = entity->color.a - 0.1f;
+			if (diff < 0.01f)
+			{
+				deleteEntity(world, i--);
+				continue;
+			}
+
+			f32 divisor =
+			    MAX(entity->particleInitDp.x, entity->particleInitDp.y);
+			f32 maxDp   = MAX(entity->dP.x, entity->dP.y);
+
+			entity->color.a = maxDp / divisor;
+
+		}
 
 		/* Loop entity around world */
 		if (entity->pos.y >= world->worldSize.h)
@@ -852,12 +868,16 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			if (colliderA->type >= entitytype_asteroid_small &&
 			    colliderA->type <= entitytype_asteroid_large)
 			{
+
+				f32 numParticles = 4;
 				if (colliderA->type == entitytype_asteroid_medium)
 				{
 					AsteroidSpec spec = {0};
 					spec.pos          = colliderA->pos;
 					spec.dP           = v2_scale(colliderA->dP, -2.0f);
 					addAsteroidWithSpec(world, asteroidsize_small, &spec);
+
+					numParticles = 8;
 				}
 				else if (colliderA->type == entitytype_asteroid_large)
 				{
@@ -871,6 +891,59 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 					spec.dP        = v2_perpendicular(colliderA->dP);
 					addAsteroidWithSpec(world, asteroidsize_small, &spec);
+
+					numParticles = 16;
+				}
+
+				for (i32 i = 0; i < numParticles; i++)
+				{
+					{ // Add particles
+						Entity *particle =
+						    &world->entityList[world->entityIndex++];
+						particle->id = world->entityIdCounter++;
+
+						particle->pos        = colliderA->pos;
+						particle->size       = V2(4.0f, 4.0f);
+
+						i32 randValue = rand();
+						Radians rotation =
+						    DEGREES_TO_RADIANS((randValue % 360));
+						v2 randDirectionVec =
+						    V2(math_cosf(rotation), math_sinf(rotation));
+
+						i32 particleDpLimit = 8;
+						f32 randDpMultiplier =
+						    (f32)(randValue % particleDpLimit) + 1;
+
+						v2 newDp = v2_scale(colliderA->dP, randDpMultiplier);
+						newDp    = v2_hadamard(newDp, randDirectionVec);
+
+						particle->dP             = newDp;
+						particle->particleInitDp = newDp;
+
+						particle->offset     = v2_scale(particle->size, -0.5f);
+						particle->hitbox     = particle->size;
+						particle->rotation   = 0;
+						particle->renderMode = rendermode_polygon;
+
+						if (!world->particleVertexCache)
+						{
+							world->particleVertexCache =
+							    MEMORY_PUSH_ARRAY(&world->entityArena, 4, v2);
+							world->particleVertexCache[0] =
+							    V2(0, particle->size.h);
+							world->particleVertexCache[1] = V2(0, 0);
+							world->particleVertexCache[2] =
+							    V2(particle->size.w, 0);
+							world->particleVertexCache[3] = particle->size;
+						}
+
+						particle->vertexPoints    = world->particleVertexCache;
+						particle->numVertexPoints = 4;
+
+						particle->type  = entitytype_particle;
+						particle->color = V4(1.0f, 0.0f, 0, 1.0f);
+					}
 				}
 
 				ASSERT(colliderB->type == entitytype_bullet);

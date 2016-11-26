@@ -25,6 +25,7 @@ typedef struct World
 	v2 *asteroidLargeVertexCache[3];
 
 	v2 *bulletVertexCache;
+	v2 *particleVertexCache;
 
 	// TODO(doyle): Audio mixing instead of multiple renderers
 	AudioRenderer *audioRenderer;
