@@ -10,6 +10,7 @@ typedef struct AssetManager AssetManager;
 typedef struct Font Font;
 typedef struct MemoryArena MemoryArena_;
 typedef struct Renderer Renderer;
+typedef struct GameState GameState;
 
 enum UiType
 {
@@ -75,6 +76,9 @@ inline i32 userInterface_generateId(UiState *const uiState)
 	i32 result = uiState->uniqueId++;
 	return result;
 }
+
+void userInterface_beginState(UiState *state);
+void userInterface_endState(UiState *state, InputBuffer *input);
 
 i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
                          AssetManager *const assetManager,
