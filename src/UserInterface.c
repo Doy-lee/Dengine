@@ -1,8 +1,32 @@
 #include "Dengine/UserInterface.h"
 #include "Dengine/AssetManager.h"
 #include "Dengine/Assets.h"
+#include "Dengine/Asteroid.h"
 #include "Dengine/Debug.h"
 #include "Dengine/Renderer.h"
+
+void userInterface_beginState(UiState *state)
+{
+	state->hotItem = 0;
+}
+
+void userInterface_endState(UiState *state, InputBuffer *input)
+{
+	if (!common_isSet(input->keys[keycode_mouseLeft].flags,
+	                  keystateflag_ended_down))
+	{
+		state->activeItem = 0;
+	}
+	else if (state->activeItem == 0)
+	{
+		state->activeItem = -1;
+	}
+
+	if (state->keyEntered == keycode_tab) state->kbdItem = 0;
+
+	state->keyEntered = keycode_null;
+	state->keyChar    = keycode_null;
+}
 
 i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
                          AssetManager *const assetManager,

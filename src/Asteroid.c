@@ -917,6 +917,32 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		                collideColor, flags);
 	}
 
+	{ // Draw Ui
+		UiState *uiState             = &state->uiState;
+		MemoryArena_ *transientArena = &state->transientArena;
+		AssetManager *assetManager   = &state->assetManager;
+		Renderer *renderer           = &state->renderer;
+		InputBuffer *inputBuffer     = &state->input;
+
+		userInterface_beginState(uiState);
+
+		WindowState window = {0};
+		window.id          = userInterface_generateId(uiState);
+
+		Rect windowRect = {0};
+		windowRect.min  = V2(200, 200);
+		windowRect.max  = V2(500, 500);
+
+		window.rect = windowRect;
+
+#if 0
+		userInterface_window(uiState, transientArena, assetManager, renderer,
+		                     &assetManager->font, *inputBuffer, &window);
+#endif
+
+		userInterface_endState(uiState, inputBuffer);
+	}
+
 	for (i32 i = 0; i < world->numAudioRenderers; i++)
 	{
 		AudioRenderer *audioRenderer = &world->audioRenderer[i];

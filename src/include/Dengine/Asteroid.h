@@ -8,6 +8,7 @@
 #include "Dengine/MemoryArena.h"
 #include "Dengine/Platform.h"
 #include "Dengine/Renderer.h"
+#include "Dengine/UserInterface.h"
 
 typedef struct World
 {
@@ -48,6 +49,8 @@ typedef struct GameState {
 	AssetManager assetManager;
 	InputBuffer input;
 	Renderer renderer;
+
+	UiState uiState;
 	World world;
 
 } GameState;
