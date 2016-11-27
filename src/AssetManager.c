@@ -980,11 +980,15 @@ typedef struct GlyphBitmap
 	i32 codepoint;
 } GlyphBitmap;
 
-const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena_ *arena,
-                           const char *filePath)
+const i32 asset_loadTTFont(AssetManager *assetManager,
+                           MemoryArena_ *persistentArena,
+                           MemoryArena_ *transientArena, const char *filePath)
 {
+	TempMemory tempRegion = memory_begin_temporary_region(transientArena);
+
 	PlatformFileRead fontFileRead = {0};
-	i32 result = platform_readFileToBuffer(arena, filePath, &fontFileRead);
+	i32 result =
+	    platform_readFileToBuffer(transientArena, filePath, &fontFileRead);
 	if (result) return result;
 
 	stbtt_fontinfo fontInfo = {0};
@@ -1002,7 +1006,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena_ *arena,
 	const i32 numGlyphs = CAST(i32)(codepointRange.y - codepointRange.x);
 
 	GlyphBitmap *glyphBitmaps =
-	    memory_pushBytes(arena, numGlyphs * sizeof(GlyphBitmap));
+	    memory_pushBytes(transientArena, numGlyphs * sizeof(GlyphBitmap));
 	v2 largestGlyphDimension = V2(0, 0);
 
 	const f32 targetFontHeight = 15.0f;
@@ -1018,7 +1022,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena_ *arena,
 	font->metrics = CAST(FontMetrics){ascent, descent, lineGap};
 
 	font->charMetrics =
-	    memory_pushBytes(arena, numGlyphs * sizeof(CharMetrics));
+	    memory_pushBytes(persistentArena, numGlyphs * sizeof(CharMetrics));
 
 	/*
 	 ************************************************************
@@ -1038,7 +1042,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena_ *arena,
 
 		u8 *source       = monoBitmap;
 		u32 *colorBitmap =
-		    memory_pushBytes(arena, width * height * sizeof(u32));
+		    memory_pushBytes(transientArena, width * height * sizeof(u32));
 		u32 *dest        = colorBitmap;
 
 		// NOTE(doyle): STB generates 1 byte per pixel bitmaps, we use 4bpp, so
@@ -1114,7 +1118,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena_ *arena,
 #endif
 
 	i32 bitmapSize = SQUARED(TARGET_TEXTURE_SIZE) * TARGET_BYTES_PER_PIXEL;
-	u32 *fontBitmap = memory_pushBytes(arena, bitmapSize * sizeof(u32));
+	u32 *fontBitmap =
+	    memory_pushBytes(transientArena, bitmapSize * sizeof(u32));
 	const i32 pitch = MAX_TEXTURE_SIZE * TARGET_BYTES_PER_PIXEL;
 
 	// Check value to determine when a row of glyphs is completely printed
@@ -1131,8 +1136,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena_ *arena,
 	char charToEncode = CAST(char)codepointRange.x;
 
 	i32 numSubTex = numGlyphs;
-	TexAtlas *fontAtlas =
-	    asset_getFreeTexAtlasSlot(assetManager, arena, "font", numSubTex);
+	TexAtlas *fontAtlas = asset_getFreeTexAtlasSlot(
+	    assetManager, persistentArena, "font", numSubTex);
 
 	/*
 	 *********************************************************
@@ -1159,7 +1164,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena_ *arena,
 				// all ascii characters, charToEncode represents the character
 				// 1:1
 				const char key[2] = {charToEncode, 0};
-				SubTexture *subTex = getFreeAtlasSubTexSlot(fontAtlas, arena, key);
+				SubTexture *subTex =
+				    getFreeAtlasSubTexSlot(fontAtlas, persistentArena, key);
 				subTex->rect = CAST(Rect){origin, font->maxSize};
 				charToEncode++;
 			}
@@ -1213,7 +1219,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena_ *arena,
 	 * Generate and store font bitmap to assets
 	 *******************************************
 	 */
-	Texture *tex = asset_getFreeTexSlot(assetManager, arena, "font");
+	Texture *tex = asset_getFreeTexSlot(assetManager, persistentArena, "font");
 	*tex         = texture_gen(MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4,
 	                   CAST(u8 *) fontBitmap);
 
@@ -1238,14 +1244,9 @@ const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena_ *arena,
 		i32 glyphBitmapSizeInBytes = CAST(i32) glyphBitmaps[i].dimensions.w *
 		                             CAST(i32) glyphBitmaps[i].dimensions.h *
 		                             sizeof(u32);
-		// TODO(doyle): Mem free
-		// PLATFORM_MEM_FREE(arena, glyphBitmaps[i].pixels, glyphBitmapSizeInBytes);
 	}
 
-	// TODO(doyle): Mem free
-	// PLATFORM_MEM_FREE(arena, glyphBitmaps, numGlyphs * sizeof(GlyphBitmap));
-	platform_closeFileRead(arena, &fontFileRead);
-
+	memory_end_temporary_region(tempRegion);
 	return 0;
 }
 

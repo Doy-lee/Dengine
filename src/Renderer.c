@@ -424,7 +424,11 @@ void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
 	v2 posInCameraSpace = v2_sub(pos, camera.min);
 
 	RenderTex emptyRenderTex = {0};
-	if (!renderTex) renderTex = &emptyRenderTex;
+	if (!renderTex)
+	{
+		renderTex = &emptyRenderTex;
+		ASSERT(common_isSet(flags, renderflag_no_texture));
+	}
 
 	RenderQuad quad = createRenderQuad(renderer, posInCameraSpace, size,
 	                                   pivotPoint, rotate, *renderTex);
@@ -496,7 +500,11 @@ void renderer_polygon(Renderer *const renderer, Rect camera,
 
 	// TODO(doyle): Do something with render texture
 	RenderTex emptyRenderTex  = {0};
-	if (!renderTex) renderTex = &emptyRenderTex;
+	if (!renderTex)
+	{
+		renderTex = &emptyRenderTex;
+		ASSERT(common_isSet(flags, renderflag_no_texture));
+	}
 
 	v2 triangulationBaseP                = polygonPoints[0];
 	RenderVertex triangulationBaseVertex = {0};

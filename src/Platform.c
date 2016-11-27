@@ -28,6 +28,7 @@ void *platform_memoryAlloc(MemoryArena_ *arena, size_t numBytes)
 	return result;
 }
 
+// TODO(doyle): If we use arena temporary memory this is not necessary
 void platform_closeFileRead(MemoryArena_ *arena, PlatformFileRead *file)
 {
 	// TODO(doyle): Mem free
@@ -178,4 +179,3 @@ b32 platform_queryKey(KeyState *key, enum ReadKeyType readType,
 
 	return FALSE;
 }
-

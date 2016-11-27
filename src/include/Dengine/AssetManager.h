@@ -78,8 +78,9 @@ const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena_ *arena,
                                 const char *const fragmentPath,
                                 const enum ShaderList type);
 
-const i32 asset_loadTTFont(AssetManager *assetManager, MemoryArena_ *arena,
-                           const char *filePath);
+const i32 asset_loadTTFont(AssetManager *assetManager,
+                           MemoryArena_ *persistentArena,
+                           MemoryArena_ *transientArena, const char *filePath);
 const v2 asset_stringDimInPixels(const Font *const font,
                                  const char *const string);
 

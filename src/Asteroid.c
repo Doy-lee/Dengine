@@ -27,8 +27,9 @@ void initAssetManager(GameState *state)
 		Texture *tex = asset_getFreeTexSlot(assetManager, arena, "nullTex");
 		*tex         = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
 
-		i32 result = asset_loadTTFont(assetManager, arena,
-		                              "C:/Windows/Fonts/Arialbd.ttf");
+		i32 result =
+		    asset_loadTTFont(assetManager, arena, &state->transientArena,
+		                     "C:/Windows/Fonts/Arialbd.ttf");
 	}
 
 	{ // Init shaders assets
@@ -997,20 +998,23 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		Renderer *renderer           = &state->renderer;
 		InputBuffer *inputBuffer     = &state->input;
 
+		renderer_rect(renderer, world->camera, V2(0, 0), renderer->size,
+		              V2(0, 0), 0, NULL, V4(0, 0, 0, 0.5f),
+		              renderflag_no_texture);
+
+		v2 titleP = V2(20, renderer->size.h - 100);
+		renderer_staticString(renderer, transientArena, &assetManager->font,
+		                      "Asteroids", titleP, V2(0, 0), 0, V4(1, 0, 0, 1),
+		                      0);
+
 		userInterface_beginState(uiState);
 
-		WindowState window = {0};
-		window.id          = userInterface_generateId(uiState);
+		Rect buttonRect = {V2(20, 20), V2(40, 40)};
 
-		Rect windowRect = {0};
-		windowRect.min  = V2(200, 200);
-		windowRect.max  = V2(500, 500);
-
-		window.rect = windowRect;
-
-#if 0
-		userInterface_window(uiState, transientArena, assetManager, renderer,
-		                     &assetManager->font, *inputBuffer, &window);
+#if 1
+		userInterface_button(uiState, transientArena, assetManager, renderer,
+		                     &assetManager->font, *inputBuffer, 0, buttonRect,
+		                     "test button");
 #endif
 
 		userInterface_endState(uiState, inputBuffer);

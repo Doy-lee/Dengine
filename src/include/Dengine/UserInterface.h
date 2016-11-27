@@ -35,22 +35,6 @@ typedef struct UiItem
 	char string[80];
 } UiItem;
 
-typedef struct WindowState
-{
-	char title[64];
-	i32 id;
-
-	UiItem childUiItems[16];
-	i32 numChildUiItems;
-
-	Rect rect;
-	// TODO(doyle): Store this in the input data not window?
-	v2 prevMouseP;
-
-	b32 prevFrameWindowHeld;
-	b32 windowHeld;
-} WindowState;
-
 typedef struct UiState
 {
 	i32 uniqueId;
@@ -66,9 +50,6 @@ typedef struct UiState
 	enum KeyCode keyEntered;
 	enum KeyCode keyMod;
 	enum KeyCode keyChar;
-
-	WindowState statWindow;
-	WindowState debugWindow;
 } UiState;
 
 inline i32 userInterface_generateId(UiState *const uiState)
@@ -97,9 +78,4 @@ i32 userInterface_scrollbar(UiState *const uiState,
                             Renderer *const renderer, const InputBuffer input,
                             const i32 id, const Rect scrollBarRect,
                             i32 *const value, const i32 maxValue);
-
-i32 userInterface_window(UiState *const uiState, MemoryArena_ *const arena,
-                         AssetManager *const assetManager,
-                         Renderer *const renderer, Font *const font,
-                         const InputBuffer input, WindowState *window);
 #endif

@@ -272,7 +272,7 @@ const i32 audio_playVorbis(MemoryArena_ *arena, AudioManager *audioManager,
                            AudioRenderer *audioRenderer, AudioVorbis *vorbis,
                            i32 numPlays)
 {
-	if(vorbis) return -1;
+	if (vorbis == NULL) return -1;
 
 	i32 result = initRendererForPlayback(arena, audioManager, audioRenderer,
 	                                     vorbis, numPlays);
@@ -304,7 +304,7 @@ const i32 audio_streamPlayVorbis(MemoryArena_ *arena, AudioManager *audioManager
 	// TODO(doyle): Streaming leaks memory, we don't free the "copy audio"
 	ASSERT(INVALID_CODE_PATH);
 
-	if(vorbis) return -1;
+	if (vorbis == NULL) return -1;
 
 	i32 result = initRendererForPlayback(arena, audioManager, audioRenderer,
 	                                     vorbis, numPlays);

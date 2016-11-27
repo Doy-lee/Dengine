@@ -8,6 +8,8 @@ typedef struct MemoryArena
 	MemoryIndex size;
 	MemoryIndex used;
 	u8 *base;
+
+	i32 tempMemoryCount;
 } MemoryArena_;
 
 typedef struct Memory
@@ -20,6 +22,15 @@ typedef struct Memory
 
 	b32 init;
 } Memory;
+
+typedef struct TempMemory
+{
+	MemoryArena_ *arena;
+	MemoryIndex used;
+} TempMemory;
+
+TempMemory memory_begin_temporary_region(MemoryArena_ *arena);
+void memory_end_temporary_region(TempMemory tempMemory);
 
 #define MEMORY_PUSH_STRUCT(arena, type) (type *)memory_pushBytes(arena, sizeof(type))
 #define MEMORY_PUSH_ARRAY(arena, count, type) (type *)memory_pushBytes(arena, (count)*sizeof(type))

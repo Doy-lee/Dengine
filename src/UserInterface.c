@@ -37,15 +37,7 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 	if (math_pointInRect(rect, input.mouseP))
 	{
 		uiState->hotItem = id;
-
-		// NOTE(doyle): UI windows are drawn first, they steal focus on mouse
-		// click since window logic is paired with the window rendering. If
-		// a UI element resides over our mouse, we allow the element to override
-		// the windows focus
-		// TODO(doyle): Make a window list to iterate over window ids
-		if (uiState->activeItem == uiState->statWindow.id ||
-		    uiState->activeItem == uiState->debugWindow.id ||
-			uiState->activeItem == 0)
+		if (uiState->activeItem == 0)
 		{
 			if (common_isSet(input.keys[keycode_mouseLeft].flags,
 			                 keystateflag_ended_down))
@@ -56,8 +48,6 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 
 	}
 
-	RenderTex renderTex = renderer_createNullRenderTex(assetManager);
-
 #if 0
 	// Draw shadow
 	renderer_staticRect(renderer, v2_add(V2(1, 1), rect.min), rect.size,
@@ -65,23 +55,23 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 #endif
 
 	v2 buttonOffset = V2(0, 0);
-	v4 buttonColor = {0};
+	v4 buttonColor = V4(1, 1, 1, 1);
 	if (uiState->hotItem == id)
 	{
 		if (uiState->activeItem == id)
 		{
 			buttonOffset = V2(1, 1);
-			buttonColor = V4(1, 1, 1, 1);
+			buttonColor = V4(1.0f, 0, 0, 1);
 		}
 		else
 		{
 			// TODO(doyle): Optional add effect on button hover
-			buttonColor = V4(1, 1, 1, 1);
+			buttonColor = V4(1.0f, 0, 0, 1);
 		}
 	}
 	else
 	{
-		buttonColor = V4(0.5f, 0.5f, 0.5f, 1);
+		buttonColor = V4(1.0f, 0, 0, 1);
 	}
 
 	/* If no widget has keyboard focus, take it */
@@ -94,12 +84,12 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 		// Draw outline
 		renderer_staticRect(renderer,
 		                    v2_add(V2(-2, -2), v2_add(buttonOffset, rect.min)),
-		                    v2_add(V2(4, 4), rect.max), V2(0, 0), 0, &renderTex,
-		                    buttonColor, 0);
+		                    v2_add(V2(4, 4), rect.max), V2(0, 0), 0, NULL,
+		                    buttonColor, renderflag_no_texture);
 	}
 
 	renderer_staticRect(renderer, v2_add(buttonOffset, rect.min), rect.max,
-	                    V2(0, 0), 0, &renderTex, buttonColor, 0);
+	                    V2(0, 0), 0, NULL, buttonColor, renderflag_no_texture);
 
 	if (label)
 	{
@@ -172,9 +162,7 @@ i32 userInterface_scrollbar(UiState *const uiState,
 	if (math_pointInRect(scrollBarRect, input.mouseP))
 	{
 		uiState->hotItem = id;
-		if (uiState->activeItem == uiState->statWindow.id ||
-		    uiState->activeItem == uiState->debugWindow.id ||
-			uiState->activeItem == 0)
+		if (uiState->activeItem == 0)
 		{
 			if (common_isSet(input.keys[keycode_mouseLeft].flags,
 			                 keystateflag_ended_down))
@@ -288,9 +276,7 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
 	if (math_pointInRect(rect, input.mouseP))
 	{
 		uiState->hotItem = id;
-		if (uiState->activeItem == uiState->statWindow.id ||
-		    uiState->activeItem == uiState->debugWindow.id ||
-			uiState->activeItem == 0)
+		if (uiState->activeItem == 0)
 		{
 			if (common_isSet(input.keys[keycode_mouseLeft].flags,
 			                 keystateflag_ended_down))
@@ -304,29 +290,28 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
 	if (uiState->kbdItem == 0)
 		uiState->kbdItem = id;
 
-	RenderTex renderTex = renderer_createNullRenderTex(assetManager);
 	/* If we have keyboard focus, show it */
 	if (uiState->kbdItem == id)
 	{
 		// Draw outline
 		renderer_staticRect(renderer, v2_add(V2(-2, -2), rect.min),
 		                    v2_add(V2(4, 4), rect.max), V2(0, 0), 0,
-		                    &renderTex, V4(1.0f, 0, 0, 1), 0);
+		                    NULL, V4(1.0f, 0, 0, 1), 0);
 	}
 
 	// Render text field
-	renderer_staticRect(renderer, rect.min, rect.max, V2(0, 0), 0,
-	                    &renderTex, V4(0.75f, 0.5f, 0.5f, 1), 0);
+	renderer_staticRect(renderer, rect.min, rect.max, V2(0, 0), 0, NULL,
+	                    V4(0.75f, 0.5f, 0.5f, 1), 0);
 
 	if (uiState->activeItem == id || uiState->hotItem == id)
 	{
 		renderer_staticRect(renderer, rect.min, rect.max, V2(0, 0), 0,
-		                    &renderTex, V4(0.75f, 0.75f, 0.0f, 1), 0);
+		                    NULL, V4(0.75f, 0.75f, 0.0f, 1), 0);
 	}
 	else
 	{
 		renderer_staticRect(renderer, rect.min, rect.max, V2(0, 0), 0,
-		                    &renderTex, V4(0.5f, 0.5f, 0.5f, 1), 0);
+		                    NULL, V4(0.5f, 0.5f, 0.5f, 1), 0);
 	}
 
 	v2 strPos = rect.min;
@@ -377,124 +362,3 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
 	if (changed) return id;
 	return 0;
 }
-
-i32 userInterface_window(UiState *const uiState, MemoryArena_ *const arena,
-                         AssetManager *const assetManager,
-                         Renderer *const renderer, Font *const font,
-                         const InputBuffer input, WindowState *window)
-{
-	if (math_pointInRect(window->rect, input.mouseP))
-	{
-		uiState->hotItem = window->id;
-		if (uiState->activeItem == 0 &&
-		    common_isSet(input.keys[keycode_mouseLeft].flags,
-		                 keystateflag_ended_down))
-			uiState->activeItem = window->id;
-	}
-
-	Rect rect = window->rect;
-	RenderTex nullRenderTex = renderer_createNullRenderTex(assetManager);
-	renderer_staticRect(renderer, rect.min, rect.max, V2(0, 0), 0,
-	                    &nullRenderTex, V4(0.25f, 0.25f, 0.5f, 0.5f), 0);
-
-	v2 menuTitleP = v2_add(rect.min, V2(0, rect.max.h - 10));
-	renderer_staticString(renderer, arena, font, window->title, menuTitleP,
-	                      V2(0, 0), 0, V4(0, 0, 0, 1), 0);
-
-	/* Draw window elements */
-	i32 firstActiveChildId = -1;
-	for (i32 i = 0; i < window->numChildUiItems; i++)
-	{
-		UiItem *childUi = &window->childUiItems[i];
-
-		// TODO(doyle): Redundant? If we can only have 1 active child at a time
-		// What about overlapping elements?
-		i32 getChildActiveState = -1;
-		switch(childUi->type)
-		{
-		case uitype_button:
-			// TODO(doyle): Bug in font rendering once button reaches 700-800+
-			// pixels
-			getChildActiveState = userInterface_button(
-			    uiState, arena, assetManager, renderer, font, input,
-			    childUi->id, childUi->rect, childUi->label);
-			break;
-
-		case uitype_scrollbar:
-			getChildActiveState = userInterface_scrollbar(
-			    uiState, assetManager, renderer, input, childUi->id,
-			    childUi->rect, &childUi->value, childUi->maxValue);
-			break;
-
-		case uitype_textField:
-			getChildActiveState = userInterface_textField(
-			    uiState, arena, assetManager, renderer, font, input,
-			    childUi->id, childUi->rect, childUi->string);
-			break;
-
-		default:
-			DEBUG_LOG(
-			    "userInterface_window() warning: Enum uitype unrecognised");
-			break;
-		}
-
-		// NOTE(doyle): Capture only the first active id, but keep loop going to
-		// render the rest of the window ui
-		if (firstActiveChildId == -1 && getChildActiveState > 0)
-			firstActiveChildId = getChildActiveState;
-	}
-
-	if (firstActiveChildId != -1)
-		return firstActiveChildId;
-
-	// NOTE(doyle): activeItem captures mouse click within the UI bounds, but if
-	// the user drags the mouse outside the bounds quicker than the game updates
-	// then we use a second flag which only "unclicks" when the mouse is let go
-	if (uiState->activeItem == window->id) window->windowHeld = TRUE;
-
-	if (window->windowHeld)
-	{
-		if (!common_isSet(input.keys[keycode_mouseLeft].flags,
-		                  keystateflag_ended_down))
-		{
-			window->windowHeld          = FALSE;
-			window->prevFrameWindowHeld = FALSE;
-		}
-	}
-
-	if (window->windowHeld)
-	{
-		// NOTE(doyle): If this is the first window click we don't process
-		// movement and store the current position to delta from next cycle
-		if (window->prevFrameWindowHeld)
-		{
-			// NOTE(doyle): Window clicked and held
-			v2 deltaP = v2_sub(input.mouseP, window->prevMouseP);
-
-			for (i32 i = 0; i < window->numChildUiItems; i++)
-			{
-				UiItem *childUi = &window->childUiItems[i];
-				childUi->rect.min = v2_add(deltaP, childUi->rect.min);
-			}
-
-			DEBUG_PUSH_VAR("Delta Pos %4.2f, %4.2f", deltaP, "v2");
-			window->rect.min = v2_add(deltaP, window->rect.min);
-		}
-		else
-		{
-			window->prevFrameWindowHeld = TRUE;
-		}
-
-		window->prevMouseP = input.mouseP;
-	}
-
-	if (!common_isSet(input.keys[keycode_mouseLeft].flags,
-	                  keystateflag_ended_down) &&
-	    uiState->hotItem == window->id && uiState->activeItem == window->id)
-	{
-		return window->id;
-	}
-
-	return 0;
-}
-
