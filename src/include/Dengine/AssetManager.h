@@ -19,7 +19,9 @@ typedef struct AssetManager
 
 	/* Primitive Array */
 	u32 shaders[shaderlist_count];
-	Font font;
+	FontPack fontPack[4];
+	i32 fontPackIndex;
+
 } AssetManager;
 
 #define MAX_TEXTURE_SIZE 1024
@@ -78,9 +80,17 @@ const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena_ *arena,
                                 const char *const fragmentPath,
                                 const enum ShaderList type);
 
+Font *asset_getFontCreateSizeOnDemand(AssetManager *assetManager,
+                                      MemoryArena_ *persistentArena,
+                                      MemoryArena_ *transientArena, char *name,
+                                      i32 size);
+Font *asset_getFont(AssetManager *assetManager, char *name,
+                    i32 size);
 const i32 asset_loadTTFont(AssetManager *assetManager,
                            MemoryArena_ *persistentArena,
-                           MemoryArena_ *transientArena, const char *filePath);
+                           MemoryArena_ *transientArena, char *filePath,
+                           char *name, i32 targetFontHeight);
+
 const v2 asset_stringDimInPixels(const Font *const font,
                                  const char *const string);
 

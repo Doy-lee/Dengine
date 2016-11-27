@@ -972,6 +972,82 @@ const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena_ *arena,
 	return 0;
 }
 
+INTERNAL FontPack *getMatchingFontPack(AssetManager *assetManager,
+                                       const char *const name)
+{
+	FontPack *result = NULL;
+	for (i32 i = 0; i < ARRAY_COUNT(assetManager->fontPack); i++)
+	{
+		FontPack *checkFontPack = &assetManager->fontPack[i];
+		if (common_strcmp(checkFontPack->name, name) == 0)
+		{
+			result = checkFontPack;
+			break;
+		}
+	}
+
+	return result;
+}
+
+Font *asset_getFontCreateSizeOnDemand(AssetManager *assetManager,
+                                      MemoryArena_ *persistentArena,
+                                      MemoryArena_ *transientArena, char *name,
+                                      i32 size)
+{
+
+	Font *result = asset_getFont(assetManager, name, size);
+
+	if (result == NULL)
+	{
+		FontPack *pack = getMatchingFontPack(assetManager, name);
+		if (pack != NULL)
+		{
+			for(i32 i = 0; i < pack->fontIndex; i++)
+			{
+				Font *checkFont = &pack->font[i];
+				if (checkFont->size == size)
+				{
+					result = checkFont;
+					break;
+				}
+			}
+
+			if (result == NULL)
+			{
+				asset_loadTTFont(assetManager, persistentArena, transientArena,
+				                 pack->filePath, name, size);
+
+				result = asset_getFont(assetManager, name, size);
+			}
+		}
+		else
+		{
+			// TODO(doyle): Logging
+		}
+	}
+
+	return result;
+}
+
+Font *asset_getFont(AssetManager *assetManager, char *name, i32 size)
+{
+	Font *result = NULL;
+	FontPack *pack = getMatchingFontPack(assetManager, name);
+
+	if (pack != NULL) {
+		for (i32 j = 0; j < ARRAY_COUNT(pack->font); j++)
+		{
+			if (pack->font[j].fontHeight == size)
+			{
+				result = &pack->font[j];
+				break;
+			}
+		}
+	}
+
+	return result;
+}
+
 /* Individual glyph bitmap generated from STB used for creating a font sheet */
 typedef struct GlyphBitmap
 {
@@ -982,8 +1058,54 @@ typedef struct GlyphBitmap
 
 const i32 asset_loadTTFont(AssetManager *assetManager,
                            MemoryArena_ *persistentArena,
-                           MemoryArena_ *transientArena, const char *filePath)
+                           MemoryArena_ *transientArena, char *filePath,
+                           char *name, i32 targetFontHeight)
 {
+	/*
+	 ****************************************
+	 * Initialise assetmanager font reference
+	 ****************************************
+	 */
+	FontPack *fontPack = NULL;
+	for (i32 i = 0; i < assetManager->fontPackIndex; i++)
+	{
+		FontPack *checkFontPack = &assetManager->fontPack[i];
+		if (common_strcmp(checkFontPack->name, name) == 0)
+		{
+			fontPack = checkFontPack;
+			break;
+		}
+	}
+
+	if (fontPack == NULL) {
+		fontPack = &assetManager->fontPack[assetManager->fontPackIndex++];
+		fontPack->name = name;
+		fontPack->filePath = filePath;
+		ASSERT(assetManager->fontPackIndex <
+		       ARRAY_COUNT(assetManager->fontPack));
+	}
+
+	Font *font = NULL;
+	for (i32 j = 0; j < fontPack->fontIndex; j++)
+	{
+		Font *checkFont = &fontPack->font[j];
+		if (checkFont->fontHeight == targetFontHeight)
+		{
+			font = &fontPack->font[j];
+			break;
+		}
+	}
+
+	if (font == NULL)
+	{
+		font = &fontPack->font[fontPack->fontIndex++];
+		ASSERT(fontPack->fontIndex < ARRAY_COUNT(fontPack->font));
+	}
+	else
+	{
+		return 0;
+	}
+
 	TempMemory tempRegion = memory_begin_temporary_region(transientArena);
 
 	PlatformFileRead fontFileRead = {0};
@@ -995,12 +1117,6 @@ const i32 asset_loadTTFont(AssetManager *assetManager,
 	stbtt_InitFont(&fontInfo, fontFileRead.buffer,
 	               stbtt_GetFontOffsetForIndex(fontFileRead.buffer, 0));
 
-	/*
-	 ****************************************
-	 * Initialise assetmanager font reference
-	 ****************************************
-	 */
-	Font *font = &assetManager->font;
 	font->codepointRange = V2i(32, 127);
 	v2 codepointRange = font->codepointRange;
 	const i32 numGlyphs = CAST(i32)(codepointRange.y - codepointRange.x);
@@ -1009,8 +1125,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager,
 	    memory_pushBytes(transientArena, numGlyphs * sizeof(GlyphBitmap));
 	v2 largestGlyphDimension = V2(0, 0);
 
-	const f32 targetFontHeight = 15.0f;
-	f32 scaleY = stbtt_ScaleForPixelHeight(&fontInfo, targetFontHeight);
+	font->fontHeight = targetFontHeight;
+	f32 scaleY = stbtt_ScaleForPixelHeight(&fontInfo, (f32)targetFontHeight);
 
 	i32 ascent, descent, lineGap;
 	stbtt_GetFontVMetrics(&fontInfo, &ascent, &descent, &lineGap);

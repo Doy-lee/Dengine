@@ -148,6 +148,13 @@ typedef struct CharMetrics
 
 typedef struct Font
 {
+	// NOTE(doyle): In stb_font we scale the loaded font to this target height
+	// and so this is used as a general font "size" notion
+	union {
+		i32 fontHeight;
+		i32 size;
+	};
+
 	TexAtlas *atlas;
 	FontMetrics metrics;
 
@@ -159,6 +166,14 @@ typedef struct Font
 
 	v2 codepointRange;
 	v2 maxSize;
-
 } Font;
+
+// NOTE(doyle): A font pack is a singular font at different sizes
+typedef struct FontPack
+{
+	char *name;
+	char *filePath;
+	Font font[4];
+	i32 fontIndex;
+} FontPack;
 #endif

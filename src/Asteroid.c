@@ -29,7 +29,7 @@ void initAssetManager(GameState *state)
 
 		i32 result =
 		    asset_loadTTFont(assetManager, arena, &state->transientArena,
-		                     "C:/Windows/Fonts/Arialbd.ttf");
+		                     "C:/Windows/Fonts/Arialbd.ttf", "Arial", 15);
 	}
 
 	{ // Init shaders assets
@@ -642,8 +642,8 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 		state->init       = TRUE;
 
-		debug_init(&state->persistentArena, windowSize,
-		           state->assetManager.font);
+		Font *arial15 = asset_getFont(&state->assetManager, "Arial", 15);
+		debug_init(&state->persistentArena, windowSize, *arial15);
 	}
 
 	for (u32 i = world->asteroidCounter; i < world->numAsteroids; i++)
@@ -1002,8 +1002,13 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		              V2(0, 0), 0, NULL, V4(0, 0, 0, 0.5f),
 		              renderflag_no_texture);
 
+		Font *arial15 = asset_getFontCreateSizeOnDemand(
+		    assetManager, &state->persistentArena, transientArena, "Arial", 15);
+		Font *arial25 = asset_getFontCreateSizeOnDemand(
+		    assetManager, &state->persistentArena, transientArena, "Arial", 40);
+
 		v2 titleP = V2(20, renderer->size.h - 100);
-		renderer_staticString(renderer, transientArena, &assetManager->font,
+		renderer_staticString(renderer, transientArena, arial25,
 		                      "Asteroids", titleP, V2(0, 0), 0, V4(1, 0, 0, 1),
 		                      0);
 
@@ -1013,7 +1018,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 #if 1
 		userInterface_button(uiState, transientArena, assetManager, renderer,
-		                     &assetManager->font, *inputBuffer, 0, buttonRect,
+		                     arial15, *inputBuffer, 0, buttonRect,
 		                     "test button");
 #endif
 
