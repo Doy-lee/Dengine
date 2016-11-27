@@ -34,7 +34,7 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
                          const InputBuffer input, const i32 id, const Rect rect,
                          const char *const label)
 {
-	if (math_pointInRect(rect, input.mouseP))
+	if (math_rect_contains_p(rect, input.mouseP))
 	{
 		uiState->hotItem = id;
 		if (uiState->activeItem == 0)
@@ -55,41 +55,39 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 #endif
 
 	v2 buttonOffset = V2(0, 0);
-	v4 buttonColor = V4(1, 1, 1, 1);
+	v4 buttonColor  = V4(0, 0, 0, 1);
 	if (uiState->hotItem == id)
 	{
 		if (uiState->activeItem == id)
 		{
 			buttonOffset = V2(1, 1);
-			buttonColor = V4(1.0f, 0, 0, 1);
+			buttonColor = V4(0.8f, 0.8f, 0.8f, 1);
 		}
 		else
 		{
-			// TODO(doyle): Optional add effect on button hover
-			buttonColor = V4(1.0f, 0, 0, 1);
+			// NOTE(doyle): Hover effect
+			buttonColor = V4(0.05f, 0.05f, 0.05f, 1);
 		}
-	}
-	else
-	{
-		buttonColor = V4(1.0f, 0, 0, 1);
 	}
 
 	/* If no widget has keyboard focus, take it */
 	if (uiState->kbdItem == 0)
 		uiState->kbdItem = id;
 
+	v2 rectSize = math_rect_get_size(rect);
 	/* If we have keyboard focus, show it */
 	if (uiState->kbdItem == id)
 	{
 		// Draw outline
 		renderer_staticRect(renderer,
 		                    v2_add(V2(-2, -2), v2_add(buttonOffset, rect.min)),
-		                    v2_add(V2(4, 4), rect.max), V2(0, 0), 0, NULL,
+		                    v2_add(V2(4, 4), rectSize), V2(0, 0), 0, NULL,
 		                    buttonColor, renderflag_no_texture);
 	}
 
-	renderer_staticRect(renderer, v2_add(buttonOffset, rect.min), rect.max,
-	                    V2(0, 0), 0, NULL, buttonColor, renderflag_no_texture);
+	renderer_staticRect(renderer, v2_add(buttonOffset, rect.min),
+	                    rectSize, V2(0, 0), 0, NULL,
+	                    buttonColor, renderflag_no_texture);
 
 	if (label)
 	{
@@ -97,21 +95,23 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 		v2 labelPos = rect.min;
 
 		// Initially position the label to half the width of the button
-		labelPos.x += (rect.max.w * 0.5f);
+		labelPos.x += (rectSize.w * 0.5f);
 
 		// Move the label pos back half the length of the string (i.e.
 		// center it)
 		labelPos.x -= (CAST(f32) labelDim.w * 0.5f);
 
-		if (labelDim.h < rect.max.h)
+		if (labelDim.h < rectSize.h)
 		{
-			labelPos.y += (rect.max.h * 0.5f);
+			labelPos.y += (rectSize.h * 0.5f);
 			labelPos.y -= (CAST(f32)labelDim.h * 0.5f);
 		}
 
+		// TODO(doyle): We're using odd colors to overcome z-sorting by forcing
+		// button text into another render group
 		labelPos = v2_add(labelPos, buttonOffset);
 		renderer_staticString(renderer, arena, font, label, labelPos, V2(0, 0),
-		                      0, V4(0, 0, 0, 1), 0);
+		                      0, V4(0.9f, 0.9f, 0.9f, 0.9f), 0);
 	}
 
 	// After renderering before click check, see if we need to process keys
@@ -159,7 +159,7 @@ i32 userInterface_scrollbar(UiState *const uiState,
 	ASSERT(*value <= maxValue);
 #endif
 
-	if (math_pointInRect(scrollBarRect, input.mouseP))
+	if (math_rect_contains_p(scrollBarRect, input.mouseP))
 	{
 		uiState->hotItem = id;
 		if (uiState->activeItem == 0)
@@ -178,17 +178,18 @@ i32 userInterface_scrollbar(UiState *const uiState,
 	if (uiState->kbdItem == 0)
 		uiState->kbdItem = id;
 
+	v2 rectSize = math_rect_get_size(scrollBarRect);
 	/* If we have keyboard focus, show it */
 	if (uiState->kbdItem == id)
 	{
 		// Draw outline
 		renderer_staticRect(renderer, v2_add(V2(-2, -2), scrollBarRect.min),
-		                    v2_add(V2(4, 4), scrollBarRect.max), V2(0, 0), 0,
+		                    v2_add(V2(4, 4), rectSize), V2(0, 0), 0,
 		                    &renderTex, V4(1, 0, 0, 1), 0);
 	}
 
 	// Render scroll bar background
-	renderer_staticRect(renderer, scrollBarRect.min, scrollBarRect.max,
+	renderer_staticRect(renderer, scrollBarRect.min, rectSize,
 	                    V2(0, 0), 0, &renderTex, V4(0.75f, 0.5f, 0.5f, 1), 0);
 
 	// Render scroll bar slider
@@ -197,7 +198,7 @@ i32 userInterface_scrollbar(UiState *const uiState,
 
 	f32 sliderPercentageOffset = (CAST(f32) *value / CAST(f32) maxValue);
 	f32 sliderYOffsetToBar =
-	    (scrollBarRect.max.h - sliderSize.h) * sliderPercentageOffset;
+	    (rectSize.h - sliderSize.h) * sliderPercentageOffset;
 	v2 sliderPos   = v2_add(scrollBarRect.min, V2(0, sliderYOffsetToBar));
 
 	if (uiState->hotItem == id || uiState->activeItem == id)
@@ -247,11 +248,11 @@ i32 userInterface_scrollbar(UiState *const uiState,
 		// Bounds check
 		if (mouseYRelToRect < 0)
 			mouseYRelToRect = 0;
-		else if (mouseYRelToRect > scrollBarRect.max.h)
-			mouseYRelToRect = scrollBarRect.max.h;
+		else if (mouseYRelToRect > rectSize.h)
+			mouseYRelToRect = rectSize.h;
 
 		f32 newSliderPercentOffset =
-		    (CAST(f32) mouseYRelToRect / scrollBarRect.max.h);
+		    (CAST(f32) mouseYRelToRect / rectSize.h);
 
 		i32 newValue = CAST(i32)(newSliderPercentOffset * CAST(f32)maxValue);
 		if (newValue != *value)
@@ -273,7 +274,7 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
 	i32 strLen = common_strlen(string);
 	b32 changed = FALSE;
 
-	if (math_pointInRect(rect, input.mouseP))
+	if (math_rect_contains_p(rect, input.mouseP))
 	{
 		uiState->hotItem = id;
 		if (uiState->activeItem == 0)
@@ -290,27 +291,28 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
 	if (uiState->kbdItem == 0)
 		uiState->kbdItem = id;
 
+	v2 rectSize = math_rect_get_size(rect);
 	/* If we have keyboard focus, show it */
 	if (uiState->kbdItem == id)
 	{
 		// Draw outline
 		renderer_staticRect(renderer, v2_add(V2(-2, -2), rect.min),
-		                    v2_add(V2(4, 4), rect.max), V2(0, 0), 0,
+		                    v2_add(V2(4, 4), rectSize), V2(0, 0), 0,
 		                    NULL, V4(1.0f, 0, 0, 1), 0);
 	}
 
 	// Render text field
-	renderer_staticRect(renderer, rect.min, rect.max, V2(0, 0), 0, NULL,
+	renderer_staticRect(renderer, rect.min, rectSize, V2(0, 0), 0, NULL,
 	                    V4(0.75f, 0.5f, 0.5f, 1), 0);
 
 	if (uiState->activeItem == id || uiState->hotItem == id)
 	{
-		renderer_staticRect(renderer, rect.min, rect.max, V2(0, 0), 0,
+		renderer_staticRect(renderer, rect.min, rectSize, V2(0, 0), 0,
 		                    NULL, V4(0.75f, 0.75f, 0.0f, 1), 0);
 	}
 	else
 	{
-		renderer_staticRect(renderer, rect.min, rect.max, V2(0, 0), 0,
+		renderer_staticRect(renderer, rect.min, rectSize, V2(0, 0), 0,
 		                    NULL, V4(0.5f, 0.5f, 0.5f, 1), 0);
 	}
 

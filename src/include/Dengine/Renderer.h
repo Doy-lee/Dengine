@@ -85,6 +85,8 @@ typedef struct Renderer
 	i32 groupCapacity;
 } Renderer;
 
+void renderer_init(Renderer *renderer, AssetManager *assetManager,
+                   MemoryArena_ *persistentArena, v2 windowSize);
 
 RenderTex renderer_createNullRenderTex(AssetManager *const assetManager);
 

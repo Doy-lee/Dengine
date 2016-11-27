@@ -10,8 +10,21 @@
 #include "Dengine/Renderer.h"
 #include "Dengine/UserInterface.h"
 
+enum AppState
+{
+	appstate_start_menu,
+	appstate_game,
+	appstate_count,
+};
+
 typedef struct World
 {
+	b32 init;
+	
+	// NOTE(doyle): Grace period when game starts before asteroids start
+	// spawning
+	f32 onInitAsteroidSpawnTimer;
+
 	MemoryArena_ entityArena;
 
 	v2 *entityVertexListCache[entitytype_count];
@@ -42,6 +55,8 @@ typedef struct World
 
 typedef struct GameState {
 	b32 init;
+	
+	enum AppState appState;
 
 	MemoryArena_ transientArena;
 	MemoryArena_ persistentArena;

@@ -8,6 +8,64 @@
 #include "Dengine/Shader.h"
 #include "Dengine/Texture.h"
 
+void renderer_init(Renderer *renderer, AssetManager *assetManager,
+                   MemoryArena_ *persistentArena, v2 windowSize)
+{
+	renderer->size = windowSize;
+	// NOTE(doyle): Value to map a screen coordinate to NDC coordinate
+	renderer->vertexNdcFactor =
+	    V2(1.0f / renderer->size.w, 1.0f / renderer->size.h);
+	renderer->groupIndexForVertexBatch = -1;
+
+	const mat4 projection =
+	    mat4_ortho(0.0f, renderer->size.w, 0.0f, renderer->size.h, 0.0f, 1.0f);
+	for (i32 i = 0; i < shaderlist_count; i++)
+	{
+		renderer->shaderList[i] = asset_getShader(assetManager, i);
+		shader_use(renderer->shaderList[i]);
+		shader_uniformSetMat4fv(renderer->shaderList[i], "projection",
+		                        projection);
+		GL_CHECK_ERROR();
+	}
+
+	renderer->activeShaderId = renderer->shaderList[shaderlist_default];
+	GL_CHECK_ERROR();
+
+	/* Create buffers */
+	glGenVertexArrays(ARRAY_COUNT(renderer->vao), renderer->vao);
+	glGenBuffers(ARRAY_COUNT(renderer->vbo), renderer->vbo);
+	GL_CHECK_ERROR();
+
+	// Bind buffers and configure vao, vao automatically intercepts
+	// glBindCalls and associates the state with that buffer for us
+	for (enum RenderMode mode = 0; mode < rendermode_count; mode++)
+	{
+		glBindVertexArray(renderer->vao[mode]);
+		glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo[mode]);
+
+		glEnableVertexAttribArray(0);
+		u32 numVertexElements = 4;
+		u32 stride            = sizeof(RenderVertex);
+
+		glVertexAttribPointer(0, numVertexElements, GL_FLOAT,
+		                      GL_FALSE, stride, (GLvoid *)0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+	}
+
+	/* Unbind */
+	GL_CHECK_ERROR();
+
+	// TODO(doyle): Lazy allocate render group capacity
+	renderer->groupCapacity = 4096;
+	for (i32 i = 0; i < ARRAY_COUNT(renderer->groups); i++)
+	{
+		renderer->groups[i].vertexList = memory_pushBytes(
+		    persistentArena, renderer->groupCapacity * sizeof(RenderVertex));
+	}
+}
+
+
 typedef struct RenderQuad
 {
 	RenderVertex vertexList[4];
@@ -300,10 +358,10 @@ INTERNAL RenderQuad createRenderQuad(Renderer *renderer, v2 pos, v2 size,
 	 *
 	 */
 
-	v4 vertexPair       = {0};
-	vertexPair.vec2[0]  = pos;
-	vertexPair.vec2[1]  = v2_add(pos, size);
-	v4 texRectNdc = getTexRectNormaliseDeviceCoords(renderTex);
+	v4 vertexPair      = {0};
+	vertexPair.vec2[0] = pos;
+	vertexPair.vec2[1] = v2_add(pos, size);
+	v4 texRectNdc      = getTexRectNormaliseDeviceCoords(renderTex);
 
 	// NOTE(doyle): Create a quad composed of 4 vertexes to be rendered as
 	// a triangle strip using vertices v0, v1, v2, then v2, v1, v3 (note the
@@ -548,8 +606,8 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
 	    v2_add(pos, V2((CAST(f32) font->maxSize.w * CAST(f32) strLen),
 	                   CAST(f32) font->maxSize.h));
 	v2 leftAlignedP = pos;
-	if (math_pointInRect(camera, leftAlignedP) ||
-	    math_pointInRect(camera, rightAlignedP))
+	if (math_rect_contains_p(camera, leftAlignedP) ||
+	    math_rect_contains_p(camera, rightAlignedP))
 	{
 		i32 vertexIndex        = 0;
 		i32 numVertexPerQuad   = 4;
@@ -659,6 +717,7 @@ void renderer_entity(Renderer *renderer, MemoryArena_ *transientArena,
 	}
 }
 
+// TODO(doyle): We have no notion of sort order!!
 void renderer_renderGroups(Renderer *renderer)
 {
 	for (i32 i = 0; i < ARRAY_COUNT(renderer->groups); i++)

@@ -347,14 +347,14 @@ INTERNAL inline v4 mat4_mul_v4(const mat4 a, const v4 b)
 	return result;
 }
 
-INTERNAL inline b32 math_pointInRect(Rect rect, v2 point)
+INTERNAL inline b32 math_rect_contains_p(Rect rect, v2 p)
 {
 	b32 outsideOfRectX = FALSE;
-	if (point.x < rect.min.x || point.x > (rect.min.x + rect.max.w))
+	if (p.x < rect.min.x || p.x > rect.max.w)
 		outsideOfRectX = TRUE;
 
 	b32 outsideOfRectY = FALSE;
-	if (point.y < rect.min.y || point.y > (rect.min.y + rect.max.h))
+	if (p.y < rect.min.y || p.y > rect.max.h)
 		outsideOfRectY = TRUE;
 
 	if (outsideOfRectX || outsideOfRectY) return FALSE;
@@ -362,20 +362,39 @@ INTERNAL inline b32 math_pointInRect(Rect rect, v2 point)
 }
 
 
-INTERNAL inline v4 math_getRect(v2 origin, v2 size)
+INTERNAL inline Rect math_rect_create(v2 origin, v2 size)
 {
-	v2 upperRightBound = v2_add(origin, V2(size.x, size.y));
-	v4 result = V4(origin.x, origin.y, upperRightBound.x, upperRightBound.y);
+	Rect result = {0};
+	result.min  = origin;
+	result.max  = v2_add(origin, size);
 
 	return result;
 }
 
-INTERNAL inline v2 math_getRectSize(v4 rect)
+INTERNAL inline v2 math_rect_get_size(Rect rect)
 {
-	f32 width  = ABS(rect.x - rect.z);
-	f32 height = ABS(rect.y - rect.w);
+	f32 width  = ABS(rect.max.x - rect.min.x);
+	f32 height = ABS(rect.max.y - rect.min.y);
 
 	v2 result = V2(width, height);
+
+	return result;
+}
+
+INTERNAL inline v2 math_rect_get_centre(Rect rect)
+{
+	f32 sumX  = rect.min.x + rect.max.x;
+	f32 sumY  = rect.min.y + rect.max.y;
+	v2 result = v2_scale(V2(sumX, sumY), 0.5f);
+
+	return result;
+}
+
+INTERNAL inline Rect math_rect_shift(Rect rect, v2 shift)
+{
+	Rect result = {0};
+	result.min = v2_add(rect.min, shift);
+	result.max = v2_add(rect.max, shift);
 
 	return result;
 }

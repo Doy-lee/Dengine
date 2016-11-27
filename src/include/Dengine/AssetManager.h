@@ -25,6 +25,9 @@ typedef struct AssetManager
 } AssetManager;
 
 #define MAX_TEXTURE_SIZE 1024
+
+void asset_init(AssetManager *assetManager, MemoryArena_ *arena);
+
 /*
  *********************************
  * Texture Operations

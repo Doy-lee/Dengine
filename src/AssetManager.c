@@ -22,6 +22,34 @@
 #include "Dengine/OpenGL.h"
 #include "Dengine/Platform.h"
 
+void asset_init(AssetManager *assetManager, MemoryArena_ *arena)
+{
+	i32 texAtlasEntries         = 8;
+	assetManager->texAtlas.size = texAtlasEntries;
+	assetManager->texAtlas.entries =
+	    memory_pushBytes(arena, texAtlasEntries * sizeof(HashTableEntry));
+
+	i32 animEntries          = 1024;
+	assetManager->anims.size = animEntries;
+	assetManager->anims.entries =
+	    memory_pushBytes(arena, animEntries * sizeof(HashTableEntry));
+
+	i32 texEntries              = 32;
+	assetManager->textures.size = texEntries;
+	assetManager->textures.entries =
+	    memory_pushBytes(arena, texEntries * sizeof(HashTableEntry));
+
+	/* Create empty 1x1 4bpp black texture */
+	u32 bitmap   = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
+	Texture *tex = asset_getFreeTexSlot(assetManager, arena, "nullTex");
+	*tex         = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
+
+	i32 audioEntries         = 32;
+	assetManager->audio.size = audioEntries;
+	assetManager->audio.entries =
+	    memory_pushBytes(arena, audioEntries * sizeof(HashTableEntry));
+}
+
 /*
  *********************************
  * Hash Table Operations

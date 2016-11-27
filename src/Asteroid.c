@@ -1,32 +1,12 @@
 #include "Dengine/Asteroid.h"
 #include "Dengine/Debug.h"
 
-void initAssetManager(GameState *state)
+INTERNAL void loadGameAssets(GameState *state)
 {
 	AssetManager *assetManager = &state->assetManager;
 	MemoryArena_ *arena        = &state->persistentArena;
 
-	i32 texAtlasEntries         = 8;
-	assetManager->texAtlas.size = texAtlasEntries;
-	assetManager->texAtlas.entries =
-	    memory_pushBytes(arena, texAtlasEntries * sizeof(HashTableEntry));
-
-	i32 animEntries          = 1024;
-	assetManager->anims.size = animEntries;
-	assetManager->anims.entries =
-	    memory_pushBytes(arena, animEntries * sizeof(HashTableEntry));
-
-	{ // Init texture assets
-		i32 texEntries              = 32;
-		assetManager->textures.size = texEntries;
-		assetManager->textures.entries =
-		    memory_pushBytes(arena, texEntries * sizeof(HashTableEntry));
-
-		/* Create empty 1x1 4bpp black texture */
-		u32 bitmap   = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
-		Texture *tex = asset_getFreeTexSlot(assetManager, arena, "nullTex");
-		*tex         = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
-
+	{ // Init font assets
 		i32 result =
 		    asset_loadTTFont(assetManager, arena, &state->transientArena,
 		                     "C:/Windows/Fonts/Arialbd.ttf", "Arial", 15);
@@ -43,12 +23,6 @@ void initAssetManager(GameState *state)
 	}
 
 	{ // Init audio assets
-
-		i32 audioEntries         = 32;
-		assetManager->audio.size = audioEntries;
-		assetManager->audio.entries =
-		    memory_pushBytes(arena, audioEntries * sizeof(HashTableEntry));
-
 		i32 result = asset_loadVorbis(assetManager, arena,
 		                              "data/audio/Asteroids/bang_large.ogg",
 		                              "bang_large");
@@ -85,66 +59,6 @@ void initAssetManager(GameState *state)
 		result = asset_loadVorbis(assetManager, arena,
 		                          "data/audio/Asteroids/thrust.ogg", "thrust");
 		ASSERT(!result);
-	}
-}
-
-void initRenderer(GameState *state, v2 windowSize)
-{
-	AssetManager *assetManager = &state->assetManager;
-	Renderer *renderer         = &state->renderer;
-	renderer->size             = windowSize;
-
-	// NOTE(doyle): Value to map a screen coordinate to NDC coordinate
-	renderer->vertexNdcFactor =
-	    V2(1.0f / renderer->size.w, 1.0f / renderer->size.h);
-	renderer->groupIndexForVertexBatch = -1;
-
-	const mat4 projection =
-	    mat4_ortho(0.0f, renderer->size.w, 0.0f, renderer->size.h, 0.0f, 1.0f);
-	for (i32 i = 0; i < shaderlist_count; i++)
-	{
-		renderer->shaderList[i] = asset_getShader(assetManager, i);
-		shader_use(renderer->shaderList[i]);
-		shader_uniformSetMat4fv(renderer->shaderList[i], "projection",
-		                        projection);
-		GL_CHECK_ERROR();
-	}
-
-	renderer->activeShaderId = renderer->shaderList[shaderlist_default];
-	GL_CHECK_ERROR();
-
-	/* Create buffers */
-	glGenVertexArrays(ARRAY_COUNT(renderer->vao), renderer->vao);
-	glGenBuffers(ARRAY_COUNT(renderer->vbo), renderer->vbo);
-	GL_CHECK_ERROR();
-
-	// Bind buffers and configure vao, vao automatically intercepts
-	// glBindCalls and associates the state with that buffer for us
-	for (enum RenderMode mode = 0; mode < rendermode_count; mode++)
-	{
-		glBindVertexArray(renderer->vao[mode]);
-		glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo[mode]);
-
-		glEnableVertexAttribArray(0);
-		u32 numVertexElements = 4;
-		u32 stride            = sizeof(RenderVertex);
-
-		glVertexAttribPointer(0, numVertexElements, GL_FLOAT,
-		                      GL_FALSE, stride, (GLvoid *)0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-	}
-
-	/* Unbind */
-	GL_CHECK_ERROR();
-
-	// TODO(doyle): Lazy allocate render group capacity
-	renderer->groupCapacity = 4096;
-	for (i32 i = 0; i < ARRAY_COUNT(renderer->groups); i++)
-	{
-		renderer->groups[i].vertexList =
-		    memory_pushBytes(&state->persistentArena,
-		                     renderer->groupCapacity * sizeof(RenderVertex));
 	}
 }
 
@@ -434,19 +348,19 @@ INTERNAL void addAsteroidWithSpec(World *world, enum AsteroidSize asteroidSize,
 		// generated
 		// to float back into game space
 		v2 newP = V2i(randX, randY);
-		if (math_pointInRect(topLeftQuadrant, newP))
+		if (math_rect_contains_p(topLeftQuadrant, newP))
 		{
 			newP.y += midpoint.y;
 		}
-		else if (math_pointInRect(botLeftQuadrant, newP))
+		else if (math_rect_contains_p(botLeftQuadrant, newP))
 		{
 			newP.x -= midpoint.x;
 		}
-		else if (math_pointInRect(topRightQuadrant, newP))
+		else if (math_rect_contains_p(topRightQuadrant, newP))
 		{
 			newP.y -= midpoint.y;
 		}
-		else if (math_pointInRect(botRightQuadrant, newP))
+		else if (math_rect_contains_p(botRightQuadrant, newP))
 		{
 			newP.x += midpoint.x;
 		}
@@ -556,22 +470,11 @@ INTERNAL void deleteEntity(World *world, i32 entityIndex)
 	world->entityList[--world->entityIndex] = emptyEntity;
 }
 
-void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
-                                  v2 windowSize, f32 dt)
+INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 {
-	MemoryIndex globalTransientArenaSize =
-	    (MemoryIndex)((f32)memory->transientSize * 0.5f);
-	memory_arenaInit(&state->transientArena, memory->transient,
-	                 globalTransientArenaSize);
-
 	World *world = &state->world;
-	if (!state->init)
+	if (!world->init)
 	{
-		srand((u32)time(NULL));
-		initAssetManager(state);
-		initRenderer(state, windowSize);
-		audio_init(&state->audioManager);
-
 		world->pixelsPerMeter = 70.0f;
 
 		MemoryIndex entityArenaSize =
@@ -579,6 +482,10 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 
 		u8 *arenaBase = state->transientArena.base + state->transientArena.size;
 		memory_arenaInit(&world->entityArena, arenaBase, entityArenaSize);
+
+		world->camera.min               = V2(0, 0);
+		world->camera.max               = state->renderer.size;
+		world->worldSize                = state->renderer.size;
 
 		{ // Init null entity
 			Entity *nullEntity = &world->entityList[world->entityIndex++];
@@ -596,12 +503,12 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		}
 
 		{ // Init ship entity
-			Entity *ship     = &world->entityList[world->entityIndex++];
-			ship->id         = world->entityIdCounter++;
-			ship->pos        = V2(100, 100);
-			ship->size       = V2(25.0f, 50.0f);
-			ship->hitbox     = ship->size;
-			ship->offset     = v2_scale(ship->size, -0.5f);
+			Entity *ship = &world->entityList[world->entityIndex++];
+			ship->id     = world->entityIdCounter++;
+			ship->pos    = math_rect_get_centre(world->camera);
+			ship->size   = V2(25.0f, 50.0f);
+			ship->hitbox = ship->size;
+			ship->offset = v2_scale(ship->size, -0.5f);
 
 			ship->numVertexPoints = 3;
 			ship->vertexPoints    = memory_pushBytes(
@@ -636,20 +543,20 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 			                 entitytype_asteroid_large, TRUE);
 		}
 
-		world->camera.min = V2(0, 0);
-		world->camera.max = state->renderer.size;
-		world->worldSize  = windowSize;
+		world->init                     = TRUE;
+		world->onInitAsteroidSpawnTimer = 1.0f;
 
-		state->init       = TRUE;
-
-		Font *arial15 = asset_getFont(&state->assetManager, "Arial", 15);
-		debug_init(&state->persistentArena, windowSize, *arial15);
 	}
 
-	for (u32 i = world->asteroidCounter; i < world->numAsteroids; i++)
-		addAsteroid(world, (rand() % asteroidsize_count));
-
-	platform_processInputBuffer(&state->input, dt);
+	if (world->onInitAsteroidSpawnTimer > 0)
+	{
+		world->onInitAsteroidSpawnTimer -= dt;
+	}
+	else
+	{
+		for (u32 i = world->asteroidCounter; i < world->numAsteroids; i++)
+			addAsteroid(world, (rand() % asteroidsize_count));
+	}
 
 	if (platform_queryKey(&state->input.keys[keycode_left_square_bracket],
 	                 readkeytype_repeat, 0.2f))
@@ -804,7 +711,7 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		}
 		else if (entity->type == entitytype_bullet)
 		{
-			if (!math_pointInRect(world->camera, entity->pos))
+			if (!math_rect_contains_p(world->camera, entity->pos))
 			{
 				deleteEntity(world, i--);
 				continue;
@@ -991,39 +898,6 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		                collideColor, flags);
 	}
 
-	{ // Draw Ui
-		UiState *uiState             = &state->uiState;
-		MemoryArena_ *transientArena = &state->transientArena;
-		AssetManager *assetManager   = &state->assetManager;
-		Renderer *renderer           = &state->renderer;
-		InputBuffer *inputBuffer     = &state->input;
-
-		renderer_rect(renderer, world->camera, V2(0, 0), renderer->size,
-		              V2(0, 0), 0, NULL, V4(0, 0, 0, 0.5f),
-		              renderflag_no_texture);
-
-		Font *arial15 = asset_getFontCreateSizeOnDemand(
-		    assetManager, &state->persistentArena, transientArena, "Arial", 15);
-		Font *arial25 = asset_getFontCreateSizeOnDemand(
-		    assetManager, &state->persistentArena, transientArena, "Arial", 40);
-
-		v2 titleP = V2(20, renderer->size.h - 100);
-		renderer_staticString(renderer, transientArena, arial25,
-		                      "Asteroids", titleP, V2(0, 0), 0, V4(1, 0, 0, 1),
-		                      0);
-
-		userInterface_beginState(uiState);
-
-		Rect buttonRect = {V2(20, 20), V2(40, 40)};
-
-#if 1
-		userInterface_button(uiState, transientArena, assetManager, renderer,
-		                     arial15, *inputBuffer, 0, buttonRect,
-		                     "test button");
-#endif
-
-		userInterface_endState(uiState, inputBuffer);
-	}
 
 	for (i32 i = 0; i < world->numAudioRenderers; i++)
 	{
@@ -1031,11 +905,94 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		audio_updateAndPlay(&state->transientArena, &state->audioManager,
 		                    audioRenderer);
 	}
+}
 
-#if 1
+INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
+{
+	UiState *uiState             = &state->uiState;
+	MemoryArena_ *transientArena = &state->transientArena;
+	AssetManager *assetManager   = &state->assetManager;
+	Renderer *renderer           = &state->renderer;
+	World *world                 = &state->world;
+	InputBuffer *inputBuffer     = &state->input;
+
+	Font *arial15 = asset_getFontCreateSizeOnDemand(
+	    assetManager, &state->persistentArena, transientArena, "Arial", 15);
+	Font *arial25 = asset_getFontCreateSizeOnDemand(
+	    assetManager, &state->persistentArena, transientArena, "Arial", 40);
+
+	f32 margin  = 20.0f;
+	f32 padding = 20.0f;
+	v2 titleP   = V2(margin, renderer->size.h - 100 + margin);
+	renderer_staticString(renderer, transientArena, arial25, "Asteroids",
+	                      titleP, V2(0, 0), 0, V4(1, 0, 0, 1), 0);
+
+	userInterface_beginState(uiState);
+
+	Rect buttonRect = {0};
+	buttonRect.min = V2(margin, margin);
+	buttonRect.max = V2(margin + 100, margin + 40);
+	buttonRect = math_rect_shift(buttonRect, V2(0, titleP.y - 100));
+	if (userInterface_button(uiState, transientArena, assetManager, renderer,
+	                         arial15, *inputBuffer, 1, buttonRect,
+	                         "Start Game"))
+	{
+		state->appState = appstate_game;
+	}
+
+	userInterface_endState(uiState, inputBuffer);
+}
+
+void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
+                                  v2 windowSize, f32 dt)
+{
+	MemoryIndex globalTransientArenaSize =
+	    (MemoryIndex)((f32)memory->transientSize * 0.5f);
+	memory_arenaInit(&state->transientArena, memory->transient,
+	                 globalTransientArenaSize);
+
+	if (!state->init)
+	{
+		srand((u32)time(NULL));
+		asset_init(&state->assetManager, &state->persistentArena);
+		audio_init(&state->audioManager);
+		
+		// NOTE(doyle): Load game assets must be before init_renderer so that
+		// shaders are available for the renderer configuration
+		loadGameAssets(state);
+		renderer_init(&state->renderer, &state->assetManager,
+		              &state->persistentArena, windowSize);
+
+		Font *arial15 = asset_getFont(&state->assetManager, "Arial", 15);
+		debug_init(&state->persistentArena, windowSize, *arial15);
+
+		state->appState = appstate_start_menu;
+		state->init     = TRUE;
+	}
+
+	platform_processInputBuffer(&state->input, dt);
+
+	switch (state->appState)
+	{
+	case appstate_start_menu:
+	{
+		startMenuUpdate(state, memory, dt);
+	}
+	break;
+
+	case appstate_game:
+	{
+		gameUpdate(state, memory, dt);
+	}
+	break;
+
+	default:
+	{
+		ASSERT(INVALID_CODE_PATH);
+	}
+	break;
+	}
+
 	debug_drawUi(state, dt);
-	debug_clearCounter();
-#endif
-
 	renderer_renderGroups(&state->renderer);
 }

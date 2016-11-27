@@ -95,12 +95,6 @@ void debug_countIncrement(i32 id)
 	GLOBAL_debug.callCount[id]++;
 }
 
-void debug_clearCounter()
-{
-	for (i32 i = 0; i < debugcount_num; i++)
-		GLOBAL_debug.callCount[i] = 0;
-}
-
 
 void debug_consoleLog(char *string, char *file, int lineNum)
 {
@@ -260,7 +254,7 @@ INTERNAL void renderConsole(Renderer *renderer, MemoryArena_ *arena)
 	for (i32 i = 0; i < maxConsoleLines; i++)
 	{
 		f32 rotate = 0;
-		v4 color   = V4(0, 0, 0, 1);
+		v4 color   = V4(1.0f, 1.0f, 1.0f, 1.0f);
 		renderer_staticString(renderer, arena, &GLOBAL_debug.font,
 		                      GLOBAL_debug.console[i], consoleStrP,
 		                      V2(0, 0), rotate, color, 0);
@@ -270,9 +264,6 @@ INTERNAL void renderConsole(Renderer *renderer, MemoryArena_ *arena)
 
 void debug_drawUi(GameState *state, f32 dt)
 {
-	updateAndRenderDebugStack(&state->renderer, &state->transientArena, dt);
-	renderConsole(&state->renderer, &state->transientArena);
-
 	{ // Print Memory Arena Info
 		DEBUG_PUSH_STRING("== MEMORY ARENAS ==");
 		MemoryArena_ *transient = &state->transientArena;
@@ -298,5 +289,10 @@ void debug_drawUi(GameState *state, f32 dt)
 	DEBUG_PUSH_VAR("Num Vertex: %d",
 	               GLOBAL_debug.callCount[debugcount_numVertex], "i32");
 
-	debug_clearCounter();
+	updateAndRenderDebugStack(&state->renderer, &state->transientArena, dt);
+	renderConsole(&state->renderer, &state->transientArena);
+
+	{ // Clear debug call counters
+		for (i32 i = 0; i < debugcount_num; i++) GLOBAL_debug.callCount[i] = 0;
+	}
 }
