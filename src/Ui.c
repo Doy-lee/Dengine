@@ -1,16 +1,13 @@
-#include "Dengine/UserInterface.h"
+#include "Dengine/Ui.h"
 #include "Dengine/AssetManager.h"
 #include "Dengine/Assets.h"
 #include "Dengine/Asteroid.h"
 #include "Dengine/Debug.h"
 #include "Dengine/Renderer.h"
 
-void userInterface_beginState(UiState *state)
-{
-	state->hotItem = 0;
-}
+void ui_beginState(UiState *state) { state->hotItem = 0; }
 
-void userInterface_endState(UiState *state, InputBuffer *input)
+void ui_endState(UiState *state, InputBuffer *input)
 {
 	if (!common_isSet(input->keys[keycode_mouseLeft].flags,
 	                  keystateflag_ended_down))
@@ -28,13 +25,12 @@ void userInterface_endState(UiState *state, InputBuffer *input)
 	state->keyChar    = keycode_null;
 }
 
-i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
-                         AssetManager *const assetManager,
-                         Renderer *const renderer, Font *const font,
-                         const InputBuffer input, const i32 id, const Rect rect,
-                         const char *const label)
+i32 ui_button(UiState *const uiState, MemoryArena_ *const arena,
+              AssetManager *const assetManager, Renderer *const renderer,
+              Font *const font, const InputBuffer input, const i32 id,
+              const Rect rect, const char *const label)
 {
-	if (math_rect_contains_p(rect, input.mouseP))
+	if (math_rectContainsP(rect, input.mouseP))
 	{
 		uiState->hotItem = id;
 		if (uiState->activeItem == 0)
@@ -45,7 +41,6 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 				uiState->activeItem = id;
 			}
 		}
-
 	}
 
 #if 0
@@ -61,7 +56,7 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 		if (uiState->activeItem == id)
 		{
 			buttonOffset = V2(1, 1);
-			buttonColor = V4(0.8f, 0.8f, 0.8f, 1);
+			buttonColor  = V4(0.8f, 0.8f, 0.8f, 1);
 		}
 		else
 		{
@@ -71,27 +66,25 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 	}
 
 	/* If no widget has keyboard focus, take it */
-	if (uiState->kbdItem == 0)
-		uiState->kbdItem = id;
+	if (uiState->kbdItem == 0) uiState->kbdItem = id;
 
-	v2 rectSize = math_rect_get_size(rect);
+	v2 rectSize = math_rectGetSize(rect);
 	/* If we have keyboard focus, show it */
 	if (uiState->kbdItem == id)
 	{
 		// Draw outline
-		renderer_staticRect(renderer,
-		                    v2_add(V2(-2, -2), v2_add(buttonOffset, rect.min)),
-		                    v2_add(V2(4, 4), rectSize), V2(0, 0), 0, NULL,
-		                    buttonColor, renderflag_no_texture);
+		renderer_rectFixed(renderer,
+		                   v2_add(V2(-2, -2), v2_add(buttonOffset, rect.min)),
+		                   v2_add(V2(4, 4), rectSize), V2(0, 0), 0, NULL,
+		                   buttonColor, renderflag_no_texture);
 	}
 
-	renderer_staticRect(renderer, v2_add(buttonOffset, rect.min),
-	                    rectSize, V2(0, 0), 0, NULL,
-	                    buttonColor, renderflag_no_texture);
+	renderer_rectFixed(renderer, v2_add(buttonOffset, rect.min), rectSize,
+	                   V2(0, 0), 0, NULL, buttonColor, renderflag_no_texture);
 
 	if (label)
 	{
-		v2 labelDim = asset_stringDimInPixels(font, label);
+		v2 labelDim = asset_fontStringDimInPixels(font, label);
 		v2 labelPos = rect.min;
 
 		// Initially position the label to half the width of the button
@@ -104,14 +97,14 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 		if (labelDim.h < rectSize.h)
 		{
 			labelPos.y += (rectSize.h * 0.5f);
-			labelPos.y -= (CAST(f32)labelDim.h * 0.5f);
+			labelPos.y -= (CAST(f32) labelDim.h * 0.5f);
 		}
 
 		// TODO(doyle): We're using odd colors to overcome z-sorting by forcing
 		// button text into another render group
 		labelPos = v2_add(labelPos, buttonOffset);
-		renderer_staticString(renderer, arena, font, label, labelPos, V2(0, 0),
-		                      0, V4(0.9f, 0.9f, 0.9f, 0.9f), 0);
+		renderer_stringFixed(renderer, arena, font, label, labelPos, V2(0, 0),
+		                     0, V4(0.9f, 0.9f, 0.9f, 0.9f), 0);
 	}
 
 	// After renderering before click check, see if we need to process keys
@@ -149,17 +142,16 @@ i32 userInterface_button(UiState *const uiState, MemoryArena_ *const arena,
 	return 0;
 }
 
-i32 userInterface_scrollbar(UiState *const uiState,
-                            AssetManager *const assetManager,
-                            Renderer *const renderer, const InputBuffer input,
-                            const i32 id, const Rect scrollBarRect,
-                            i32 *const value, const i32 maxValue)
+i32 ui_scrollbar(UiState *const uiState, AssetManager *const assetManager,
+                 Renderer *const renderer, const InputBuffer input,
+                 const i32 id, const Rect scrollBarRect, i32 *const value,
+                 const i32 maxValue)
 {
 #ifdef DENGINE_DEBUG
 	ASSERT(*value <= maxValue);
 #endif
 
-	if (math_rect_contains_p(scrollBarRect, input.mouseP))
+	if (math_rectContainsP(scrollBarRect, input.mouseP))
 	{
 		uiState->hotItem = id;
 		if (uiState->activeItem == 0)
@@ -175,39 +167,38 @@ i32 userInterface_scrollbar(UiState *const uiState,
 	RenderTex renderTex = renderer_createNullRenderTex(assetManager);
 
 	/* If no widget has keyboard focus, take it */
-	if (uiState->kbdItem == 0)
-		uiState->kbdItem = id;
+	if (uiState->kbdItem == 0) uiState->kbdItem = id;
 
-	v2 rectSize = math_rect_get_size(scrollBarRect);
+	v2 rectSize = math_rectGetSize(scrollBarRect);
 	/* If we have keyboard focus, show it */
 	if (uiState->kbdItem == id)
 	{
 		// Draw outline
-		renderer_staticRect(renderer, v2_add(V2(-2, -2), scrollBarRect.min),
-		                    v2_add(V2(4, 4), rectSize), V2(0, 0), 0,
-		                    &renderTex, V4(1, 0, 0, 1), 0);
+		renderer_rectFixed(renderer, v2_add(V2(-2, -2), scrollBarRect.min),
+		                   v2_add(V2(4, 4), rectSize), V2(0, 0), 0, &renderTex,
+		                   V4(1, 0, 0, 1), 0);
 	}
 
 	// Render scroll bar background
-	renderer_staticRect(renderer, scrollBarRect.min, rectSize,
-	                    V2(0, 0), 0, &renderTex, V4(0.75f, 0.5f, 0.5f, 1), 0);
+	renderer_rectFixed(renderer, scrollBarRect.min, rectSize, V2(0, 0), 0,
+	                   &renderTex, V4(0.75f, 0.5f, 0.5f, 1), 0);
 
 	// Render scroll bar slider
-	v2 sliderSize   = V2(16, 16);
-	v4 sliderColor  = V4(0, 0, 0, 1);
+	v2 sliderSize  = V2(16, 16);
+	v4 sliderColor = V4(0, 0, 0, 1);
 
-	f32 sliderPercentageOffset = (CAST(f32) *value / CAST(f32) maxValue);
+	f32 sliderPercentageOffset = (CAST(f32) * value / CAST(f32) maxValue);
 	f32 sliderYOffsetToBar =
 	    (rectSize.h - sliderSize.h) * sliderPercentageOffset;
-	v2 sliderPos   = v2_add(scrollBarRect.min, V2(0, sliderYOffsetToBar));
+	v2 sliderPos = v2_add(scrollBarRect.min, V2(0, sliderYOffsetToBar));
 
 	if (uiState->hotItem == id || uiState->activeItem == id)
 		sliderColor = V4(1.0f, 0, 0, 1);
 	else
 		sliderColor = V4(0.0f, 1.0f, 0, 1);
 
-	renderer_staticRect(renderer, sliderPos, sliderSize, V2(0, 0), 0, &renderTex,
-	                    sliderColor, 0);
+	renderer_rectFixed(renderer, sliderPos, sliderSize, V2(0, 0), 0, &renderTex,
+	                   sliderColor, 0);
 
 	if (uiState->kbdItem == id)
 	{
@@ -222,7 +213,8 @@ i32 userInterface_scrollbar(UiState *const uiState,
 			uiState->keyEntered = keycode_null;
 			break;
 		case keycode_up:
-			// TODO(doyle): Fix input for this to work, i.e. proper rate limited input poll
+			// TODO(doyle): Fix input for this to work, i.e. proper rate limited
+			// input poll
 			if (*value < maxValue)
 			{
 				(*value)++;
@@ -251,10 +243,9 @@ i32 userInterface_scrollbar(UiState *const uiState,
 		else if (mouseYRelToRect > rectSize.h)
 			mouseYRelToRect = rectSize.h;
 
-		f32 newSliderPercentOffset =
-		    (CAST(f32) mouseYRelToRect / rectSize.h);
+		f32 newSliderPercentOffset = (CAST(f32) mouseYRelToRect / rectSize.h);
 
-		i32 newValue = CAST(i32)(newSliderPercentOffset * CAST(f32)maxValue);
+		i32 newValue = CAST(i32)(newSliderPercentOffset * CAST(f32) maxValue);
 		if (newValue != *value)
 		{
 			*value = newValue;
@@ -265,16 +256,15 @@ i32 userInterface_scrollbar(UiState *const uiState,
 	return 0;
 }
 
-i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
-                            AssetManager *const assetManager,
-                            Renderer *const renderer, Font *const font,
-                            InputBuffer input, const i32 id, const Rect rect,
-                            char *const string)
+i32 ui_textfield(UiState *const uiState, MemoryArena_ *const arena,
+                 AssetManager *const assetManager, Renderer *const renderer,
+                 Font *const font, InputBuffer input, const i32 id,
+                 const Rect rect, char *const string)
 {
-	i32 strLen = common_strlen(string);
+	i32 strLen  = common_strlen(string);
 	b32 changed = FALSE;
 
-	if (math_rect_contains_p(rect, input.mouseP))
+	if (math_rectContainsP(rect, input.mouseP))
 	{
 		uiState->hotItem = id;
 		if (uiState->activeItem == 0)
@@ -288,37 +278,36 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
 	}
 
 	/* If no widget has keyboard focus, take it */
-	if (uiState->kbdItem == 0)
-		uiState->kbdItem = id;
+	if (uiState->kbdItem == 0) uiState->kbdItem = id;
 
-	v2 rectSize = math_rect_get_size(rect);
+	v2 rectSize = math_rectGetSize(rect);
 	/* If we have keyboard focus, show it */
 	if (uiState->kbdItem == id)
 	{
 		// Draw outline
-		renderer_staticRect(renderer, v2_add(V2(-2, -2), rect.min),
-		                    v2_add(V2(4, 4), rectSize), V2(0, 0), 0,
-		                    NULL, V4(1.0f, 0, 0, 1), 0);
+		renderer_rectFixed(renderer, v2_add(V2(-2, -2), rect.min),
+		                   v2_add(V2(4, 4), rectSize), V2(0, 0), 0, NULL,
+		                   V4(1.0f, 0, 0, 1), 0);
 	}
 
 	// Render text field
-	renderer_staticRect(renderer, rect.min, rectSize, V2(0, 0), 0, NULL,
-	                    V4(0.75f, 0.5f, 0.5f, 1), 0);
+	renderer_rectFixed(renderer, rect.min, rectSize, V2(0, 0), 0, NULL,
+	                   V4(0.75f, 0.5f, 0.5f, 1), 0);
 
 	if (uiState->activeItem == id || uiState->hotItem == id)
 	{
-		renderer_staticRect(renderer, rect.min, rectSize, V2(0, 0), 0,
-		                    NULL, V4(0.75f, 0.75f, 0.0f, 1), 0);
+		renderer_rectFixed(renderer, rect.min, rectSize, V2(0, 0), 0, NULL,
+		                   V4(0.75f, 0.75f, 0.0f, 1), 0);
 	}
 	else
 	{
-		renderer_staticRect(renderer, rect.min, rectSize, V2(0, 0), 0,
-		                    NULL, V4(0.5f, 0.5f, 0.5f, 1), 0);
+		renderer_rectFixed(renderer, rect.min, rectSize, V2(0, 0), 0, NULL,
+		                   V4(0.5f, 0.5f, 0.5f, 1), 0);
 	}
 
 	v2 strPos = rect.min;
-	renderer_staticString(renderer, arena, font, string, strPos, V2(0, 0), 0,
-	                      V4(0, 0, 0, 1), 0);
+	renderer_stringFixed(renderer, arena, font, string, strPos, V2(0, 0), 0,
+	                     V4(0, 0, 0, 1), 0);
 
 	if (uiState->kbdItem == id)
 	{
@@ -336,7 +325,7 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
 			if (strLen > 0)
 			{
 				string[--strLen] = 0;
-				changed        = TRUE;
+				changed          = TRUE;
 			}
 			break;
 		default:
@@ -347,8 +336,8 @@ i32 userInterface_textField(UiState *const uiState, MemoryArena_ *const arena,
 		    uiState->keyChar <= keycode_tilda && strLen < 30)
 		{
 			string[strLen++] = uiState->keyChar + ' ';
-			string[strLen] = 0;
-			changed = TRUE;
+			string[strLen]   = 0;
+			changed          = TRUE;
 		}
 	}
 

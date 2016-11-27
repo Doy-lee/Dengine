@@ -96,7 +96,7 @@ i32 platform_readFileToBuffer(MemoryArena_ *arena, const char *const filePath,
 	return 0;
 }
 
-void platform_processInputBuffer(InputBuffer *inputBuffer, f32 dt)
+void platform_inputBufferProcess(InputBuffer *inputBuffer, f32 dt)
 {
 	KeyState *keyBuffer = inputBuffer->keys;
 	for (enum KeyCode code = 0; code < keycode_count; code++)

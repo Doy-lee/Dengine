@@ -8,55 +8,55 @@ INTERNAL void loadGameAssets(GameState *state)
 
 	{ // Init font assets
 		i32 result =
-		    asset_loadTTFont(assetManager, arena, &state->transientArena,
+		    asset_fontLoadTTF(assetManager, arena, &state->transientArena,
 		                     "C:/Windows/Fonts/Arialbd.ttf", "Arial", 15);
 	}
 
 	{ // Init shaders assets
-		asset_loadShaderFiles(
+		asset_shaderLoad(
 		    assetManager, arena, "data/shaders/default_tex.vert.glsl",
 		    "data/shaders/default_tex.frag.glsl", shaderlist_default);
 
-		asset_loadShaderFiles(
+		asset_shaderLoad(
 		    assetManager, arena, "data/shaders/default_no_tex.vert.glsl",
 		    "data/shaders/default_no_tex.frag.glsl", shaderlist_default_no_tex);
 	}
 
 	{ // Init audio assets
-		i32 result = asset_loadVorbis(assetManager, arena,
+		i32 result = asset_vorbisLoad(assetManager, arena,
 		                              "data/audio/Asteroids/bang_large.ogg",
 		                              "bang_large");
 		ASSERT(!result);
-		result = asset_loadVorbis(assetManager, arena,
+		result = asset_vorbisLoad(assetManager, arena,
 		                          "data/audio/Asteroids/bang_medium.ogg",
 		                          "bang_medium");
 		ASSERT(!result);
-		result = asset_loadVorbis(assetManager, arena,
+		result = asset_vorbisLoad(assetManager, arena,
 		                          "data/audio/Asteroids/bang_small.ogg",
 		                          "bang_small");
 		ASSERT(!result);
-		result = asset_loadVorbis(assetManager, arena,
+		result = asset_vorbisLoad(assetManager, arena,
 		                          "data/audio/Asteroids/beat1.ogg", "beat1");
 		ASSERT(!result);
-		result = asset_loadVorbis(assetManager, arena,
+		result = asset_vorbisLoad(assetManager, arena,
 		                          "data/audio/Asteroids/beat2.ogg", "beat2");
 		ASSERT(!result);
-		result = asset_loadVorbis(assetManager, arena,
+		result = asset_vorbisLoad(assetManager, arena,
 		                          "data/audio/Asteroids/extra_ship.ogg",
 		                          "extra_ship");
 		ASSERT(!result);
-		result = asset_loadVorbis(assetManager, arena,
+		result = asset_vorbisLoad(assetManager, arena,
 		                          "data/audio/Asteroids/fire.ogg", "fire");
 		ASSERT(!result);
-		result = asset_loadVorbis(assetManager, arena,
+		result = asset_vorbisLoad(assetManager, arena,
 		                          "data/audio/Asteroids/saucer_big.ogg",
 		                          "saucer_big");
 		ASSERT(!result);
-		result = asset_loadVorbis(assetManager, arena,
+		result = asset_vorbisLoad(assetManager, arena,
 		                          "data/audio/Asteroids/saucer_small.ogg",
 		                          "saucer_small");
 		ASSERT(!result);
-		result = asset_loadVorbis(assetManager, arena,
+		result = asset_vorbisLoad(assetManager, arena,
 		                          "data/audio/Asteroids/thrust.ogg", "thrust");
 		ASSERT(!result);
 	}
@@ -348,19 +348,19 @@ INTERNAL void addAsteroidWithSpec(World *world, enum AsteroidSize asteroidSize,
 		// generated
 		// to float back into game space
 		v2 newP = V2i(randX, randY);
-		if (math_rect_contains_p(topLeftQuadrant, newP))
+		if (math_rectContainsP(topLeftQuadrant, newP))
 		{
 			newP.y += midpoint.y;
 		}
-		else if (math_rect_contains_p(botLeftQuadrant, newP))
+		else if (math_rectContainsP(botLeftQuadrant, newP))
 		{
 			newP.x -= midpoint.x;
 		}
-		else if (math_rect_contains_p(topRightQuadrant, newP))
+		else if (math_rectContainsP(topRightQuadrant, newP))
 		{
 			newP.y -= midpoint.y;
 		}
-		else if (math_rect_contains_p(botRightQuadrant, newP))
+		else if (math_rectContainsP(botRightQuadrant, newP))
 		{
 			newP.x += midpoint.x;
 		}
@@ -505,7 +505,7 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 		{ // Init ship entity
 			Entity *ship = &world->entityList[world->entityIndex++];
 			ship->id     = world->entityIdCounter++;
-			ship->pos    = math_rect_get_centre(world->camera);
+			ship->pos    = math_rectGetCentre(world->camera);
 			ship->size   = V2(25.0f, 50.0f);
 			ship->hitbox = ship->size;
 			ship->offset = v2_scale(ship->size, -0.5f);
@@ -596,10 +596,10 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 				if (audioRenderer)
 				{
 					AudioVorbis *fire =
-					    asset_getVorbis(&state->assetManager, "fire");
+					    asset_vorbisGet(&state->assetManager, "fire");
 					// TODO(doyle): Atm transient arena is not used, this is
 					// just to fill out the arguments
-					audio_playVorbis(&state->transientArena,
+					audio_vorbisPlay(&state->transientArena,
 					                 &state->audioManager, audioRenderer, fire,
 					                 1);
 				}
@@ -711,7 +711,7 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 		}
 		else if (entity->type == entitytype_bullet)
 		{
-			if (!math_rect_contains_p(world->camera, entity->pos))
+			if (!math_rectContainsP(world->camera, entity->pos))
 			{
 				deleteEntity(world, i--);
 				continue;
@@ -882,8 +882,8 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 					}
 
 					AudioVorbis *explode =
-					    asset_getVorbis(&state->assetManager, sound);
-					audio_playVorbis(&state->transientArena,
+					    asset_vorbisGet(&state->assetManager, sound);
+					audio_vorbisPlay(&state->transientArena,
 					                 &state->audioManager, audioRenderer,
 					                 explode, 1);
 				}
@@ -916,31 +916,31 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 	World *world                 = &state->world;
 	InputBuffer *inputBuffer     = &state->input;
 
-	Font *arial15 = asset_getFontCreateSizeOnDemand(
+	Font *arial15 = asset_fontGetOrCreateOnDemand(
 	    assetManager, &state->persistentArena, transientArena, "Arial", 15);
-	Font *arial25 = asset_getFontCreateSizeOnDemand(
+	Font *arial25 = asset_fontGetOrCreateOnDemand(
 	    assetManager, &state->persistentArena, transientArena, "Arial", 40);
 
 	f32 margin  = 20.0f;
 	f32 padding = 20.0f;
 	v2 titleP   = V2(margin, renderer->size.h - 100 + margin);
-	renderer_staticString(renderer, transientArena, arial25, "Asteroids",
+	renderer_stringFixed(renderer, transientArena, arial25, "Asteroids",
 	                      titleP, V2(0, 0), 0, V4(1, 0, 0, 1), 0);
 
-	userInterface_beginState(uiState);
+	ui_beginState(uiState);
 
 	Rect buttonRect = {0};
 	buttonRect.min = V2(margin, margin);
 	buttonRect.max = V2(margin + 100, margin + 40);
-	buttonRect = math_rect_shift(buttonRect, V2(0, titleP.y - 100));
-	if (userInterface_button(uiState, transientArena, assetManager, renderer,
+	buttonRect = math_rectShift(buttonRect, V2(0, titleP.y - 100));
+	if (ui_button(uiState, transientArena, assetManager, renderer,
 	                         arial15, *inputBuffer, 1, buttonRect,
 	                         "Start Game"))
 	{
 		state->appState = appstate_game;
 	}
 
-	userInterface_endState(uiState, inputBuffer);
+	ui_endState(uiState, inputBuffer);
 }
 
 void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
@@ -963,14 +963,14 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		renderer_init(&state->renderer, &state->assetManager,
 		              &state->persistentArena, windowSize);
 
-		Font *arial15 = asset_getFont(&state->assetManager, "Arial", 15);
+		Font *arial15 = asset_fontGet(&state->assetManager, "Arial", 15);
 		debug_init(&state->persistentArena, windowSize, *arial15);
 
 		state->appState = appstate_start_menu;
 		state->init     = TRUE;
 	}
 
-	platform_processInputBuffer(&state->input, dt);
+	platform_inputBufferProcess(&state->input, dt);
 
 	switch (state->appState)
 	{

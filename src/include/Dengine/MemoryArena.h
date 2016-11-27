@@ -29,8 +29,8 @@ typedef struct TempMemory
 	MemoryIndex used;
 } TempMemory;
 
-TempMemory memory_begin_temporary_region(MemoryArena_ *arena);
-void memory_end_temporary_region(TempMemory tempMemory);
+TempMemory memory_beginTempRegion(MemoryArena_ *arena);
+void memory_endTempRegion(TempMemory tempMemory);
 
 #define MEMORY_PUSH_STRUCT(arena, type) (type *)memory_pushBytes(arena, sizeof(type))
 #define MEMORY_PUSH_ARRAY(arena, count, type) (type *)memory_pushBytes(arena, (count)*sizeof(type))

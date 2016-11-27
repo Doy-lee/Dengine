@@ -130,10 +130,8 @@
     <ClCompile Include="src\MemoryArena.c" />
     <ClCompile Include="src\Platform.c" />
     <ClCompile Include="src\Renderer.c" />
-    <ClCompile Include="src\Shader.c" />
     <ClCompile Include="src\String.c" />
-    <ClCompile Include="src\UserInterface.c" />
-    <ClCompile Include="src\Texture.c" />
+    <ClCompile Include="src\Ui.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="data\shaders\default.frag.glsl" />
@@ -155,10 +153,8 @@
     <ClInclude Include="src\include\Dengine\Math.h" />
     <ClInclude Include="src\include\Dengine\OpenGL.h" />
     <ClInclude Include="src\include\Dengine\Renderer.h" />
-    <ClInclude Include="src\include\Dengine\Shader.h" />
     <ClInclude Include="src\include\Dengine\String.h" />
-    <ClInclude Include="src\include\Dengine\Texture.h" />
-    <ClInclude Include="src\include\Dengine\UserInterface.h" />
+    <ClInclude Include="src\include\Dengine\Ui.h" />
     <ClInclude Include="src\include\Dengine\WorldTraveller.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

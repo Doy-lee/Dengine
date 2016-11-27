@@ -15,12 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Texture.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Shader.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\Renderer.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -42,9 +36,6 @@
     <ClCompile Include="src\dengine.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\UserInterface.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\String.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -55,6 +46,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Entity.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ui.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -68,13 +62,7 @@
     <ClInclude Include="src\include\Dengine\Common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\include\Dengine\Shader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\include\Dengine\OpenGL.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\include\Dengine\Texture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\include\Dengine\AssetManager.h">
@@ -107,9 +95,6 @@
     <ClInclude Include="src\include\Dengine\WorldTraveller.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\include\Dengine\UserInterface.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\include\Dengine\String.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -117,6 +102,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\include\Dengine\Entity.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\include\Dengine\Ui.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

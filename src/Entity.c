@@ -4,17 +4,17 @@
 #include "Dengine/Math.h"
 #include "Dengine/MemoryArena.h"
 
-SubTexture entity_getActiveSubTexture(Entity *const entity)
+SubTexture entity_subTexGetCurr(Entity *const entity)
 {
 	EntityAnim *entityAnim = &entity->animList[entity->animListIndex];
 	Animation *anim        = entityAnim->anim;
 	char *frameName        = anim->frameList[entityAnim->currFrame];
 
-	SubTexture result = asset_getAtlasSubTex(anim->atlas, frameName);
+	SubTexture result = asset_atlasGetSubTex(anim->atlas, frameName);
 	return result;
 }
 
-void entity_setActiveAnim(Entity *const entity, const char *const animName)
+void entity_animSet(Entity *const entity, const char *const animName)
 {
 	/* Reset current anim data */
 	EntityAnim *currEntityAnim     = &entity->animList[entity->animListIndex];
@@ -44,7 +44,7 @@ void entity_setActiveAnim(Entity *const entity, const char *const animName)
 	DEBUG_LOG("Entity does not have access to desired anim");
 }
 
-void entity_updateAnim(Entity *const entity, const f32 dt)
+void entity_animUpdate(Entity *const entity, const f32 dt)
 {
 	if (!entity->tex)
 		return;
@@ -66,11 +66,11 @@ void entity_updateAnim(Entity *const entity, const f32 dt)
 	}
 
 	char *frameName    = anim->frameList[currEntityAnim->currFrame];
-	SubTexture texRect = asset_getAtlasSubTex(anim->atlas, frameName);
+	SubTexture texRect = asset_atlasGetSubTex(anim->atlas, frameName);
 	entity->size       = v2_scale(texRect.rect.max, entity->scale);
 }
 
-void entity_addAnim(AssetManager *const assetManager, Entity *const entity,
+void entity_animAdd(AssetManager *const assetManager, Entity *const entity,
                     const char *const animName)
 {
 	i32 freeAnimIndex = 0;
@@ -79,7 +79,7 @@ void entity_addAnim(AssetManager *const assetManager, Entity *const entity,
 		EntityAnim *entityAnim = &entity->animList[i];
 		if (!entityAnim->anim)
 		{
-			entityAnim->anim         = asset_getAnim(assetManager, animName);
+			entityAnim->anim         = asset_animGet(assetManager, animName);
 			entityAnim->currFrame    = 0;
 			entityAnim->currDuration = entityAnim->anim->frameDuration;
 			return;

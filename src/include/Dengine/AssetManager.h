@@ -2,8 +2,6 @@
 #define DENGINE_ASSET_MANAGER_H
 
 #include "Dengine/Assets.h"
-#include "Dengine/Shader.h"
-#include "Dengine/Texture.h"
 
 /* Forward declaration */
 typedef struct MemoryArena MemoryArena_;
@@ -33,15 +31,15 @@ void asset_init(AssetManager *assetManager, MemoryArena_ *arena);
  * Texture Operations
  *********************************
  */
-const SubTexture asset_getAtlasSubTex(TexAtlas *const atlas,
+const SubTexture asset_atlasGetSubTex(TexAtlas *const atlas,
                                       const char *const key);
-Texture *asset_getTex(AssetManager *const assetManager, const char *const key);
-TexAtlas *asset_getFreeTexAtlasSlot(AssetManager *const assetManager,
+Texture *asset_texGet(AssetManager *const assetManager, const char *const key);
+TexAtlas *asset_atlasGetFreeSlot(AssetManager *const assetManager,
                                     MemoryArena_ *arena, const char *const key,
                                     i32 numSubTex);
-TexAtlas *asset_getTexAtlas(AssetManager *const assetManager,
+TexAtlas *asset_atlasGet(AssetManager *const assetManager,
                             const char *const key);
-Texture *asset_getFreeTexSlot(AssetManager *const assetManager,
+Texture *asset_texGetFreeSlot(AssetManager *const assetManager,
                               MemoryArena_ *const arena, const char *const key);
 Texture *asset_loadTextureImage(AssetManager *assetManager, MemoryArena_ *arena,
                                 const char *const path, const char *const key);
@@ -51,11 +49,11 @@ Texture *asset_loadTextureImage(AssetManager *assetManager, MemoryArena_ *arena,
  * Animation Asset Managing
  *********************************
  */
-void asset_addAnimation(AssetManager *const assetManager,
+void asset_animAdd(AssetManager *const assetManager,
                         MemoryArena_ *const arena, const char *const animName,
                         TexAtlas *const atlas, char **const subTextureNames,
                         const i32 numSubTextures, const f32 frameDuration);
-Animation *asset_getAnim(AssetManager *const assetManager,
+Animation *asset_animGet(AssetManager *const assetManager,
                          const char *const key);
 
 /*
@@ -63,9 +61,9 @@ Animation *asset_getAnim(AssetManager *const assetManager,
  * Audio
  *********************************
  */
-AudioVorbis *const asset_getVorbis(AssetManager *const assetManager,
+AudioVorbis *const asset_vorbisGet(AssetManager *const assetManager,
                                    const char *const key);
-const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena_ *arena,
+const i32 asset_vorbisLoad(AssetManager *assetManager, MemoryArena_ *arena,
                            const char *const path, const char *const key);
 
 /*
@@ -73,28 +71,28 @@ const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena_ *arena,
  * Everything else
  *********************************
  */
-const i32 asset_loadXmlFile(AssetManager *const assetManager,
+const i32 asset_xmlLoad(AssetManager *const assetManager,
                             MemoryArena_ *const arena,
                             const PlatformFileRead *const fileRead);
 
-u32 asset_getShader(AssetManager *assetManager, const enum ShaderList type);
-const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena_ *arena,
+u32 asset_shaderGet(AssetManager *assetManager, const enum ShaderList type);
+const i32 asset_shaderLoad(AssetManager *assetManager, MemoryArena_ *arena,
                                 const char *const vertexPath,
                                 const char *const fragmentPath,
                                 const enum ShaderList type);
 
-Font *asset_getFontCreateSizeOnDemand(AssetManager *assetManager,
+Font *asset_fontGetOrCreateOnDemand(AssetManager *assetManager,
                                       MemoryArena_ *persistentArena,
                                       MemoryArena_ *transientArena, char *name,
                                       i32 size);
-Font *asset_getFont(AssetManager *assetManager, char *name,
+Font *asset_fontGet(AssetManager *assetManager, char *name,
                     i32 size);
-const i32 asset_loadTTFont(AssetManager *assetManager,
+const i32 asset_fontLoadTTF(AssetManager *assetManager,
                            MemoryArena_ *persistentArena,
                            MemoryArena_ *transientArena, char *filePath,
                            char *name, i32 targetFontHeight);
 
-const v2 asset_stringDimInPixels(const Font *const font,
+const v2 asset_fontStringDimInPixels(const Font *const font,
                                  const char *const string);
 
 void asset_unitTest(MemoryArena_ *arena);

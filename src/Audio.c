@@ -129,7 +129,7 @@ INTERNAL i32 rendererAcquire(MemoryArena_ *arena, AudioManager *audioManager,
 		    "rendererAcquire(): Renderer has not been released before "
 		    "acquiring, force release by stopping stream");
 #endif
-		audio_stopVorbis(arena, audioManager, audioRenderer);
+		audio_vorbisStop(arena, audioManager, audioRenderer);
 	}
 
 	// TODO(doyle): Super bad linear O(n) search for every audio-enabled entity
@@ -239,14 +239,14 @@ INTERNAL i32 initRendererForPlayback(MemoryArena_ *arena,
 	ASSERT(audioManager && audioRenderer && vorbis);
 	if (numPlays != AUDIO_REPEAT_INFINITE && numPlays <= 0)
 	{
-		DEBUG_LOG("audio_streamPlayVorbis() warning: Number of plays is less than 0");
+		DEBUG_LOG("audio_vorbisStream() warning: Number of plays is less than 0");
 	}
 #endif
 
 	i32 result = rendererAcquire(arena, audioManager, audioRenderer);
 	if (result)
 	{
-		DEBUG_LOG("audio_streamPlayVorbis() failed: Could not acquire renderer");
+		DEBUG_LOG("audio_vorbisStream() failed: Could not acquire renderer");
 		return result;
 	}
 
@@ -258,7 +258,7 @@ INTERNAL i32 initRendererForPlayback(MemoryArena_ *arena,
 	{
 #ifdef DENGINE_DEBUG
 		DEBUG_LOG(
-		    "audio_streamPlayVorbis() warning: Unexpected channel format");
+		    "audio_vorbisStream() warning: Unexpected channel format");
 #endif
 	}
 
@@ -268,7 +268,7 @@ INTERNAL i32 initRendererForPlayback(MemoryArena_ *arena,
 }
 
 #include <stdlib.h>
-const i32 audio_playVorbis(MemoryArena_ *arena, AudioManager *audioManager,
+const i32 audio_vorbisPlay(MemoryArena_ *arena, AudioManager *audioManager,
                            AudioRenderer *audioRenderer, AudioVorbis *vorbis,
                            i32 numPlays)
 {
@@ -296,7 +296,7 @@ const i32 audio_playVorbis(MemoryArena_ *arena, AudioManager *audioManager,
 	return result;
 }
 
-const i32 audio_streamPlayVorbis(MemoryArena_ *arena, AudioManager *audioManager,
+const i32 audio_vorbisStream(MemoryArena_ *arena, AudioManager *audioManager,
                                  AudioRenderer *audioRenderer,
                                  AudioVorbis *vorbis, i32 numPlays)
 {
@@ -326,7 +326,7 @@ const i32 audio_streamPlayVorbis(MemoryArena_ *arena, AudioManager *audioManager
 	return result;
 }
 
-const i32 audio_stopVorbis(MemoryArena_ *arena, AudioManager *audioManager,
+const i32 audio_vorbisStop(MemoryArena_ *arena, AudioManager *audioManager,
                            AudioRenderer *audioRenderer)
 {
 	i32 result     = 0;
@@ -354,7 +354,7 @@ const i32 audio_stopVorbis(MemoryArena_ *arena, AudioManager *audioManager,
 	return result;
 }
 
-const i32 audio_pauseVorbis(AudioManager *audioManager,
+const i32 audio_vorbisPause(AudioManager *audioManager,
                             AudioRenderer *audioRenderer)
 {
 	i32 result     = 0;
@@ -373,7 +373,7 @@ const i32 audio_pauseVorbis(AudioManager *audioManager,
 	return result;
 }
 
-const i32 audio_resumeVorbis(AudioManager *audioManager,
+const i32 audio_vorbisResume(AudioManager *audioManager,
                              AudioRenderer *audioRenderer)
 {
 	i32 result = 0;
@@ -387,7 +387,7 @@ const i32 audio_resumeVorbis(AudioManager *audioManager,
 	else
 	{
 #ifdef DENGINE_DEBUG
-		DEBUG_LOG("audio_resumeVorbis(): Tried to resume invalid source")
+		DEBUG_LOG("audio_vorbisResume(): Tried to resume invalid source")
 #endif
 		result = -1;
 	}

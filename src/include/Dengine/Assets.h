@@ -123,6 +123,34 @@ typedef struct Animation
 	f32 frameDuration;
 } Animation;
 
+#define TARGET_TEXTURE_SIZE 1024
+#define TARGET_BYTES_PER_PIXEL 4
+
+// TODO(doyle): Look into merging into assets.h file ..
+typedef struct Texture
+{
+	// Holds the ID of the texture object, used for all texture operations to
+	// reference to this particlar texture
+	u32 id;
+
+	// Texture image dimensions
+	u32 width;
+	u32 height;
+
+	// Texture Format
+	u32 internalFormat; // Format of texture object
+	u32 imageFormat;    // Format of loaded image
+
+	// Texture configuration
+	u32 wrapS; // Wrapping mode on S axis
+	u32 wrapT; // Wrapping mode on T axis
+
+	// Filtering mode if texture pixels < screen pixels
+	u32 filterMinification;
+	// Filtering mode if texture pixels > screen pixels
+	u32 filterMagnification;
+} Texture;
+
 /*
  *********************************
  * Font

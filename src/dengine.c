@@ -1,10 +1,10 @@
 #include "Dengine/AssetManager.h"
+#include "Dengine/Asteroid.h"
 #include "Dengine/Common.h"
 #include "Dengine/Debug.h"
 #include "Dengine/Math.h"
-#include "Dengine/OpenGL.h"
 #include "Dengine/MemoryArena.h"
-#include "Dengine/Asteroid.h"
+#include "Dengine/OpenGL.h"
 
 INTERNAL inline void processKey(KeyState *state, int action)
 {

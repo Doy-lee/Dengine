@@ -22,6 +22,83 @@
 #include "Dengine/OpenGL.h"
 #include "Dengine/Platform.h"
 
+enum BytesPerPixel
+{
+	bytesPerPixel_Greyscale      = 1,
+	bytesPerPixel_GreyscaleAlpha = 2,
+	bytesPerPixel_RGB            = 3,
+	bytesPerPixel_RGBA           = 4,
+};
+
+INTERNAL GLint getGLFormat(i32 bytesPerPixel, b32 srgb)
+{
+	switch (bytesPerPixel)
+	{
+	case bytesPerPixel_Greyscale:
+		return GL_LUMINANCE;
+	case bytesPerPixel_GreyscaleAlpha:
+		return GL_LUMINANCE_ALPHA;
+	case bytesPerPixel_RGB:
+		return (srgb ? GL_SRGB : GL_RGB);
+	case bytesPerPixel_RGBA:
+		return (srgb ? GL_SRGB_ALPHA : GL_RGBA);
+	default:
+		// TODO(doyle): Invalid
+		// std::cout << "getGLFormat() invalid bytesPerPixel: "
+		//          << bytesPerPixel << std::endl;
+		return GL_LUMINANCE;
+	}
+}
+
+Texture textureGen(const GLuint width, const GLuint height,
+                   const GLint bytesPerPixel, const u8 *const image)
+{
+	// TODO(doyle): Let us set the parameters gl params as well
+	GL_CHECK_ERROR();
+	Texture tex = {0};
+	tex.width               = width;
+	tex.height              = height;
+	tex.internalFormat      = GL_RGBA;
+	tex.wrapS               = GL_REPEAT;
+	tex.wrapT               = GL_REPEAT;
+	tex.filterMinification  = GL_NEAREST;
+	tex.filterMagnification = GL_NEAREST;
+
+	glGenTextures(1, &tex.id);
+	GL_CHECK_ERROR();
+
+	glBindTexture(GL_TEXTURE_2D, tex.id);
+	GL_CHECK_ERROR();
+
+	/* Load image into texture */
+	// TODO(doyle) Figure out the gl format
+	tex.imageFormat = getGLFormat(bytesPerPixel, FALSE);
+	ASSERT(tex.imageFormat == GL_RGBA);
+
+	GL_CHECK_ERROR();
+
+	glTexImage2D(GL_TEXTURE_2D, 0, tex.internalFormat, tex.width, tex.height, 0,
+	             tex.imageFormat, GL_UNSIGNED_BYTE, image);
+	GL_CHECK_ERROR();
+
+	// TODO(doyle): Not needed for sprites? glGenerateMipmap(GL_TEXTURE_2D);
+
+	/* Set parameter of currently bound texture */
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, tex.wrapS);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tex.wrapT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+	                tex.filterMinification);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
+	                tex.filterMagnification);
+	GL_CHECK_ERROR();
+
+	/* Unbind and clean up */
+	glBindTexture(GL_TEXTURE_2D, 0);
+	GL_CHECK_ERROR();
+
+	return tex;
+}
+
 void asset_init(AssetManager *assetManager, MemoryArena_ *arena)
 {
 	i32 texAtlasEntries         = 8;
@@ -41,8 +118,8 @@ void asset_init(AssetManager *assetManager, MemoryArena_ *arena)
 
 	/* Create empty 1x1 4bpp black texture */
 	u32 bitmap   = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | (0xFF << 0);
-	Texture *tex = asset_getFreeTexSlot(assetManager, arena, "nullTex");
-	*tex         = texture_gen(1, 1, 4, CAST(u8 *)(&bitmap));
+	Texture *tex = asset_texGetFreeSlot(assetManager, arena, "nullTex");
+	*tex         = textureGen(1, 1, 4, CAST(u8 *)(&bitmap));
 
 	i32 audioEntries         = 32;
 	assetManager->audio.size = audioEntries;
@@ -128,7 +205,7 @@ INTERNAL SubTexture *getFreeAtlasSubTexSlot(TexAtlas *const atlas,
 	}
 }
 
-const SubTexture asset_getAtlasSubTex(TexAtlas *const atlas, const char *const key)
+const SubTexture asset_atlasGetSubTex(TexAtlas *const atlas, const char *const key)
 {
 
 	HashTableEntry *entry = getEntryFromHash(&atlas->subTex, key);
@@ -140,11 +217,11 @@ const SubTexture asset_getAtlasSubTex(TexAtlas *const atlas, const char *const k
 		return result;
 	}
 
-	DEBUG_LOG("asset_getAtlasSubTex() failed: Sub texture does not exist");
+	DEBUG_LOG("asset_atlasGetSubTex() failed: Sub texture does not exist");
 	return result;
 }
 
-Texture *asset_getTex(AssetManager *const assetManager, const char *const key)
+Texture *asset_texGet(AssetManager *const assetManager, const char *const key)
 {
 	HashTableEntry *entry = getEntryFromHash(&assetManager->textures, key);
 
@@ -154,7 +231,7 @@ Texture *asset_getTex(AssetManager *const assetManager, const char *const key)
 	return result;
 }
 
-TexAtlas *asset_getFreeTexAtlasSlot(AssetManager *const assetManager,
+TexAtlas *asset_atlasGetFreeSlot(AssetManager *const assetManager,
                                     MemoryArena_ *arena, const char *const key,
                                     i32 numSubTex)
 {
@@ -191,7 +268,7 @@ TexAtlas *asset_getFreeTexAtlasSlot(AssetManager *const assetManager,
 	}
 }
 
-TexAtlas *asset_getTexAtlas(AssetManager *const assetManager,
+TexAtlas *asset_atlasGet(AssetManager *const assetManager,
                             const char *const key)
 {
 
@@ -204,7 +281,7 @@ TexAtlas *asset_getTexAtlas(AssetManager *const assetManager,
 }
 
 
-Texture *asset_getFreeTexSlot(AssetManager *const assetManager,
+Texture *asset_texGetFreeSlot(AssetManager *const assetManager,
                               MemoryArena_ *const arena, const char *const key)
 {
 
@@ -223,7 +300,7 @@ Texture *asset_getFreeTexSlot(AssetManager *const assetManager,
 	}
 }
 
-Texture *asset_loadTextureImage(AssetManager *assetManager, MemoryArena_ *arena,
+Texture *asset_texLoadImage(AssetManager *assetManager, MemoryArena_ *arena,
                                 const char *const path, const char *const key)
 {
 	/* Open the texture image */
@@ -236,7 +313,7 @@ Texture *asset_loadTextureImage(AssetManager *assetManager, MemoryArena_ *arena,
 	if (imgWidth != imgHeight)
 	{
 		printf(
-		    "asset_loadTextureImage() warning: Sprite sheet is not square: "
+		    "asset_texLoadImage() warning: Sprite sheet is not square: "
 		    "%dx%dpx\n", imgWidth, imgHeight);
 	}
 #endif
@@ -247,8 +324,8 @@ Texture *asset_loadTextureImage(AssetManager *assetManager, MemoryArena_ *arena,
 		return NULL;
 	}
 
-	Texture *result = asset_getFreeTexSlot(assetManager, arena, key);
-	*result = texture_gen(CAST(GLuint)(imgWidth), CAST(GLuint)(imgHeight),
+	Texture *result = asset_texGetFreeSlot(assetManager, arena, key);
+	*result = textureGen(CAST(GLuint)(imgWidth), CAST(GLuint)(imgHeight),
 	                      CAST(GLint)(bytesPerPixel), image);
 
 	GL_CHECK_ERROR();
@@ -280,7 +357,7 @@ INTERNAL Animation *getFreeAnimationSlot(AssetManager *const assetManager,
 	}
 }
 
-void asset_addAnimation(AssetManager *const assetManager,
+void asset_animAdd(AssetManager *const assetManager,
                         MemoryArena_ *const arena, const char *const animName,
                         TexAtlas *const atlas,
                         char **const subTextureNames,
@@ -304,7 +381,7 @@ void asset_addAnimation(AssetManager *const assetManager,
 
 }
 
-Animation *asset_getAnim(AssetManager *const assetManager,
+Animation *asset_animGet(AssetManager *const assetManager,
                          const char *const key)
 {
 	HashTableEntry *entry = getEntryFromHash(&assetManager->anims, key);
@@ -617,7 +694,7 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena_ *arena
 				 */
 				char *imageName = atlasXmlNode->attribute.value;
 				i32 numSubTex   = 1024;
-				atlas           = asset_getFreeTexAtlasSlot(assetManager, arena,
+				atlas           = asset_atlasGetFreeSlot(assetManager, arena,
 				                                  imageName, numSubTex);
 
 				if (!atlas)
@@ -643,7 +720,7 @@ INTERNAL void parseXmlTreeToGame(AssetManager *assetManager, MemoryArena_ *arena
 				common_strncat(imagePath, dataDir, dataDirLen);
 				common_strncat(imagePath, imageName, imageNameLen);
 
-				Texture *tex = asset_loadTextureImage(assetManager, arena,
+				Texture *tex = asset_texLoadImage(assetManager, arena,
 				                                      imagePath, imageName);
 
 				if (!tex)
@@ -839,7 +916,7 @@ INTERNAL void freeXmlData(MemoryArena_ *const arena, XmlToken *tokens,
  * Everything else
  *********************************
  */
-const i32 asset_loadXmlFile(AssetManager *const assetManager,
+const i32 asset_xmlLoad(AssetManager *const assetManager,
                             MemoryArena_ *const arena,
                             const PlatformFileRead *const fileRead)
 {
@@ -868,7 +945,7 @@ const i32 asset_loadXmlFile(AssetManager *const assetManager,
 	return result;
 }
 
-AudioVorbis *const asset_getVorbis(AssetManager *const assetManager,
+AudioVorbis *const asset_vorbisGet(AssetManager *const assetManager,
                                    const char *const key)
 {
 
@@ -880,7 +957,7 @@ AudioVorbis *const asset_getVorbis(AssetManager *const assetManager,
 	return result;
 }
 
-const i32 asset_loadVorbis(AssetManager *assetManager, MemoryArena_ *arena,
+const i32 asset_vorbisLoad(AssetManager *assetManager, MemoryArena_ *arena,
                            const char *const path, const char *const key)
 {
 	HashTableEntry *entry = getFreeHashSlot(&assetManager->audio, arena, key);
@@ -974,7 +1051,7 @@ INTERNAL u32 shaderLoadProgram(const GLuint vertexShader,
 	return result;
 }
 
-u32 asset_getShader(AssetManager *assetManager, const enum ShaderList type)
+u32 asset_shaderGet(AssetManager *assetManager, const enum ShaderList type)
 {
 	if (type < shaderlist_count) return assetManager->shaders[type];
 
@@ -984,7 +1061,7 @@ u32 asset_getShader(AssetManager *assetManager, const enum ShaderList type)
 	return -1;
 }
 
-const i32 asset_loadShaderFiles(AssetManager *assetManager, MemoryArena_ *arena,
+const i32 asset_shaderLoad(AssetManager *assetManager, MemoryArena_ *arena,
                                 const char *const vertexPath,
                                 const char *const fragmentPath,
                                 const enum ShaderList type)
@@ -1017,13 +1094,13 @@ INTERNAL FontPack *getMatchingFontPack(AssetManager *assetManager,
 	return result;
 }
 
-Font *asset_getFontCreateSizeOnDemand(AssetManager *assetManager,
+Font *asset_fontGetOrCreateOnDemand(AssetManager *assetManager,
                                       MemoryArena_ *persistentArena,
                                       MemoryArena_ *transientArena, char *name,
                                       i32 size)
 {
 
-	Font *result = asset_getFont(assetManager, name, size);
+	Font *result = asset_fontGet(assetManager, name, size);
 
 	if (result == NULL)
 	{
@@ -1042,10 +1119,10 @@ Font *asset_getFontCreateSizeOnDemand(AssetManager *assetManager,
 
 			if (result == NULL)
 			{
-				asset_loadTTFont(assetManager, persistentArena, transientArena,
+				asset_fontLoadTTF(assetManager, persistentArena, transientArena,
 				                 pack->filePath, name, size);
 
-				result = asset_getFont(assetManager, name, size);
+				result = asset_fontGet(assetManager, name, size);
 			}
 		}
 		else
@@ -1057,7 +1134,7 @@ Font *asset_getFontCreateSizeOnDemand(AssetManager *assetManager,
 	return result;
 }
 
-Font *asset_getFont(AssetManager *assetManager, char *name, i32 size)
+Font *asset_fontGet(AssetManager *assetManager, char *name, i32 size)
 {
 	Font *result = NULL;
 	FontPack *pack = getMatchingFontPack(assetManager, name);
@@ -1084,7 +1161,7 @@ typedef struct GlyphBitmap
 	i32 codepoint;
 } GlyphBitmap;
 
-const i32 asset_loadTTFont(AssetManager *assetManager,
+const i32 asset_fontLoadTTF(AssetManager *assetManager,
                            MemoryArena_ *persistentArena,
                            MemoryArena_ *transientArena, char *filePath,
                            char *name, i32 targetFontHeight)
@@ -1134,7 +1211,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager,
 		return 0;
 	}
 
-	TempMemory tempRegion = memory_begin_temporary_region(transientArena);
+	TempMemory tempRegion = memory_beginTempRegion(transientArena);
 
 	PlatformFileRead fontFileRead = {0};
 	i32 result =
@@ -1230,7 +1307,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager,
 		if ((largestGlyphDimension.h - CAST(i32)targetFontHeight) >= 50)
 		{
 			printf(
-			    "asset_loadTTFont() warning: The loaded font file has a glyph "
+			    "asset_fontLoadTTF() warning: The loaded font file has a glyph "
 			    "considerably larger than our target .. font packing is "
 			    "unoptimal\n");
 		}
@@ -1254,7 +1331,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager,
 	if ((glyphsPerRow * glyphsPerCol) <= numGlyphs)
 	{
 		printf(
-		    "asset_loadTTFont() warning: The target font height creates a "
+		    "asset_fontLoadTTF() warning: The target font height creates a "
 		    "glyph sheet that exceeds the available space!");
 
 		ASSERT(INVALID_CODE_PATH);
@@ -1280,7 +1357,7 @@ const i32 asset_loadTTFont(AssetManager *assetManager,
 	char charToEncode = CAST(char)codepointRange.x;
 
 	i32 numSubTex = numGlyphs;
-	TexAtlas *fontAtlas = asset_getFreeTexAtlasSlot(
+	TexAtlas *fontAtlas = asset_atlasGetFreeSlot(
 	    assetManager, persistentArena, "font", numSubTex);
 
 	/*
@@ -1363,8 +1440,8 @@ const i32 asset_loadTTFont(AssetManager *assetManager,
 	 * Generate and store font bitmap to assets
 	 *******************************************
 	 */
-	Texture *tex = asset_getFreeTexSlot(assetManager, persistentArena, "font");
-	*tex         = texture_gen(MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4,
+	Texture *tex = asset_texGetFreeSlot(assetManager, persistentArena, "font");
+	*tex         = textureGen(MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE, 4,
 	                   CAST(u8 *) fontBitmap);
 
 #ifdef WT_RENDER_FONT_FILE
@@ -1390,11 +1467,11 @@ const i32 asset_loadTTFont(AssetManager *assetManager,
 		                             sizeof(u32);
 	}
 
-	memory_end_temporary_region(tempRegion);
+	memory_endTempRegion(tempRegion);
 	return 0;
 }
 
-const v2 asset_stringDimInPixels(const Font *const font,
+const v2 asset_fontStringDimInPixels(const Font *const font,
                                  const char *const string)
 {
 	v2 stringDim = V2(0, 0);

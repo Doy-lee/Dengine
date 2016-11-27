@@ -5,8 +5,32 @@
 #include "Dengine/Entity.h"
 #include "Dengine/MemoryArena.h"
 #include "Dengine/OpenGL.h"
-#include "Dengine/Shader.h"
-#include "Dengine/Texture.h"
+
+void shaderUniformSet1i(u32 shaderId, const GLchar *name,
+                         const GLuint data)
+{
+	GLint uniformLoc = glGetUniformLocation(shaderId, name);
+	glUniform1i(uniformLoc, data);
+}
+
+void shaderUniformSetMat4fv(u32 shaderId, const GLchar *name,
+                             mat4 data)
+{
+	GLint uniformLoc = glGetUniformLocation(shaderId, name);
+	GL_CHECK_ERROR();
+	glUniformMatrix4fv(uniformLoc, 1, GL_FALSE, data.e[0]);
+	GL_CHECK_ERROR();
+}
+
+void shaderUniformSetVec4f(u32 shaderId, const GLchar *name,
+                            v4 data)
+{
+	GLint uniformLoc = glGetUniformLocation(shaderId, name);
+	glUniform4f(uniformLoc, data.e[0], data.e[1], data.e[2], data.e[3]);
+}
+
+
+void shaderUse(u32 shaderId) { glUseProgram(shaderId); }
 
 void renderer_init(Renderer *renderer, AssetManager *assetManager,
                    MemoryArena_ *persistentArena, v2 windowSize)
@@ -21,9 +45,9 @@ void renderer_init(Renderer *renderer, AssetManager *assetManager,
 	    mat4_ortho(0.0f, renderer->size.w, 0.0f, renderer->size.h, 0.0f, 1.0f);
 	for (i32 i = 0; i < shaderlist_count; i++)
 	{
-		renderer->shaderList[i] = asset_getShader(assetManager, i);
-		shader_use(renderer->shaderList[i]);
-		shader_uniformSetMat4fv(renderer->shaderList[i], "projection",
+		renderer->shaderList[i] = asset_shaderGet(assetManager, i);
+		shaderUse(renderer->shaderList[i]);
+		shaderUniformSetMat4fv(renderer->shaderList[i], "projection",
 		                        projection);
 		GL_CHECK_ERROR();
 	}
@@ -431,18 +455,18 @@ INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *group)
 	{
 		renderer->activeShaderId =
 		    renderer->shaderList[shaderlist_default_no_tex];
-		shader_use(renderer->activeShaderId);
+		shaderUse(renderer->activeShaderId);
 	}
 	else
 	{
 		renderer->activeShaderId = renderer->shaderList[shaderlist_default];
-		shader_use(renderer->activeShaderId);
+		shaderUse(renderer->activeShaderId);
 		Texture *tex = group->tex;
 		if (tex)
 		{
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, tex->id);
-			shader_uniformSet1i(renderer->activeShaderId, "tex", 0);
+			shaderUniformSet1i(renderer->activeShaderId, "tex", 0);
 			GL_CHECK_ERROR();
 		}
 	}
@@ -452,7 +476,7 @@ INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *group)
 #endif
 
 	/* Set color modulation value */
-	shader_uniformSetVec4f(renderer->activeShaderId, "spriteColor",
+	shaderUniformSetVec4f(renderer->activeShaderId, "spriteColor",
 	                       group->color);
 
 	glBindVertexArray(renderer->vao[group->mode]);
@@ -469,7 +493,7 @@ INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *group)
 
 RenderTex renderer_createNullRenderTex(AssetManager *const assetManager)
 {
-	Texture *emptyTex = asset_getTex(assetManager, "nullTex");
+	Texture *emptyTex = asset_texGet(assetManager, "nullTex");
 	RenderTex result  = {emptyTex, V4(0, 1, 1, 0)};
 	return result;
 }
@@ -606,8 +630,8 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
 	    v2_add(pos, V2((CAST(f32) font->maxSize.w * CAST(f32) strLen),
 	                   CAST(f32) font->maxSize.h));
 	v2 leftAlignedP = pos;
-	if (math_rect_contains_p(camera, leftAlignedP) ||
-	    math_rect_contains_p(camera, rightAlignedP))
+	if (math_rectContainsP(camera, leftAlignedP) ||
+	    math_rectContainsP(camera, rightAlignedP))
 	{
 		i32 vertexIndex        = 0;
 		i32 numVertexPerQuad   = 4;
@@ -630,7 +654,7 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
 
 			/* Get texture out */
 			SubTexture subTexture =
-			    asset_getAtlasSubTex(font->atlas, &CAST(char)codepoint);
+			    asset_atlasGetSubTex(font->atlas, &CAST(char)codepoint);
 
 			v4 charTexRect      = {0};
 			charTexRect.vec2[0] = subTexture.rect.min;
@@ -667,7 +691,7 @@ void renderer_entity(Renderer *renderer, MemoryArena_ *transientArena,
 		{
 			Animation *anim   = entityAnim->anim;
 			char *frameName   = anim->frameList[entityAnim->currFrame];
-			SubTexture subTex = asset_getAtlasSubTex(anim->atlas, frameName);
+			SubTexture subTex = asset_atlasGetSubTex(anim->atlas, frameName);
 
 			texRect.vec2[0] = subTex.rect.min;
 			texRect.vec2[1] = v2_add(subTex.rect.min, subTex.rect.max);

@@ -184,7 +184,7 @@ enum ReadKeyType
 	readkeytype_repeat,
 	readkeytype_count,
 };
-void platform_processInputBuffer(InputBuffer *inputBuffer, f32 dt);
+void platform_inputBufferProcess(InputBuffer *inputBuffer, f32 dt);
 b32 platform_queryKey(KeyState *key, enum ReadKeyType readType,
                       f32 delayInterval);
 #endif

@@ -8,7 +8,7 @@ void memory_arenaInit(MemoryArena_ *arena, void *base, size_t size)
 	arena->tempMemoryCount = 0;
 }
 
-TempMemory memory_begin_temporary_region(MemoryArena_ *arena)
+TempMemory memory_beginTempRegion(MemoryArena_ *arena)
 {
 	TempMemory result = {0};
 	result.arena      = arena;
@@ -19,7 +19,7 @@ TempMemory memory_begin_temporary_region(MemoryArena_ *arena)
 	return result;
 }
 
-void memory_end_temporary_region(TempMemory tempMemory)
+void memory_endTempRegion(TempMemory tempMemory)
 {
 	MemoryArena_ *arena = tempMemory.arena;
 	ASSERT(arena->used > tempMemory.used)

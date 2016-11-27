@@ -49,17 +49,17 @@ typedef struct AudioRenderer
 
 
 const i32 audio_init(AudioManager *audioManager);
-const i32 audio_playVorbis(MemoryArena_ *arena, AudioManager *audioManager,
+const i32 audio_vorbisPlay(MemoryArena_ *arena, AudioManager *audioManager,
                            AudioRenderer *audioRenderer, AudioVorbis *vorbis,
                            i32 numPlays);
-const i32 audio_streamPlayVorbis(MemoryArena_ *arena, AudioManager *audioManager,
+const i32 audio_vorbisStream(MemoryArena_ *arena, AudioManager *audioManager,
                                  AudioRenderer *audioRenderer,
                                  AudioVorbis *vorbis, i32 numPlays);
-const i32 audio_stopVorbis(MemoryArena_ *arena, AudioManager *audioManager,
+const i32 audio_vorbisStop(MemoryArena_ *arena, AudioManager *audioManager,
                                  AudioRenderer *audioRenderer);
-const i32 audio_pauseVorbis(AudioManager *audioManager,
+const i32 audio_vorbisPause(AudioManager *audioManager,
                                   AudioRenderer *audioRenderer);
-const i32 audio_resumeVorbis(AudioManager *audioManager,
+const i32 audio_vorbisResume(AudioManager *audioManager,
                                    AudioRenderer *audioRenderer);
 const i32 audio_updateAndPlay(MemoryArena_ *arena, AudioManager *audioManager,
                               AudioRenderer *audioRenderer);

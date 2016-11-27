@@ -100,7 +100,7 @@ void renderer_polygon(Renderer *const renderer, Rect camera, v2 *polygonPoints,
                       i32 numPoints, v2 pivotPoint, Radians rotate,
                       RenderTex *renderTex, v4 color, RenderFlags flags);
 
-inline void renderer_staticRect(Renderer *const renderer, v2 pos, v2 size,
+inline void renderer_rectFixed(Renderer *const renderer, v2 pos, v2 size,
                                 v2 pivotPoint, Radians rotate,
                                 RenderTex *renderTex, v4 color,
                                 RenderFlags flags)
@@ -115,7 +115,7 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
                      v2 pivotPoint, Radians rotate, v4 color,
                      RenderFlags flags);
 
-inline void renderer_staticString(Renderer *const renderer, MemoryArena_ *arena,
+inline void renderer_stringFixed(Renderer *const renderer, MemoryArena_ *arena,
                                   Font *const font, const char *const string,
                                   v2 pos, v2 pivotPoint, Radians rotate,
                                   v4 color, RenderFlags flags)

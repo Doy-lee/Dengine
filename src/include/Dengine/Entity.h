@@ -110,10 +110,10 @@ typedef struct Entity
 	i32 animListIndex;
 } Entity;
 
-SubTexture entity_getActiveSubTexture(Entity *const entity);
-void entity_setActiveAnim(Entity *const entity, const char *const animName);
-void entity_updateAnim(Entity *const entity, const f32 dt);
-void entity_addAnim(AssetManager *const assetManager, Entity *const entity,
+SubTexture entity_subTexGetCurr(Entity *const entity);
+void entity_animSet(Entity *const entity, const char *const animName);
+void entity_animUpdate(Entity *const entity, const f32 dt);
+void entity_animAdd(AssetManager *const assetManager, Entity *const entity,
                     const char *const animName);
 
 v2 *entity_generateUpdatedVertexList(MemoryArena_ *transientArena,

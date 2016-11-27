@@ -8,7 +8,7 @@
 #include "Dengine/MemoryArena.h"
 #include "Dengine/Platform.h"
 #include "Dengine/Renderer.h"
-#include "Dengine/UserInterface.h"
+#include "Dengine/Ui.h"
 
 enum AppState
 {
