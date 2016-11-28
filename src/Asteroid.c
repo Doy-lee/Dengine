@@ -7,9 +7,17 @@ INTERNAL void loadGameAssets(GameState *state)
 	MemoryArena_ *arena        = &state->persistentArena;
 
 	{ // Init font assets
+#if 0
 		i32 result =
 		    asset_fontLoadTTF(assetManager, arena, &state->transientArena,
 		                     "C:/Windows/Fonts/Arialbd.ttf", "Arial", 15);
+#endif
+
+		asset_fontLoadTTF(assetManager, arena, &state->transientArena,
+		                  "F:/Workspace/Dropbox/Apps/Fonts/"
+		                  "league-spartan-master/_webfonts/"
+		                  "leaguespartan-bold.ttf",
+		                  "Arial", 15);
 	}
 
 	{ // Init shaders assets
@@ -64,8 +72,8 @@ INTERNAL void loadGameAssets(GameState *state)
 
 #include <stdlib.h>
 #include <time.h>
-v2 *createAsteroidVertexList(MemoryArena_ *arena, i32 iterations,
-                             i32 asteroidRadius)
+INTERNAL v2 *createAsteroidVertexList(MemoryArena_ *arena, i32 iterations,
+                                      i32 asteroidRadius)
 {
 	f32 iterationAngle = 360.0f / iterations;
 	iterationAngle     = DEGREES_TO_RADIANS(iterationAngle);
@@ -120,8 +128,8 @@ v2 *createAsteroidVertexList(MemoryArena_ *arena, i32 iterations,
 	return result;
 }
 
-v2 *createNormalEdgeList(MemoryArena_ *transientArena, v2 *vertexList,
-                         i32 vertexListSize)
+INTERNAL v2 *createNormalEdgeList(MemoryArena_ *transientArena, v2 *vertexList,
+                                  i32 vertexListSize)
 {
 	v2 *result = memory_pushBytes(transientArena, sizeof(v2) * vertexListSize);
 	for (i32 i = 0; i < vertexListSize - 1; i++)
@@ -140,10 +148,10 @@ v2 *createNormalEdgeList(MemoryArena_ *transientArena, v2 *vertexList,
 	return result;
 }
 
-v2 calculateProjectionRangeForEdge(v2 *vertexList, i32 vertexListSize,
-                                   v2 edgeNormal)
+INTERNAL v2 calculateProjectionRangeForEdge(v2 *vertexList, i32 vertexListSize,
+                                            v2 edgeNormal)
 {
-	v2 result = {0};
+	v2 result  = {0};
 	result.min = v2_dot(vertexList[0], edgeNormal);
 	result.max = result.min;
 
@@ -160,9 +168,9 @@ v2 calculateProjectionRangeForEdge(v2 *vertexList, i32 vertexListSize,
 	return result;
 }
 
-b32 checkEdgeProjectionOverlap(v2 *vertexList, i32 listSize,
-                               v2 *checkVertexList, i32 checkListSize,
-                               v2 *edgeList, i32 totalNumEdges)
+INTERNAL b32 checkEdgeProjectionOverlap(v2 *vertexList, i32 listSize,
+                                        v2 *checkVertexList, i32 checkListSize,
+                                        v2 *edgeList, i32 totalNumEdges)
 {
 	b32 result = TRUE;
 	for (i32 edgeIndex = 0; edgeIndex < totalNumEdges && result; edgeIndex++)
@@ -443,18 +451,60 @@ INTERNAL void setCollisionRule(World *world, enum EntityType a,
 	world->collisionTable[b][a] = rule;
 }
 
-INTERNAL AudioRenderer *getFreeAudioRenderer(World *world)
+INTERNAL AudioRenderer *getFreeAudioRenderer(World *world, AudioVorbis *vorbis,
+                                             i32 maxSimultaneousPlayers)
 {
+	i32 freeIndex = -1;
+	i32 sameAudioPlayingCount = 0;
+
+	AudioRenderer *result = NULL;
 	for (i32 i = 0; i < world->numAudioRenderers; i++)
 	{
 		AudioRenderer *renderer = &world->audioRenderer[i];
-		if (renderer->state == audiostate_stopped)
+		if (renderer->state == audiostate_playing &&
+		    common_strcmp(renderer->audio->key, vorbis->key) == 0)
 		{
-			return renderer;
+			sameAudioPlayingCount++;
+		}
+		else if (renderer->state == audiostate_stopped && freeIndex == -1)
+		{
+			freeIndex = i;
 		}
 	}
 
-	return NULL;
+	if (sameAudioPlayingCount < maxSimultaneousPlayers && freeIndex != -1)
+	{
+		result = &world->audioRenderer[freeIndex];
+	}
+
+	return result;
+}
+
+INTERNAL void addPlayer(World *world)
+{
+	Entity *ship = &world->entityList[world->entityIndex++];
+	ship->id     = world->entityIdCounter++;
+	ship->pos    = math_rectGetCentre(world->camera);
+	ship->size   = V2(25.0f, 50.0f);
+	ship->hitbox = ship->size;
+	ship->offset = v2_scale(ship->size, -0.5f);
+
+	ship->numVertexPoints = 3;
+	ship->vertexPoints    = memory_pushBytes(&world->entityArena,
+	                                      sizeof(v2) * ship->numVertexPoints);
+
+	v2 triangleBaseP  = V2(0, 0);
+	v2 triangleTopP   = V2(ship->size.w * 0.5f, ship->size.h);
+	v2 triangleRightP = V2(ship->size.w, triangleBaseP.y);
+
+	ship->vertexPoints[0] = triangleBaseP;
+	ship->vertexPoints[1] = triangleRightP;
+	ship->vertexPoints[2] = triangleTopP;
+
+	ship->scale      = 1;
+	ship->type       = entitytype_ship;
+	ship->renderMode = rendermode_polygon;
+	ship->color      = V4(1.0f, 0.5f, 0.5f, 1.0f);
 }
 
 INTERNAL void deleteEntity(World *world, i32 entityIndex)
@@ -497,35 +547,9 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 		}
 
 		{ // Init audio renderer
-			world->numAudioRenderers = 6;
+			world->numAudioRenderers = 8;
 			world->audioRenderer     = MEMORY_PUSH_ARRAY(
 			    &world->entityArena, world->numAudioRenderers, AudioRenderer);
-		}
-
-		{ // Init ship entity
-			Entity *ship = &world->entityList[world->entityIndex++];
-			ship->id     = world->entityIdCounter++;
-			ship->pos    = math_rectGetCentre(world->camera);
-			ship->size   = V2(25.0f, 50.0f);
-			ship->hitbox = ship->size;
-			ship->offset = v2_scale(ship->size, -0.5f);
-
-			ship->numVertexPoints = 3;
-			ship->vertexPoints    = memory_pushBytes(
-			    &world->entityArena, sizeof(v2) * ship->numVertexPoints);
-
-			v2 triangleBaseP  = V2(0, 0);
-			v2 triangleTopP   = V2(ship->size.w * 0.5f, ship->size.h);
-			v2 triangleRightP = V2(ship->size.w, triangleBaseP.y);
-
-			ship->vertexPoints[0] = triangleBaseP;
-			ship->vertexPoints[1] = triangleRightP;
-			ship->vertexPoints[2] = triangleTopP;
-
-			ship->scale      = 1;
-			ship->type       = entitytype_ship;
-			ship->renderMode = rendermode_polygon;
-			ship->color      = V4(1.0f, 0.5f, 0.5f, 1.0f);
 		}
 
 		{ // Global Collision Rules
@@ -543,19 +567,32 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 			                 entitytype_asteroid_large, TRUE);
 		}
 
-		world->init                     = TRUE;
-		world->onInitAsteroidSpawnTimer = 1.0f;
+		world->numStarP = 100;
+		world->starPList =
+		    MEMORY_PUSH_ARRAY(&state->persistentArena, world->numStarP, v2);
 
+		for (i32 i = 0; i < world->numStarP; i++)
+		{
+			i32 randX = rand() % (i32)world->worldSize.x;
+			i32 randY = rand() % (i32)world->worldSize.y;
+
+			world->starPList[i] = V2i(randX, randY);
+		}
+
+		world->init = TRUE;
 	}
 
-	if (world->onInitAsteroidSpawnTimer > 0)
+	for (u32 i = world->asteroidCounter; i < world->numAsteroids; i++)
+		addAsteroid(world, (rand() % asteroidsize_count));
+
+	Radians starRotation = DEGREES_TO_RADIANS(45.0f);
+	v2 starSize = V2(2, 2);
+	for (i32 i = 0; i < world->numStarP; i++)
 	{
-		world->onInitAsteroidSpawnTimer -= dt;
-	}
-	else
-	{
-		for (u32 i = world->asteroidCounter; i < world->numAsteroids; i++)
-			addAsteroid(world, (rand() % asteroidsize_count));
+		renderer_rect(&state->renderer, world->camera, world->starPList[i],
+		              starSize, V2(0, 0), starRotation, NULL,
+		              V4(1.0f, 1.0f, 0, 0.5f),
+		              renderflag_no_texture | renderflag_wireframe);
 	}
 
 	if (platform_queryKey(&state->input.keys[keycode_left_square_bracket],
@@ -592,16 +629,17 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 			{
 				addBullet(world, entity);
 
-				AudioRenderer *audioRenderer = getFreeAudioRenderer(world);
-				if (audioRenderer)
-				{
 					AudioVorbis *fire =
 					    asset_vorbisGet(&state->assetManager, "fire");
-					// TODO(doyle): Atm transient arena is not used, this is
-					// just to fill out the arguments
-					audio_vorbisPlay(&state->transientArena,
-					                 &state->audioManager, audioRenderer, fire,
-					                 1);
+				    AudioRenderer *audioRenderer =
+				        getFreeAudioRenderer(world, fire, 2);
+				    if (audioRenderer)
+				    {
+					    // TODO(doyle): Atm transient arena is not used, this is
+					    // just to fill out the arguments
+					    audio_vorbisPlay(&state->transientArena,
+					                     &state->audioManager, audioRenderer,
+					                     fire, 1);
 				}
 			}
 
@@ -863,26 +901,27 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 
 				ASSERT(world->asteroidCounter >= 0);
 
-				AudioRenderer *audioRenderer = getFreeAudioRenderer(world);
+				char *sound;
+				i32 choice = rand() % 3;
+				if (choice == 0)
+				{
+					sound = "bang_small";
+				}
+				else if (choice == 1)
+				{
+					sound = "bang_medium";
+				}
+				else
+				{
+					sound = "bang_large";
+				}
+
+				AudioVorbis *explode =
+				    asset_vorbisGet(&state->assetManager, sound);
+				AudioRenderer *audioRenderer =
+				    getFreeAudioRenderer(world, explode, 3);
 				if (audioRenderer)
 				{
-					char *sound;
-					i32 choice = rand() % 3;
-					if (choice == 0)
-					{
-						sound = "bang_small";
-					}
-					else if (choice == 1)
-					{
-						sound = "bang_medium";
-					}
-					else
-					{
-						sound = "bang_large";
-					}
-
-					AudioVorbis *explode =
-					    asset_vorbisGet(&state->assetManager, sound);
 					audio_vorbisPlay(&state->transientArena,
 					                 &state->audioManager, audioRenderer,
 					                 explode, 1);
@@ -907,37 +946,60 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 	}
 }
 
+LOCAL_PERSIST f32 flashingGameStartTimerThreshold = 1.0f;
+LOCAL_PERSIST f32 flashingGameStartTimer = 1.0f;
+LOCAL_PERSIST b32 toggleShowGameStart = TRUE;
 INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 {
-	UiState *uiState             = &state->uiState;
-	MemoryArena_ *transientArena = &state->transientArena;
 	AssetManager *assetManager   = &state->assetManager;
-	Renderer *renderer           = &state->renderer;
-	World *world                 = &state->world;
 	InputBuffer *inputBuffer     = &state->input;
+	Renderer *renderer           = &state->renderer;
+	MemoryArena_ *transientArena = &state->transientArena;
+	UiState *uiState             = &state->uiState;
+	World *world                 = &state->world;
 
 	Font *arial15 = asset_fontGetOrCreateOnDemand(
 	    assetManager, &state->persistentArena, transientArena, "Arial", 15);
 	Font *arial25 = asset_fontGetOrCreateOnDemand(
 	    assetManager, &state->persistentArena, transientArena, "Arial", 40);
 
-	f32 margin  = 20.0f;
-	f32 padding = 20.0f;
-	v2 titleP   = V2(margin, renderer->size.h - 100 + margin);
-	renderer_stringFixed(renderer, transientArena, arial25, "Asteroids",
-	                      titleP, V2(0, 0), 0, V4(1, 0, 0, 1), 0);
+	v2 screenCenter = v2_scale(renderer->size, 0.5f);
+
+	const char *const title = "Asteroids";
+	v2 titleDim     = asset_fontStringDimInPixels(arial25, title);
+	v2 halfTitleDim = v2_scale(titleDim, 0.5f);
+	v2 titleP       = v2_add(screenCenter, V2(0, 40));
+	titleP          = v2_sub(titleP, halfTitleDim);
+
+	renderer_stringFixed(renderer, transientArena, arial25, title, titleP,
+	                     V2(0, 0), 0, V4(1, 0, 0, 1), 0);
 
 	ui_beginState(uiState);
 
-	Rect buttonRect = {0};
-	buttonRect.min = V2(margin, margin);
-	buttonRect.max = V2(margin + 100, margin + 40);
-	buttonRect = math_rectShift(buttonRect, V2(0, titleP.y - 100));
-	if (ui_button(uiState, transientArena, assetManager, renderer,
-	                         arial15, *inputBuffer, 1, buttonRect,
-	                         "Start Game"))
+	flashingGameStartTimer -= dt;
+	if (flashingGameStartTimer < 0)
+	{
+		toggleShowGameStart = (toggleShowGameStart) ? FALSE : TRUE;
+		flashingGameStartTimer = flashingGameStartTimerThreshold;
+	}
+
+	if (toggleShowGameStart)
+	{
+		const char *const gameStart = "Press enter to start";
+		v2 gameStartDim     = asset_fontStringDimInPixels(arial25, gameStart);
+		v2 halfGameStartDim = v2_scale(gameStartDim, 0.5f);
+		v2 gameStartP       = v2_add(screenCenter, V2(0, -40));
+		gameStartP          = v2_sub(gameStartP, halfGameStartDim);
+
+		renderer_stringFixed(renderer, transientArena, arial25, gameStart,
+		                     gameStartP, V2(0, 0), 0, V4(1, 1, 0, 1), 0);
+	}
+
+	if (platform_queryKey(&inputBuffer->keys[keycode_enter],
+	                      readkeytype_one_shot, KEY_DELAY_NONE))
 	{
 		state->appState = appstate_game;
+		addPlayer(&state->world);
 	}
 
 	ui_endState(uiState, inputBuffer);
@@ -976,10 +1038,10 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 	{
 	case appstate_start_menu:
 	{
+		// NOTE(doyle): Let menu overlay the game menu. We add player on "enter"
+		// So fall through to appstate_game is valid here!
 		startMenuUpdate(state, memory, dt);
 	}
-	break;
-
 	case appstate_game:
 	{
 		gameUpdate(state, memory, dt);

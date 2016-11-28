@@ -35,10 +35,10 @@ const SubTexture asset_atlasGetSubTex(TexAtlas *const atlas,
                                       const char *const key);
 Texture *asset_texGet(AssetManager *const assetManager, const char *const key);
 TexAtlas *asset_atlasGetFreeSlot(AssetManager *const assetManager,
-                                    MemoryArena_ *arena, const char *const key,
-                                    i32 numSubTex);
+                                 MemoryArena_ *arena, const char *const key,
+                                 i32 numSubTex);
 TexAtlas *asset_atlasGet(AssetManager *const assetManager,
-                            const char *const key);
+                         const char *const key);
 Texture *asset_texGetFreeSlot(AssetManager *const assetManager,
                               MemoryArena_ *const arena, const char *const key);
 Texture *asset_loadTextureImage(AssetManager *assetManager, MemoryArena_ *arena,
@@ -49,10 +49,10 @@ Texture *asset_loadTextureImage(AssetManager *assetManager, MemoryArena_ *arena,
  * Animation Asset Managing
  *********************************
  */
-void asset_animAdd(AssetManager *const assetManager,
-                        MemoryArena_ *const arena, const char *const animName,
-                        TexAtlas *const atlas, char **const subTextureNames,
-                        const i32 numSubTextures, const f32 frameDuration);
+void asset_animAdd(AssetManager *const assetManager, MemoryArena_ *const arena,
+                   const char *const animName, TexAtlas *const atlas,
+                   char **const subTextureNames, const i32 numSubTextures,
+                   const f32 frameDuration);
 Animation *asset_animGet(AssetManager *const assetManager,
                          const char *const key);
 
@@ -72,28 +72,27 @@ const i32 asset_vorbisLoad(AssetManager *assetManager, MemoryArena_ *arena,
  *********************************
  */
 const i32 asset_xmlLoad(AssetManager *const assetManager,
-                            MemoryArena_ *const arena,
-                            const PlatformFileRead *const fileRead);
+                        MemoryArena_ *const arena,
+                        const PlatformFileRead *const fileRead);
 
 u32 asset_shaderGet(AssetManager *assetManager, const enum ShaderList type);
 const i32 asset_shaderLoad(AssetManager *assetManager, MemoryArena_ *arena,
-                                const char *const vertexPath,
-                                const char *const fragmentPath,
-                                const enum ShaderList type);
+                           const char *const vertexPath,
+                           const char *const fragmentPath,
+                           const enum ShaderList type);
 
 Font *asset_fontGetOrCreateOnDemand(AssetManager *assetManager,
-                                      MemoryArena_ *persistentArena,
-                                      MemoryArena_ *transientArena, char *name,
-                                      i32 size);
-Font *asset_fontGet(AssetManager *assetManager, char *name,
-                    i32 size);
+                                    MemoryArena_ *persistentArena,
+                                    MemoryArena_ *transientArena, char *name,
+                                    i32 size);
+Font *asset_fontGet(AssetManager *assetManager, char *name, i32 size);
 const i32 asset_fontLoadTTF(AssetManager *assetManager,
-                           MemoryArena_ *persistentArena,
-                           MemoryArena_ *transientArena, char *filePath,
-                           char *name, i32 targetFontHeight);
+                            MemoryArena_ *persistentArena,
+                            MemoryArena_ *transientArena, char *filePath,
+                            char *name, i32 targetFontHeight);
 
 const v2 asset_fontStringDimInPixels(const Font *const font,
-                                 const char *const string);
+                                     const char *const string);
 
 void asset_unitTest(MemoryArena_ *arena);
 

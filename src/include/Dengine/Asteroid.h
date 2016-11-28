@@ -20,11 +20,6 @@ enum AppState
 typedef struct World
 {
 	b32 init;
-	
-	// NOTE(doyle): Grace period when game starts before asteroids start
-	// spawning
-	f32 onInitAsteroidSpawnTimer;
-
 	MemoryArena_ entityArena;
 
 	v2 *entityVertexListCache[entitytype_count];
@@ -40,6 +35,9 @@ typedef struct World
 
 	v2 *bulletVertexCache;
 	v2 *particleVertexCache;
+
+	v2 *starPList;
+	i32 numStarP;
 
 	// TODO(doyle): Audio mixing instead of multiple renderers
 	AudioRenderer *audioRenderer;
@@ -68,7 +66,6 @@ typedef struct GameState {
 
 	UiState uiState;
 	World world;
-
 } GameState;
 
 void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
