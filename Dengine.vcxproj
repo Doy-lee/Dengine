@@ -130,7 +130,6 @@
     <ClCompile Include="src\MemoryArena.c" />
     <ClCompile Include="src\Platform.c" />
     <ClCompile Include="src\Renderer.c" />
-    <ClCompile Include="src\String.c" />
     <ClCompile Include="src\Ui.c" />
   </ItemGroup>
   <ItemGroup>
@@ -153,7 +152,6 @@
     <ClInclude Include="src\include\Dengine\Math.h" />
     <ClInclude Include="src\include\Dengine\OpenGL.h" />
     <ClInclude Include="src\include\Dengine\Renderer.h" />
-    <ClInclude Include="src\include\Dengine\String.h" />
     <ClInclude Include="src\include\Dengine\Ui.h" />
     <ClInclude Include="src\include\Dengine\WorldTraveller.h" />
   </ItemGroup>

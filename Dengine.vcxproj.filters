@@ -36,9 +36,6 @@
     <ClCompile Include="src\dengine.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\String.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\MemoryArena.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -93,9 +90,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\include\Dengine\WorldTraveller.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\include\Dengine\String.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\include\Dengine\Asteroid.h">
