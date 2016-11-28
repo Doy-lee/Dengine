@@ -2,6 +2,7 @@
 #define DENGINE_MATH_H
 
 #include <math.h>
+
 #include "Dengine/Common.h"
 
 #define MATH_PI 3.14159265359f

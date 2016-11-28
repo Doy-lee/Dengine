@@ -9,7 +9,7 @@ typedef struct DebugState
 {
 	b32 init;
 	Font font;
-	i32 *callCount;
+	i32 callCount[debugcount_num];
 	f32 stringLineGap;
 
 	/* Debug strings rendered in top left corner */
@@ -28,11 +28,12 @@ typedef struct DebugState
 
 GLOBAL_VAR DebugState GLOBAL_debug;
 
-void debug_init(MemoryArena_ *arena, v2 windowSize, Font font)
+void debug_init(v2 windowSize, Font font)
 {
-	GLOBAL_debug.font = font;
-	GLOBAL_debug.callCount =
-	    memory_pushBytes(arena, debugcount_num * sizeof(i32));
+	GLOBAL_debug.font          = font;
+
+	for (i32 i = 0; i < debugcount_num; i++) GLOBAL_debug.callCount[i] = 0;
+
 	GLOBAL_debug.stringLineGap = CAST(f32) font.verticalSpacing;
 
 	/* Init debug string stack */
@@ -40,18 +41,17 @@ void debug_init(MemoryArena_ *arena, v2 windowSize, Font font)
 	GLOBAL_debug.stringUpdateTimer = 0.0f;
 	GLOBAL_debug.stringUpdateRate  = 0.15f;
 
-	GLOBAL_debug.initialStringP =
-	    V2(0.0f, (windowSize.h - 1.8f * GLOBAL_debug.stringLineGap));
-	GLOBAL_debug.currStringP = GLOBAL_debug.initialStringP;
+	GLOBAL_debug.initialStringP = V2(0.0f, (windowSize.h - 1.8f * GLOBAL_debug.stringLineGap));
+	GLOBAL_debug.currStringP    = GLOBAL_debug.initialStringP;
 
 	/* Init gui console */
-	i32 maxConsoleStrLen = ARRAY_COUNT(GLOBAL_debug.console[0]);
+	i32 maxConsoleStrLen      = ARRAY_COUNT(GLOBAL_debug.console[0]);
 	GLOBAL_debug.consoleIndex = 0;
 
 	// TODO(doyle): Font max size not entirely correct? using 1 * font.maxSize.w
 	// reveals around 4 characters ..
-	f32 consoleXPos = font.maxSize.w * 20;
-	f32 consoleYPos = windowSize.h - 1.8f * GLOBAL_debug.stringLineGap;
+	f32 consoleXPos              = font.maxSize.w * 20;
+	f32 consoleYPos              = windowSize.h - 1.8f * GLOBAL_debug.stringLineGap;
 	GLOBAL_debug.initialConsoleP = V2(consoleXPos, consoleYPos);
 
 	GLOBAL_debug.init = TRUE;

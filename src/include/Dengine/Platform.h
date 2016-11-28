@@ -143,6 +143,8 @@ typedef struct KeyState
 
 typedef struct InputBuffer
 {
+	OptimalArrayV2 *resolutionList;
+
 	v2 mouseP;
 	KeyState keys[keycode_count];
 } InputBuffer;

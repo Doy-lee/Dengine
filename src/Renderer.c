@@ -32,8 +32,7 @@ void shaderUniformSetVec4f(u32 shaderId, const GLchar *name,
 
 void shaderUse(u32 shaderId) { glUseProgram(shaderId); }
 
-void renderer_init(Renderer *renderer, AssetManager *assetManager,
-                   MemoryArena_ *persistentArena, v2 windowSize)
+void renderer_updateSize(Renderer *renderer, AssetManager *assetManager, v2 windowSize)
 {
 	renderer->size = windowSize;
 	// NOTE(doyle): Value to map a screen coordinate to NDC coordinate
@@ -43,6 +42,7 @@ void renderer_init(Renderer *renderer, AssetManager *assetManager,
 
 	const mat4 projection =
 	    mat4_ortho(0.0f, renderer->size.w, 0.0f, renderer->size.h, 0.0f, 1.0f);
+
 	for (i32 i = 0; i < shaderlist_count; i++)
 	{
 		renderer->shaderList[i] = asset_shaderGet(assetManager, i);
@@ -54,6 +54,12 @@ void renderer_init(Renderer *renderer, AssetManager *assetManager,
 
 	renderer->activeShaderId = renderer->shaderList[shaderlist_default];
 	GL_CHECK_ERROR();
+}
+
+void renderer_init(Renderer *renderer, AssetManager *assetManager,
+                   MemoryArena_ *persistentArena, v2 windowSize)
+{
+	renderer_updateSize(renderer, assetManager, windowSize);
 
 	/* Create buffers */
 	glGenVertexArrays(ARRAY_COUNT(renderer->vao), renderer->vao);

@@ -24,7 +24,8 @@ typedef struct GameWorldState
 	MemoryArena_ entityArena;
 
 	v2 *entityVertexListCache[entitytype_count];
-	Entity entityList[1024];
+	Entity *entityList;
+	i32 entityListSize;
 	i32 entityIndex;
 	u32 entityIdCounter;
 
@@ -54,19 +55,23 @@ typedef struct GameWorldState
 
 typedef struct StartMenuState
 {
+	b32 init;
+
 	f32 startPromptBlinkTimer;
 	b32 startPromptShow;
 
-	b32 optionsShow;
+	char **resStrings;
+	i32 numResStrings;
+	i32 resStringDisplayIndex;
 
 	b32 newResolutionRequest;
-	v2 newResolution;
+
+	b32 optionsShow;
 } StartMenuState;
 
 typedef struct GameState
 {
 	b32 init;
-
 	enum AppState currState;
 	void *appStateData[appstate_count];
 
@@ -81,8 +86,7 @@ typedef struct GameState
 	UiState uiState;
 } GameState;
 
-#define ASTEROID_GET_STATE_DATA(state, type)                                   \
-	(type *)asteroid_getStateData_(state, appstate_##type)
+#define ASTEROID_GET_STATE_DATA(state, type) (type *)asteroid_getStateData_(state, appstate_##type)
 void *asteroid_getStateData_(GameState *state, enum AppState appState);
 
 void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,

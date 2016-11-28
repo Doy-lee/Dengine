@@ -83,7 +83,7 @@ INTERNAL void mouseButtonCallback(GLFWwindow *window, int button, int action,
 {
 	GameState *game = CAST(GameState *)(glfwGetWindowUserPointer(window));
 
-	switch(button)
+	switch (button)
 	{
 	case GLFW_MOUSE_BUTTON_LEFT:
 		processKey(&game->input.keys[keycode_mouseLeft], action);
@@ -115,8 +115,73 @@ i32 main(void)
 	glfwInit();
 	setGlfwWindowHints();
 
-	i32 windowWidth = 1600;
-	i32 windowHeight = 900;
+	OptimalArrayV2 vidList = {0};
+	common_optimalArrayV2Create(&vidList);
+
+	i32 windowWidth  = 0;
+	i32 windowHeight = 0;
+	{ // Query Computer Video Resolutions
+
+		i32 numMonitors;
+		GLFWmonitor **monitors      = glfwGetMonitors(&numMonitors);
+		GLFWmonitor *primaryMonitor = monitors[0];
+
+		i32 numModes;
+		const GLFWvidmode *modes = glfwGetVideoModes(primaryMonitor, &numModes);
+
+		i32 targetRefreshHz   = 60;
+		f32 targetWindowRatio = 16.0f / 9.0f;
+
+		i32 targetPixelDensity   = 1280 * 720;
+		i32 minPixelDensityDelta = 100000000;
+
+		printf("== Supported video modes ==\n");
+		for (i32 i = 0; i < numModes; i++)
+		{
+			GLFWvidmode mode = modes[i];
+			printf("width: %d, height: %d, rgb: %d, %d, %d, refresh: %d\n",
+			       mode.width, mode.height, mode.redBits, mode.greenBits,
+			       mode.blueBits, mode.refreshRate);
+
+			if (mode.refreshRate == targetRefreshHz)
+			{
+				i32 result = common_optimalArrayV2Push(
+				    &vidList, V2i(mode.width, mode.height));
+
+				if (result)
+				{
+					printf(
+					    "common_optimalArrayV2Push(): Failed error code %d\n",
+					    result);
+					ASSERT(INVALID_CODE_PATH);
+				}
+
+				f32 sizeRatio = (f32)mode.width / (f32)mode.height;
+				f32 delta     = targetWindowRatio - sizeRatio;
+				if (delta < 0.1f)
+				{
+					i32 pixelDensity = mode.width * mode.height;
+					i32 densityDelta = ABS((pixelDensity - targetPixelDensity));
+
+					if (densityDelta < minPixelDensityDelta)
+					{
+						minPixelDensityDelta = densityDelta;
+						windowWidth          = mode.width;
+						windowHeight         = mode.height;
+					}
+				}
+			}
+		}
+		printf("==  ==\n");
+		ASSERT(vidList.index > 0);
+	}
+
+	if (windowWidth == 0 || windowHeight == 0)
+	{
+		// NOTE(doyle): In this case just fallback to some value we hope is safe
+		windowWidth  = 800;
+		windowHeight = 600;
+	}
 
 	GLFWwindow *window =
 	    glfwCreateWindow(windowWidth, windowHeight, "Dengine", NULL, NULL);
@@ -168,7 +233,7 @@ i32 main(void)
 	 * INITIALISE GAME
 	 *******************
 	 */
-	Memory memory = {0};
+	Memory memory              = {0};
 	MemoryIndex persistentSize = MEGABYTES(32);
 	MemoryIndex transientSize  = MEGABYTES(64);
 
@@ -181,12 +246,12 @@ i32 main(void)
 	MemoryArena_ gameArena = {0};
 	memory_arenaInit(&gameArena, memory.persistent, memory.persistentSize);
 
-	GameState *gameState = MEMORY_PUSH_STRUCT(&gameArena, GameState);
+	GameState *gameState       = MEMORY_PUSH_STRUCT(&gameArena, GameState);
 	gameState->persistentArena = gameArena;
 
 	glfwSetWindowUserPointer(window, CAST(void *)(gameState));
 
-	{
+	{ // Load game icon
 		i32 width, height;
 		char *iconPath = "data/textures/Asteroids/icon.png";
 		u8 *pixels = asset_imageLoad(&width, &height, NULL, iconPath, FALSE);
@@ -198,6 +263,7 @@ i32 main(void)
 			asset_imageFree(pixels);
 		}
 	}
+	gameState->input.resolutionList = &vidList;
 
 	/*
 	 *******************
@@ -209,7 +275,6 @@ i32 main(void)
 
 #if 0
 	// TODO(doyle): Get actual monitor refresh rate
-	i32 monitorRefreshHz      = 60;
 	f32 targetSecondsPerFrame = 1.0f / CAST(f32)(monitorRefreshHz);
 #else
 	// TODO(doyle): http://gafferongames.com/game-physics/fix-your-timestep/
@@ -234,7 +299,7 @@ i32 main(void)
 		/* Swap the buffers */
 		glfwSwapBuffers(window);
 
-		f32 endTime    = CAST(f32)glfwGetTime();
+		f32 endTime    = CAST(f32) glfwGetTime();
 		secondsElapsed = endTime - startTime;
 
 #if 0
@@ -277,8 +342,11 @@ i32 main(void)
 		{
 			if (menuState->newResolutionRequest)
 			{
-				windowSize = menuState->newResolution;
+				i32 index  = menuState->resStringDisplayIndex;
+				windowSize = gameState->input.resolutionList->ptr[index];
+
 				glfwSetWindowSize(window, (i32)windowSize.w, (i32)windowSize.h);
+				glViewport(0, 0, (i32)windowSize.w, (i32)windowSize.h);
 
 				menuState->newResolutionRequest = FALSE;
 			}

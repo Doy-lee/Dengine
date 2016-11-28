@@ -15,6 +15,9 @@ typedef float f32;
 typedef double f64;
 
 typedef size_t MemoryIndex;
+typedef char String;
+
+typedef struct MemoryArena MemoryArena_;
 
 #define TRUE 1
 #define FALSE 0
@@ -33,6 +36,44 @@ typedef size_t MemoryIndex;
 #define GIGABYTES(val) ((MEGABYTES(val)) * 1024)
 
 #define DENGINE_DEBUG
+
+#include "Dengine/Math.h"
+
+/*
+   NOTE(doyle): Small sized optimised dynamic array that grows as required. The
+   array uses the stack first, only if it runs out of space does it rely on
+   memory allocated from the machine.
+
+   The array->ptr is initially set to fast storage. Once we are out of space
+   we allocate space on the heap for the ptr and copy over the elements in
+   fast storage.
+
+   The default behaviour expands the array storage by the size of fastStorage.
+ */
+
+enum OptimalArrayError
+{
+	optimalarrayerror_out_of_memory = 1,
+	optimalarrayerror_count,
+};
+
+typedef struct OptimalArrayV2
+{
+	v2 fastStorage[16];
+	v2 *ptr;
+	i32 index;
+	i32 size;
+} OptimalArrayV2;
+void common_optimalArrayV2Create(OptimalArrayV2 *array);
+i32 common_optimalArrayV2Push(OptimalArrayV2 *array, v2 data);
+void common_optimalArrayV2Destroy(OptimalArrayV2 *array);
+
+i32 common_stringLen(String *const string);
+String *const common_stringAppend(MemoryArena_ *const arena, String *oldString,
+                                  String *appendString, i32 appendLen);
+void common_stringFree(MemoryArena_ *arena, String *string);
+String *const common_stringMake(MemoryArena_ *const arena, char *string);
+String *const common_stringMakeLen(MemoryArena_ *const arena, i32 len);
 
 i32 common_strlen(const char *const string);
 i32 common_strcmp(const char *a, const char *b);
