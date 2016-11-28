@@ -278,12 +278,16 @@ void debug_drawUi(GameState *state, f32 dt)
 		v2 persistentUsage = V2i(persistentUsedInKbs, persistentSizeInKbs);
 		DEBUG_PUSH_VAR("Permanent Usage: %.0f/%.0f", persistentUsage, "v2");
 
-		MemoryArena_ *entityArena = &state->world.entityArena;
-		i32 entitySizeInKbs       = entityArena->size / 1024;
-		i32 entityUsedInKbs       = entityArena->used / 1024;
-		v2 entityUsage            = V2i(entityUsedInKbs, entitySizeInKbs);
-		DEBUG_PUSH_VAR("Entity Usage: %.0f/%.0f", entityUsage, "v2");
-		DEBUG_PUSH_STRING("== ==");
+		GameWorldState *world = ASTEROID_GET_STATE_DATA(state, GameWorldState);
+		if (world)
+		{
+			MemoryArena_ *entityArena = &world->entityArena;
+			i32 entitySizeInKbs       = entityArena->size / 1024;
+			i32 entityUsedInKbs       = entityArena->used / 1024;
+			v2 entityUsage            = V2i(entityUsedInKbs, entitySizeInKbs);
+			DEBUG_PUSH_VAR("Entity Usage: %.0f/%.0f", entityUsage, "v2");
+			DEBUG_PUSH_STRING("== ==");
+		}
 	}
 
 	DEBUG_PUSH_VAR("Num Vertex: %d",

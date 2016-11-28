@@ -206,7 +206,7 @@ i32 main(void)
 		glfwPollEvents();
 
 		/* Rendering commands here*/
-		glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		asteroid_gameUpdateAndRender(gameState, &memory, windowSize,
@@ -236,10 +236,16 @@ i32 main(void)
 			f32 msPerFrame      = secondsElapsed * 1000.0f;
 			f32 framesPerSecond = 1.0f / secondsElapsed;
 
+			i32 entityCount = 0;
+			GameWorldState *world =
+			    ASTEROID_GET_STATE_DATA(gameState, GameWorldState);
+
+			if (world) entityCount = world->entityIndex;
+
 			char textBuffer[256];
 			snprintf(textBuffer, ARRAY_COUNT(textBuffer),
 			         "Dengine | %f ms/f | %f fps | Entity Count: %d",
-			         msPerFrame, framesPerSecond, gameState->world.entityIndex);
+			         msPerFrame, framesPerSecond, entityCount);
 
 			glfwSetWindowTitle(window, textBuffer);
 			titleUpdateFrequencyInSeconds = 0.5f;

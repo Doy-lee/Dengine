@@ -191,7 +191,7 @@ INTERNAL b32 checkEdgeProjectionOverlap(v2 *vertexList, i32 listSize,
 	return result;
 }
 
-INTERNAL u32 moveEntity(World *world, MemoryArena_ *transientArena,
+INTERNAL u32 moveEntity(GameWorldState *world, MemoryArena_ *transientArena,
                         Entity *entity, i32 entityIndex, v2 ddP, f32 dt,
                         f32 ddPSpeed)
 {
@@ -301,7 +301,8 @@ typedef struct {
 	v2 dP;
 } AsteroidSpec;
 
-INTERNAL void addAsteroidWithSpec(World *world, enum AsteroidSize asteroidSize,
+INTERNAL void addAsteroidWithSpec(GameWorldState *world,
+                                  enum AsteroidSize asteroidSize,
                                   AsteroidSpec *spec)
 {
 	world->asteroidCounter++;
@@ -405,15 +406,15 @@ INTERNAL void addAsteroidWithSpec(World *world, enum AsteroidSize asteroidSize,
 	}
 
 	asteroid->vertexPoints = vertexCache[cacheIndex];
-	asteroid->color = V4(0.0f, 0.5f, 0.5f, 1.0f);
+	asteroid->color = V4(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
-INTERNAL void addAsteroid(World *world, enum AsteroidSize asteroidSize)
+INTERNAL void addAsteroid(GameWorldState *world, enum AsteroidSize asteroidSize)
 {
 	addAsteroidWithSpec(world, asteroidSize, NULL);
 }
 
-INTERNAL void addBullet(World *world, Entity *shooter)
+INTERNAL void addBullet(GameWorldState *world, Entity *shooter)
 {
 	Entity *bullet = &world->entityList[world->entityIndex++];
 	bullet->id     = world->entityIdCounter++;
@@ -442,7 +443,7 @@ INTERNAL void addBullet(World *world, Entity *shooter)
 	bullet->color = V4(1.0f, 1.0f, 0, 1.0f);
 }
 
-INTERNAL void setCollisionRule(World *world, enum EntityType a,
+INTERNAL void setCollisionRule(GameWorldState *world, enum EntityType a,
                                enum EntityType b, b32 rule)
 {
 	ASSERT(a <= entitytype_count);
@@ -451,7 +452,8 @@ INTERNAL void setCollisionRule(World *world, enum EntityType a,
 	world->collisionTable[b][a] = rule;
 }
 
-INTERNAL AudioRenderer *getFreeAudioRenderer(World *world, AudioVorbis *vorbis,
+INTERNAL AudioRenderer *getFreeAudioRenderer(GameWorldState *world,
+                                             AudioVorbis *vorbis,
                                              i32 maxSimultaneousPlayers)
 {
 	i32 freeIndex = -1;
@@ -480,7 +482,7 @@ INTERNAL AudioRenderer *getFreeAudioRenderer(World *world, AudioVorbis *vorbis,
 	return result;
 }
 
-INTERNAL void addPlayer(World *world)
+INTERNAL void addPlayer(GameWorldState *world)
 {
 	Entity *ship = &world->entityList[world->entityIndex++];
 	ship->id     = world->entityIdCounter++;
@@ -507,7 +509,7 @@ INTERNAL void addPlayer(World *world)
 	ship->color      = V4(1.0f, 0.5f, 0.5f, 1.0f);
 }
 
-INTERNAL void deleteEntity(World *world, i32 entityIndex)
+INTERNAL void deleteEntity(GameWorldState *world, i32 entityIndex)
 {
 	ASSERT(entityIndex > 0);
 	ASSERT(entityIndex < ARRAY_COUNT(world->entityList));
@@ -520,9 +522,51 @@ INTERNAL void deleteEntity(World *world, i32 entityIndex)
 	world->entityList[--world->entityIndex] = emptyEntity;
 }
 
+#define GET_STATE_DATA(state, arena, type)                                     \
+	(type *)getStateData_(state, arena, appstate_##type)
+INTERNAL void *getStateData_(GameState *state, MemoryArena_ *persistentArena,
+                             enum AppState appState)
+{
+	void *result = NULL;
+	switch (appState)
+	{
+	case appstate_StartMenuState:
+	{
+		if (!state->appStateData[appState])
+		{
+			state->appStateData[appState] =
+			    MEMORY_PUSH_STRUCT(persistentArena, StartMenuState);
+		}
+	}
+	break;
+
+	case appstate_GameWorldState:
+	{
+		if (!state->appStateData[appState])
+		{
+			state->appStateData[appState] =
+			    MEMORY_PUSH_STRUCT(persistentArena, GameWorldState);
+		}
+	}
+	break;
+
+	default:
+	{
+		ASSERT(INVALID_CODE_PATH);
+	}
+	break;
+	}
+
+	ASSERT(state->appStateData[appState]);
+	result = state->appStateData[appState];
+	return result;
+}
+
 INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 {
-	World *world = &state->world;
+	GameWorldState *world =
+	    GET_STATE_DATA(state, &state->persistentArena, GameWorldState);
+
 	if (!world->init)
 	{
 		world->pixelsPerMeter = 70.0f;
@@ -946,9 +990,6 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 	}
 }
 
-LOCAL_PERSIST f32 flashingGameStartTimerThreshold = 1.0f;
-LOCAL_PERSIST f32 flashingGameStartTimer = 1.0f;
-LOCAL_PERSIST b32 toggleShowGameStart = TRUE;
 INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 {
 	AssetManager *assetManager   = &state->assetManager;
@@ -956,7 +997,8 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 	Renderer *renderer           = &state->renderer;
 	MemoryArena_ *transientArena = &state->transientArena;
 	UiState *uiState             = &state->uiState;
-	World *world                 = &state->world;
+	StartMenuState *menuState =
+	    GET_STATE_DATA(state, &state->persistentArena, StartMenuState);
 
 	Font *arial15 = asset_fontGetOrCreateOnDemand(
 	    assetManager, &state->persistentArena, transientArena, "Arial", 15);
@@ -976,33 +1018,57 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 
 	ui_beginState(uiState);
 
-	flashingGameStartTimer -= dt;
-	if (flashingGameStartTimer < 0)
-	{
-		toggleShowGameStart = (toggleShowGameStart) ? FALSE : TRUE;
-		flashingGameStartTimer = flashingGameStartTimerThreshold;
+	{ // Draw blinking Start Game prompt
+		menuState->startMenuGameStartBlinkTimer -= dt;
+		if (menuState->startMenuGameStartBlinkTimer < 0.0f)
+		{
+			menuState->startMenuGameStartBlinkTimer = 1.0f;
+			menuState->startMenuToggleShow =
+			    (menuState->startMenuToggleShow) ? FALSE : TRUE;
+		}
+
+		if (menuState->startMenuToggleShow)
+		{
+			const char *const gameStart = "Press enter to start";
+			v2 gameStartDim = asset_fontStringDimInPixels(arial25, gameStart);
+			v2 halfGameStartDim = v2_scale(gameStartDim, 0.5f);
+			v2 gameStartP       = v2_add(screenCenter, V2(0, -40));
+			gameStartP          = v2_sub(gameStartP, halfGameStartDim);
+
+			renderer_stringFixed(renderer, transientArena, arial25, gameStart,
+			                     gameStartP, V2(0, 0), 0, V4(1, 1, 0, 1), 0);
+		}
 	}
 
-	if (toggleShowGameStart)
 	{
-		const char *const gameStart = "Press enter to start";
-		v2 gameStartDim     = asset_fontStringDimInPixels(arial25, gameStart);
-		v2 halfGameStartDim = v2_scale(gameStartDim, 0.5f);
-		v2 gameStartP       = v2_add(screenCenter, V2(0, -40));
-		gameStartP          = v2_sub(gameStartP, halfGameStartDim);
-
-		renderer_stringFixed(renderer, transientArena, arial25, gameStart,
-		                     gameStartP, V2(0, 0), 0, V4(1, 1, 0, 1), 0);
+		const char *const optionPrompt = "Press [o] for options ";
+		v2 dim     = asset_fontStringDimInPixels(arial25, optionPrompt);
+		v2 halfDim = v2_scale(dim, 0.5f);
+		v2 p       = v2_add(screenCenter, V2(0, -120));
+		p          = v2_sub(p, halfDim);
+		renderer_stringFixed(renderer, transientArena, arial25, optionPrompt, p,
+		                     V2(0, 0), 0, V4(1, 1, 0, 1), 0);
 	}
 
 	if (platform_queryKey(&inputBuffer->keys[keycode_enter],
 	                      readkeytype_one_shot, KEY_DELAY_NONE))
 	{
-		state->appState = appstate_game;
-		addPlayer(&state->world);
+		state->currState = appstate_GameWorldState;
+
+		GameWorldState *world =
+		    GET_STATE_DATA(state, &state->persistentArena, GameWorldState);
+		addPlayer(world);
 	}
 
 	ui_endState(uiState, inputBuffer);
+}
+
+#define ASTEROID_GET_STATE_DATA(state, type)                                   \
+	(type *)asteroid_getStateData_(state, appstate_##type)
+void *asteroid_getStateData_(GameState *state, enum AppState appState)
+{
+	void *result = state->appStateData[appState];
+	return result;
 }
 
 void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
@@ -1028,21 +1094,21 @@ void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
 		Font *arial15 = asset_fontGet(&state->assetManager, "Arial", 15);
 		debug_init(&state->persistentArena, windowSize, *arial15);
 
-		state->appState = appstate_start_menu;
-		state->init     = TRUE;
+		state->currState = appstate_StartMenuState;
+		state->init      = TRUE;
 	}
 
 	platform_inputBufferProcess(&state->input, dt);
 
-	switch (state->appState)
+	switch (state->currState)
 	{
-	case appstate_start_menu:
+	case appstate_StartMenuState:
 	{
 		// NOTE(doyle): Let menu overlay the game menu. We add player on "enter"
 		// So fall through to appstate_game is valid here!
 		startMenuUpdate(state, memory, dt);
 	}
-	case appstate_game:
+	case appstate_GameWorldState:
 	{
 		gameUpdate(state, memory, dt);
 	}

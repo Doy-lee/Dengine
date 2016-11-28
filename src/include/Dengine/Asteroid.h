@@ -12,14 +12,15 @@
 
 enum AppState
 {
-	appstate_start_menu,
-	appstate_game,
+	appstate_StartMenuState,
+	appstate_GameWorldState,
 	appstate_count,
 };
 
-typedef struct World
+typedef struct GameWorldState
 {
 	b32 init;
+
 	MemoryArena_ entityArena;
 
 	v2 *entityVertexListCache[entitytype_count];
@@ -49,12 +50,20 @@ typedef struct World
 
 	// TODO(doyle): Ensure we change this if it gets too big
 	b32 collisionTable[entitytype_count][entitytype_count];
-} World;
+} GameWorldState;
 
-typedef struct GameState {
+typedef struct StartMenuState
+{
+	f32 startMenuGameStartBlinkTimer;
+	b32 startMenuToggleShow;
+} StartMenuState;
+
+typedef struct GameState
+{
 	b32 init;
-	
-	enum AppState appState;
+
+	enum AppState currState;
+	void *appStateData[appstate_count];
 
 	MemoryArena_ transientArena;
 	MemoryArena_ persistentArena;
@@ -65,8 +74,11 @@ typedef struct GameState {
 	Renderer renderer;
 
 	UiState uiState;
-	World world;
 } GameState;
+
+#define ASTEROID_GET_STATE_DATA(state, type)                                   \
+	(type *)asteroid_getStateData_(state, appstate_##type)
+void *asteroid_getStateData_(GameState *state, enum AppState appState);
 
 void asteroid_gameUpdateAndRender(GameState *state, Memory *memory,
                                   v2 windowSize, f32 dt);
