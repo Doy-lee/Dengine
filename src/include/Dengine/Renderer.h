@@ -3,10 +3,9 @@
 
 #include "Dengine/Common.h"
 #include "Dengine/Math.h"
-#include "Dengine/Assets.h"
+#include "Dengine/AssetManager.h"
 
 /* Forward Declaration */
-typedef struct AssetManager AssetManager;
 typedef struct Font Font;
 typedef struct Entity Entity;
 typedef struct MemoryArena MemoryArena_;
@@ -121,6 +120,22 @@ inline void renderer_stringFixed(Renderer *const renderer, MemoryArena_ *arena,
                                   v4 color, RenderFlags flags)
 {
 	Rect staticCamera = {V2(0, 0), renderer->size};
+	renderer_string(renderer, arena, staticCamera, font, string, pos,
+	                pivotPoint, rotate, color, flags);
+}
+
+inline void renderer_stringFixedCentered(Renderer *const renderer,
+                                         MemoryArena_ *arena, Font *const font,
+                                         const char *const string, v2 pos,
+                                         v2 pivotPoint, Radians rotate,
+                                         v4 color, RenderFlags flags)
+{
+	Rect staticCamera = {V2(0, 0), renderer->size};
+
+	v2 dim     = asset_fontStringDimInPixels(font, string);
+	v2 halfDim = v2_scale(dim, 0.5f);
+	pos        = v2_sub(pos, halfDim);
+
 	renderer_string(renderer, arena, staticCamera, font, string, pos,
 	                pivotPoint, rotate, color, flags);
 }

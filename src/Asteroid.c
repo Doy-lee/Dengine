@@ -340,17 +340,17 @@ INTERNAL void addAsteroidWithSpec(GameWorldState *world,
 	i32 randValue = rand();
 	if (!spec)
 	{
-		i32 randX = (randValue % (i32)world->worldSize.w);
-		i32 randY = (randValue % (i32)world->worldSize.h);
+		i32 randX = (randValue % (i32)world->size.w);
+		i32 randY = (randValue % (i32)world->size.h);
 
-		v2 midpoint = v2_scale(world->worldSize, 0.5f);
+		v2 midpoint = v2_scale(world->size, 0.5f);
 
 		Rect topLeftQuadrant = {V2(0, midpoint.y),
-		                        V2(midpoint.x, world->worldSize.y)};
+		                        V2(midpoint.x, world->size.y)};
 		Rect botLeftQuadrant  = {V2(0, 0), midpoint};
-		Rect topRightQuadrant = {midpoint, world->worldSize};
+		Rect topRightQuadrant = {midpoint, world->size};
 		Rect botRightQuadrant = {V2(midpoint.x, 0),
-		                         V2(world->worldSize.x, midpoint.y)};
+		                         V2(world->size.x, midpoint.y)};
 
 		// NOTE(doyle): Off-screen so asteroids "float" into view. There's no
 		// particular order, just pushing things offscreen when they get
@@ -577,9 +577,9 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 		u8 *arenaBase = state->transientArena.base + state->transientArena.size;
 		memory_arenaInit(&world->entityArena, arenaBase, entityArenaSize);
 
-		world->camera.min               = V2(0, 0);
-		world->camera.max               = state->renderer.size;
-		world->worldSize                = state->renderer.size;
+		world->camera.min = V2(0, 0);
+		world->camera.max = state->renderer.size;
+		world->size       = state->renderer.size;
 
 		{ // Init null entity
 			Entity *nullEntity = &world->entityList[world->entityIndex++];
@@ -617,8 +617,8 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 
 		for (i32 i = 0; i < world->numStarP; i++)
 		{
-			i32 randX = rand() % (i32)world->worldSize.x;
-			i32 randY = rand() % (i32)world->worldSize.y;
+			i32 randX = rand() % (i32)world->size.x;
+			i32 randY = rand() % (i32)world->size.y;
 
 			world->starPList[i] = V2i(randX, randY);
 		}
@@ -821,15 +821,15 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 		}
 
 		/* Loop entity around world */
-		if (entity->pos.y >= world->worldSize.h)
+		if (entity->pos.y >= world->size.h)
 			entity->pos.y = 0;
 		else if (entity->pos.y < 0)
-			entity->pos.y = world->worldSize.h;
+			entity->pos.y = world->size.h;
 
-		if (entity->pos.x >= world->worldSize.w)
+		if (entity->pos.x >= world->size.w)
 			entity->pos.x = 0;
 		else if (entity->pos.x < 0)
-			entity->pos.x = world->worldSize.w;
+			entity->pos.x = world->size.w;
 
 		i32 collisionIndex = moveEntity(world, &state->transientArena, entity,
 		                                i, ddP, dt, ddPSpeedInMs);
@@ -1007,57 +1007,104 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 
 	v2 screenCenter = v2_scale(renderer->size, 0.5f);
 
-	const char *const title = "Asteroids";
-	v2 titleDim     = asset_fontStringDimInPixels(arial25, title);
-	v2 halfTitleDim = v2_scale(titleDim, 0.5f);
-	v2 titleP       = v2_add(screenCenter, V2(0, 40));
-	titleP          = v2_sub(titleP, halfTitleDim);
-
-	renderer_stringFixed(renderer, transientArena, arial25, title, titleP,
-	                     V2(0, 0), 0, V4(1, 0, 0, 1), 0);
-
 	ui_beginState(uiState);
 
-	{ // Draw blinking Start Game prompt
-		menuState->startMenuGameStartBlinkTimer -= dt;
-		if (menuState->startMenuGameStartBlinkTimer < 0.0f)
+	if (menuState->optionsShow)
+	{
+		if (platform_queryKey(&inputBuffer->keys[keycode_o],
+		                      readkeytype_one_shot, KEY_DELAY_NONE) ||
+		    platform_queryKey(&inputBuffer->keys[keycode_backspace],
+		                      readkeytype_one_shot, KEY_DELAY_NONE))
 		{
-			menuState->startMenuGameStartBlinkTimer = 1.0f;
-			menuState->startMenuToggleShow =
-			    (menuState->startMenuToggleShow) ? FALSE : TRUE;
+			menuState->optionsShow = FALSE;
+		}
+		else
+		{
+			f32 textYOffset = arial25->size * 1.5f;;
+			const char *const title = "Options";
+			v2 p               = v2_add(screenCenter, V2(0, textYOffset));
+			renderer_stringFixedCentered(renderer, transientArena, arial25,
+			                             title, p, V2(0, 0), 0, V4(1, 0, 1, 1),
+			                             0);
+
+			const char *const resolutionLabel = "Resolution";
+			p = v2_add(screenCenter, V2(0, 0));
+
+			renderer_stringFixedCentered(renderer, transientArena, arial25,
+			                             resolutionLabel, p, V2(0, 0), 0,
+			                             V4(1, 0, 1, 1), 0);
+
+			const char *const resSizeLabel = "< 800x600 >";
+			p = v2_add(screenCenter, V2(0, -textYOffset));
+
+			renderer_stringFixedCentered(renderer, transientArena, arial25,
+			                             resSizeLabel, p, V2(0, 0), 0,
+			                             V4(1, 0, 1, 1), 0);
+
+			if (platform_queryKey(&inputBuffer->keys[keycode_enter],
+			                      readkeytype_one_shot, KEY_DELAY_NONE))
+			{
+				menuState->newResolutionRequest = TRUE;
+				menuState->newResolution        = V2(800, 600);
+
+				renderer->size        = menuState->newResolution;
+
+				GameWorldState *world = GET_STATE_DATA(
+				    state, &state->persistentArena, GameWorldState);
+				world->size       = menuState->newResolution;
+				world->camera.max = menuState->newResolution;
+			}
+		}
+	}
+	else
+	{
+		/* Draw title text */
+		const char *const title = "Asteroids";
+		v2 p                    = v2_add(screenCenter, V2(0, 40));
+		renderer_stringFixedCentered(renderer, transientArena, arial25, title,
+		                             p, V2(0, 0), 0, V4(1, 0, 0, 1), 0);
+
+		/* Draw blinking start game prompt */
+		menuState->startPromptBlinkTimer -= dt;
+		if (menuState->startPromptBlinkTimer < 0.0f)
+		{
+			menuState->startPromptBlinkTimer = 1.0f;
+			menuState->startPromptShow =
+			    (menuState->startPromptShow) ? FALSE : TRUE;
 		}
 
-		if (menuState->startMenuToggleShow)
+		if (menuState->startPromptShow)
 		{
 			const char *const gameStart = "Press enter to start";
-			v2 gameStartDim = asset_fontStringDimInPixels(arial25, gameStart);
-			v2 halfGameStartDim = v2_scale(gameStartDim, 0.5f);
-			v2 gameStartP       = v2_add(screenCenter, V2(0, -40));
-			gameStartP          = v2_sub(gameStartP, halfGameStartDim);
-
-			renderer_stringFixed(renderer, transientArena, arial25, gameStart,
-			                     gameStartP, V2(0, 0), 0, V4(1, 1, 0, 1), 0);
+			v2 p                        = v2_add(screenCenter, V2(0, -40));
+			renderer_stringFixedCentered(renderer, transientArena, arial25,
+			                             gameStart, p, V2(0, 0), 0,
+			                             V4(1, 1, 0, 1), 0);
 		}
-	}
 
-	{
-		const char *const optionPrompt = "Press [o] for options ";
-		v2 dim     = asset_fontStringDimInPixels(arial25, optionPrompt);
-		v2 halfDim = v2_scale(dim, 0.5f);
-		v2 p       = v2_add(screenCenter, V2(0, -120));
-		p          = v2_sub(p, halfDim);
-		renderer_stringFixed(renderer, transientArena, arial25, optionPrompt, p,
-		                     V2(0, 0), 0, V4(1, 1, 0, 1), 0);
-	}
+		{ // Draw show options prompt
+			const char *const optionPrompt = "Press [o] for options ";
+			v2 p       = v2_add(screenCenter, V2(0, -120));
+			renderer_stringFixedCentered(renderer, transientArena, arial25,
+			                     optionPrompt, p, V2(0, 0), 0, V4(1, 1, 0, 1),
+			                     0);
+		}
 
-	if (platform_queryKey(&inputBuffer->keys[keycode_enter],
-	                      readkeytype_one_shot, KEY_DELAY_NONE))
-	{
-		state->currState = appstate_GameWorldState;
+		if (platform_queryKey(&inputBuffer->keys[keycode_enter],
+		                      readkeytype_one_shot, KEY_DELAY_NONE))
+		{
 
-		GameWorldState *world =
-		    GET_STATE_DATA(state, &state->persistentArena, GameWorldState);
-		addPlayer(world);
+			GameWorldState *world =
+			    GET_STATE_DATA(state, &state->persistentArena, GameWorldState);
+			addPlayer(world);
+
+			state->currState = appstate_GameWorldState;
+		}
+		else if (platform_queryKey(&inputBuffer->keys[keycode_o],
+		                           readkeytype_one_shot, KEY_DELAY_NONE))
+		{
+			menuState->optionsShow = TRUE;
+		}
 	}
 
 	ui_endState(uiState, inputBuffer);

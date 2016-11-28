@@ -97,6 +97,14 @@ INTERNAL void scrollCallback(GLFWwindow *window, double xOffset, double yOffset)
 {
 }
 
+INTERNAL void setGlfwWindowHints()
+{
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+}
+
 i32 main(void)
 {
 	/*
@@ -105,10 +113,7 @@ i32 main(void)
 	 **************************
 	 */
 	glfwInit();
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+	setGlfwWindowHints();
 
 	i32 windowWidth = 1600;
 	i32 windowHeight = 900;
@@ -181,6 +186,19 @@ i32 main(void)
 
 	glfwSetWindowUserPointer(window, CAST(void *)(gameState));
 
+	{
+		i32 width, height;
+		char *iconPath = "data/textures/Asteroids/icon.png";
+		u8 *pixels = asset_imageLoad(&width, &height, NULL, iconPath, FALSE);
+
+		if (pixels)
+		{
+			GLFWimage image = {width, height, pixels};
+			glfwSetWindowIcon(window, 1, &image);
+			asset_imageFree(pixels);
+		}
+	}
+
 	/*
 	 *******************
 	 * GAME LOOP
@@ -252,6 +270,19 @@ i32 main(void)
 		}
 
 		startTime = endTime;
+
+		StartMenuState *menuState =
+		    ASTEROID_GET_STATE_DATA(gameState, StartMenuState);
+		if (menuState)
+		{
+			if (menuState->newResolutionRequest)
+			{
+				windowSize = menuState->newResolution;
+				glfwSetWindowSize(window, (i32)windowSize.w, (i32)windowSize.h);
+
+				menuState->newResolutionRequest = FALSE;
+			}
+		}
 	}
 
 	glfwTerminate();

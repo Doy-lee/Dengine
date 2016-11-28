@@ -41,8 +41,13 @@ TexAtlas *asset_atlasGet(AssetManager *const assetManager,
                          const char *const key);
 Texture *asset_texGetFreeSlot(AssetManager *const assetManager,
                               MemoryArena_ *const arena, const char *const key);
-Texture *asset_loadTextureImage(AssetManager *assetManager, MemoryArena_ *arena,
-                                const char *const path, const char *const key);
+Texture *asset_texLoadImage(AssetManager *assetManager, MemoryArena_ *arena,
+                            const char *const path, const char *const key);
+
+u8 *asset_imageLoad(i32 *width, i32 *height, i32 *bpp, const char *const path,
+                    b32 flipVertically);
+
+void asset_imageFree(u8 *image);
 
 /*
  *********************************

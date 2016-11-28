@@ -45,8 +45,8 @@ typedef struct GameWorldState
 	i32 numAudioRenderers;
 
 	f32 pixelsPerMeter;
-	v2 worldSize;
 	Rect camera;
+	v2 size;
 
 	// TODO(doyle): Ensure we change this if it gets too big
 	b32 collisionTable[entitytype_count][entitytype_count];
@@ -54,8 +54,13 @@ typedef struct GameWorldState
 
 typedef struct StartMenuState
 {
-	f32 startMenuGameStartBlinkTimer;
-	b32 startMenuToggleShow;
+	f32 startPromptBlinkTimer;
+	b32 startPromptShow;
+
+	b32 optionsShow;
+
+	b32 newResolutionRequest;
+	v2 newResolution;
 } StartMenuState;
 
 typedef struct GameState

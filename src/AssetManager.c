@@ -305,34 +305,46 @@ Texture *asset_texLoadImage(AssetManager *assetManager, MemoryArena_ *arena,
 {
 	/* Open the texture image */
 	i32 imgWidth, imgHeight, bytesPerPixel;
-	stbi_set_flip_vertically_on_load(TRUE);
 	u8 *image =
-	    stbi_load(path, &imgWidth, &imgHeight, &bytesPerPixel, 0);
+	    asset_imageLoad(&imgWidth, &imgHeight, &bytesPerPixel, path, TRUE);
 
-#ifdef DENGINE_DEBUG
-	if (imgWidth != imgHeight)
+	Texture *result = NULL;
+	if (image)
+	{
+		result = asset_texGetFreeSlot(assetManager, arena, key);
+		*result = textureGen(CAST(GLuint)(imgWidth), CAST(GLuint)(imgHeight),
+		                     CAST(GLint)(bytesPerPixel), image);
+
+		GL_CHECK_ERROR();
+		asset_imageFree(image);
+	}
+
+	return result;
+}
+
+u8 *asset_imageLoad(i32 *width, i32 *height, i32 *bpp, const char *const path,
+                    b32 flipVertically)
+{
+	stbi_set_flip_vertically_on_load(flipVertically);
+	u8 *image = stbi_load(path, width, height, bpp, 0);
+
+	if (*width != *height)
 	{
 		printf(
 		    "asset_texLoadImage() warning: Sprite sheet is not square: "
-		    "%dx%dpx\n", imgWidth, imgHeight);
+		    "%dx%dpx\n",
+		    *width, *height);
 	}
-#endif
 
 	if (!image)
 	{
 		printf("stdbi_load() failed: %s\n", stbi_failure_reason());
-		return NULL;
 	}
 
-	Texture *result = asset_texGetFreeSlot(assetManager, arena, key);
-	*result = textureGen(CAST(GLuint)(imgWidth), CAST(GLuint)(imgHeight),
-	                      CAST(GLint)(bytesPerPixel), image);
-
-	GL_CHECK_ERROR();
-	stbi_image_free(image);
-
-	return result;
+	return image;
 }
+
+void asset_imageFree(u8 *image) { stbi_image_free(image); }
 
 /*
  *********************************
