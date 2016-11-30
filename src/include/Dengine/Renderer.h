@@ -46,6 +46,7 @@ typedef struct RenderGroup
 	b32 init;
 	RenderFlags flags;
 	enum RenderMode mode;
+	i32 zDepth;
 
 	// NOTE(doyle): Only for when adding singular triangles in triangle strip
 	// mode
@@ -81,6 +82,7 @@ typedef struct Renderer
 	v2 size;
 
 	RenderGroup groups[128];
+	i32 groupsInUse;
 	i32 groupCapacity;
 } Renderer;
 
@@ -94,42 +96,44 @@ RenderTex renderer_createNullRenderTex(AssetManager *const assetManager);
 // Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
 void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
                    v2 pivotPoint, Radians rotate, RenderTex *renderTex,
-                   v4 color, RenderFlags flags);
+                   v4 color, i32 zDepth, RenderFlags flags);
 
 void renderer_polygon(Renderer *const renderer, Rect camera, v2 *polygonPoints,
                       i32 numPoints, v2 pivotPoint, Radians rotate,
-                      RenderTex *renderTex, v4 color, RenderFlags flags);
+                      RenderTex *renderTex, v4 color, i32 zDepth,
+                      RenderFlags flags);
 
 inline void renderer_rectFixed(Renderer *const renderer, v2 pos, v2 size,
-                                v2 pivotPoint, Radians rotate,
-                                RenderTex *renderTex, v4 color,
-                                RenderFlags flags)
+                               v2 pivotPoint, Radians rotate,
+                               RenderTex *renderTex, v4 color, i32 zDepth,
+                               RenderFlags flags)
 {
 	Rect staticCamera = {V2(0, 0), renderer->size};
 	renderer_rect(renderer, staticCamera, pos, size, pivotPoint, rotate,
-	              renderTex, color, flags);
+	              renderTex, color, zDepth, flags);
 }
 
 void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
                      Font *const font, const char *const string, v2 pos,
-                     v2 pivotPoint, Radians rotate, v4 color,
+                     v2 pivotPoint, Radians rotate, v4 color, i32 zDepth,
                      RenderFlags flags);
 
 inline void renderer_stringFixed(Renderer *const renderer, MemoryArena_ *arena,
-                                  Font *const font, const char *const string,
-                                  v2 pos, v2 pivotPoint, Radians rotate,
-                                  v4 color, RenderFlags flags)
+                                 Font *const font, const char *const string,
+                                 v2 pos, v2 pivotPoint, Radians rotate,
+                                 v4 color, i32 zDepth, RenderFlags flags)
 {
 	Rect staticCamera = {V2(0, 0), renderer->size};
 	renderer_string(renderer, arena, staticCamera, font, string, pos,
-	                pivotPoint, rotate, color, flags);
+	                pivotPoint, rotate, color, zDepth, flags);
 }
 
 inline void renderer_stringFixedCentered(Renderer *const renderer,
                                          MemoryArena_ *arena, Font *const font,
                                          const char *const string, v2 pos,
                                          v2 pivotPoint, Radians rotate,
-                                         v4 color, RenderFlags flags)
+                                         v4 color, i32 zDepth,
+                                         enum RenderFlags flags)
 {
 	Rect staticCamera = {V2(0, 0), renderer->size};
 
@@ -138,12 +142,12 @@ inline void renderer_stringFixedCentered(Renderer *const renderer,
 	pos        = v2_sub(pos, halfDim);
 
 	renderer_string(renderer, arena, staticCamera, font, string, pos,
-	                pivotPoint, rotate, color, flags);
+	                pivotPoint, rotate, color, zDepth, flags);
 }
 
 void renderer_entity(Renderer *renderer, MemoryArena_ *transientArena,
                      Rect camera, Entity *entity, v2 pivotPoint, Degrees rotate,
-                     v4 color, RenderFlags flags);
+                     v4 color, i32 zDepth, RenderFlags flags);
 
 void renderer_renderGroups(Renderer *renderer);
 

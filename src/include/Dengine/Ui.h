@@ -64,15 +64,15 @@ void ui_endState(UiState *state, InputBuffer *input);
 i32 ui_button(UiState *const uiState, MemoryArena_ *const arena,
               AssetManager *const assetManager, Renderer *const renderer,
               Font *const font, const InputBuffer input, const i32 id,
-              const Rect rect, const char *const label);
+              const Rect rect, const char *const label, i32 zDepth);
 
 i32 ui_textfield(UiState *const uiState, MemoryArena_ *const arena,
                  AssetManager *const assetManager, Renderer *const renderer,
                  Font *const font, InputBuffer input, const i32 id,
-                 const Rect rect, char *const string);
+                 const Rect rect, char *const string, i32 zDepth);
 
 i32 ui_scrollbar(UiState *const uiState, AssetManager *const assetManager,
                  Renderer *const renderer, const InputBuffer input,
                  const i32 id, const Rect scrollBarRect, i32 *const value,
-                 const i32 maxValue);
+                 const i32 maxValue, i32 zDepth);
 #endif

@@ -618,6 +618,7 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 		world->numStarP = 100;
 		world->starPList =
 		    MEMORY_PUSH_ARRAY(&world->entityArena, world->numStarP, v2);
+		world->starMinOpacity = 0.25f;
 
 		for (i32 i = 0; i < world->numStarP; i++)
 		{
@@ -633,14 +634,36 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 	for (u32 i = world->asteroidCounter; i < world->numAsteroids; i++)
 		addAsteroid(world, (rand() % asteroidsize_count));
 
-	Radians starRotation = DEGREES_TO_RADIANS(45.0f);
-	v2 starSize          = V2(2, 2);
+	Radians starRotation   = DEGREES_TO_RADIANS(45.0f);
+	v2 starSize            = V2(2, 2);
+
+	ASSERT(world->starMinOpacity >= 0.0f && world->starMinOpacity <= 1.0f);
+	f32 opacityFadeRateInS = 0.5f;
+	if (world->starFadeAway)
+	{
+		opacityFadeRateInS *= -1.0f;
+	}
+
+	if (world->starOpacity > 1.0f)
+	{
+		world->starOpacity = 1.0f;
+		world->starFadeAway = TRUE;
+	}
+	else if (world->starOpacity < world->starMinOpacity)
+	{
+		world->starOpacity = world->starMinOpacity;
+		world->starFadeAway = FALSE;
+	}
+
+	world->starOpacity += (opacityFadeRateInS * dt);
+	DEBUG_PUSH_VAR("Star Opacity: %5.2f", world->starOpacity, "f32");
+
 	for (i32 i = 0; i < world->numStarP; i++)
 	{
 		renderer_rect(&state->renderer, world->camera, world->starPList[i],
 		              starSize, V2(0, 0), starRotation, NULL,
-		              V4(1.0f, 1.0f, 0, 0.5f),
-		              renderflag_no_texture | renderflag_wireframe);
+		              V4(0.8f, 0.8f, 0.8f, world->starOpacity),
+		              0, renderflag_no_texture | renderflag_wireframe);
 	}
 
 	if (platform_queryKey(&state->input.keys[keycode_left_square_bracket],
@@ -713,7 +736,7 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 			renderer_rect(&state->renderer, world->camera, entity->pos,
 			              V2(5, 5), V2(0, 0),
 			              DEGREES_TO_RADIANS(entity->rotation), NULL,
-			              V4(1.0f, 1.0f, 1.0f, 1.0f), renderflag_no_texture);
+			              V4(1.0f, 1.0f, 1.0f, 1.0f), 0, renderflag_no_texture);
 		}
 		else if (entity->type >= entitytype_asteroid_small &&
 		         entity->type <= entitytype_asteroid_large)
@@ -984,7 +1007,7 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 
 		RenderFlags flags = renderflag_wireframe | renderflag_no_texture;
 		renderer_entity(&state->renderer, &state->transientArena, world->camera,
-		                entity, V2(0, 0), 0, collideColor, flags);
+		                entity, V2(0, 0), 0, collideColor, 0, flags);
 	}
 
 	for (i32 i = 0; i < world->numAudioRenderers; i++)
@@ -1005,6 +1028,7 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 	StartMenuState *menuState =
 	    GET_STATE_DATA(state, &state->persistentArena, StartMenuState);
 
+	i32 uiZDepth = 2;
 	if (!menuState->init)
 	{
 		MemoryArena_ *persistentArena   = &state->persistentArena;
@@ -1063,6 +1087,7 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 		}
 		else
 		{
+
 			if (platform_queryKey(&inputBuffer->keys[keycode_enter],
 			                      readkeytype_one_shot, KEY_DELAY_NONE))
 			{
@@ -1114,7 +1139,7 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 				v2 p = v2_add(screenCenter, V2(0, textYOffset));
 				renderer_stringFixedCentered(renderer, transientArena, arial25,
 				                             title, p, V2(0, 0), 0,
-				                             V4(1, 0, 1, 1), 0);
+				                             V4(1, 1, 1, 1), uiZDepth, 0);
 			}
 
 			{ // Resolution String Display
@@ -1125,7 +1150,7 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 				v2 p = v2_add(screenCenter, V2(0, 0));
 				renderer_stringFixedCentered(renderer, transientArena, arial25,
 				                             resolutionLabel, p, V2(0, 0), 0,
-				                             V4(1, 0, 1, 1), 0);
+				                             V4(1, 1, 1, 1), uiZDepth, 0);
 
 				/* Draw label value */
 				char *resStringToDisplay =
@@ -1134,9 +1159,13 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 				p = v2_add(screenCenter, V2(0, -textYOffset));
 				renderer_stringFixedCentered(renderer, transientArena, arial25,
 				                             resStringToDisplay, p, V2(0, 0), 0,
-				                             V4(1, 0, 1, 1), 0);
+				                             V4(1, 1, 1, 1), uiZDepth, 0);
 			}
 		}
+
+		renderer_rectFixed(renderer, V2(100, 100), V2(1000, 500), V2(0, 0), 0,
+		                   NULL, V4(1.0f, 0.5f, 0.8f, 0.5f), uiZDepth - 1,
+		                   renderflag_no_texture);
 	}
 	else
 	{
@@ -1144,7 +1173,8 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 		const char *const title = "Asteroids";
 		v2 p                    = v2_add(screenCenter, V2(0, 40));
 		renderer_stringFixedCentered(renderer, transientArena, arial25, title,
-		                             p, V2(0, 0), 0, V4(1, 0, 0, 1), 0);
+		                             p, V2(0, 0), 0, V4(1, 1, 1, 1), uiZDepth,
+		                             0);
 
 		/* Draw blinking start game prompt */
 		menuState->startPromptBlinkTimer -= dt;
@@ -1161,7 +1191,7 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 			v2 p                        = v2_add(screenCenter, V2(0, -40));
 			renderer_stringFixedCentered(renderer, transientArena, arial25,
 			                             gameStart, p, V2(0, 0), 0,
-			                             V4(1, 1, 0, 1), 0);
+			                             V4(1, 1, 1, 1), uiZDepth, 0);
 		}
 
 		{ // Draw show options prompt
@@ -1169,7 +1199,7 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 			v2 p                           = v2_add(screenCenter, V2(0, -120));
 			renderer_stringFixedCentered(renderer, transientArena, arial25,
 			                             optionPrompt, p, V2(0, 0), 0,
-			                             V4(1, 1, 0, 1), 0);
+			                             V4(1, 1, 1, 1), uiZDepth,  0);
 		}
 
 		if (platform_queryKey(&inputBuffer->keys[keycode_enter],

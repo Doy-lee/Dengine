@@ -39,6 +39,9 @@ typedef struct GameWorldState
 	v2 *particleVertexCache;
 
 	v2 *starPList;
+	f32 starOpacity;
+	f32 starMinOpacity;
+	b32 starFadeAway;
 	i32 numStarP;
 
 	// TODO(doyle): Audio mixing instead of multiple renderers

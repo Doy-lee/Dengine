@@ -6,14 +6,14 @@
 #include "Dengine/MemoryArena.h"
 #include "Dengine/OpenGL.h"
 
-void shaderUniformSet1i(u32 shaderId, const GLchar *name,
+INTERNAL void shaderUniformSet1i(u32 shaderId, const GLchar *name,
                          const GLuint data)
 {
 	GLint uniformLoc = glGetUniformLocation(shaderId, name);
 	glUniform1i(uniformLoc, data);
 }
 
-void shaderUniformSetMat4fv(u32 shaderId, const GLchar *name,
+INTERNAL void shaderUniformSetMat4fv(u32 shaderId, const GLchar *name,
                              mat4 data)
 {
 	GLint uniformLoc = glGetUniformLocation(shaderId, name);
@@ -22,7 +22,7 @@ void shaderUniformSetMat4fv(u32 shaderId, const GLchar *name,
 	GL_CHECK_ERROR();
 }
 
-void shaderUniformSetVec4f(u32 shaderId, const GLchar *name,
+INTERNAL void shaderUniformSetVec4f(u32 shaderId, const GLchar *name,
                             v4 data)
 {
 	GLint uniformLoc = glGetUniformLocation(shaderId, name);
@@ -30,7 +30,7 @@ void shaderUniformSetVec4f(u32 shaderId, const GLchar *name,
 }
 
 
-void shaderUse(u32 shaderId) { glUseProgram(shaderId); }
+INTERNAL void shaderUse(u32 shaderId) { glUseProgram(shaderId); }
 
 void renderer_updateSize(Renderer *renderer, AssetManager *assetManager, v2 windowSize)
 {
@@ -173,8 +173,8 @@ INTERNAL void applyRotationToVertexes(v2 pos, v2 pivotPoint, Radians rotate,
 }
 
 INTERNAL void addVertexToRenderGroup_(Renderer *renderer, Texture *tex,
-                                      v4 color, RenderVertex *vertexList,
-                                      i32 numVertexes,
+                                      v4 color, i32 zDepth,
+                                      RenderVertex *vertexList, i32 numVertexes,
                                       enum RenderMode targetRenderMode,
                                       RenderFlags flags)
 {
@@ -197,45 +197,32 @@ INTERNAL void addVertexToRenderGroup_(Renderer *renderer, Texture *tex,
 			/* If the textures match and have the same color modulation, we can
 			 * add these vertices to the current group */
 
-			b32 renderModeMatches = FALSE;
-			if (group->mode == targetRenderMode) renderModeMatches = TRUE;
+			if (!(group->mode == targetRenderMode)) continue;
+			if (!(v4_equals(group->color, color))) continue;
+			if (!(group->flags == flags)) continue;
+			if (!(group->zDepth == zDepth)) continue;
+			if (!tex && group->tex) continue;
 
-			b32 colorMatches = FALSE;
-			if (v4_equals(group->color, color)) colorMatches = TRUE;
-
-			b32 flagsMatches = FALSE;
-			if (group->flags == flags) flagsMatches = TRUE;
-
-			b32 texMatches = TRUE;
-			if (!tex && !group->tex)
+			if (tex && group->tex)
 			{
-				texMatches = TRUE;
-			}
-			else if (tex && group->tex)
-			{
-				if (group->tex->id == tex->id)
-				{
-					texMatches = TRUE;
-				}
+				if (!(group->tex->id == tex->id)) continue;
 			}
 
-			if (texMatches && colorMatches && renderModeMatches && flagsMatches)
-				groupIsValid = TRUE;
+			groupIsValid = TRUE;
 		}
 		else
 		{
 			/* New group, unused so initialise it */
 			groupIsValid = TRUE;
 
-			group->init  = TRUE;
-			group->tex   = tex;
-			group->color = color;
-			group->mode  = targetRenderMode;
-			group->flags = flags;
+			group->init   = TRUE;
+			group->tex    = tex;
+			group->color  = color;
+			group->mode   = targetRenderMode;
+			group->flags  = flags;
+			group->zDepth = zDepth;
 
-#ifdef DENGINE_DEBUG
-			debug_countIncrement(debugcount_renderGroups);
-#endif
+			renderer->groupsInUse++;
 		}
 
 		if (groupIsValid)
@@ -340,19 +327,6 @@ INTERNAL inline void flipTexCoord(v4 *texCoords, b32 flipX, b32 flipY)
 	}
 }
 
-INTERNAL void bufferRenderGroupToGL(Renderer *renderer, RenderGroup *group)
-{
-	RenderVertex *vertexList = group->vertexList;
-	i32 numVertex = group->vertexIndex;
-
-	// TODO(doyle): We assume that vbo and vao are assigned
-	renderer->numVertexesInVbo = numVertex;
-	glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo[group->mode]);
-	glBufferData(GL_ARRAY_BUFFER, numVertex * sizeof(RenderVertex), vertexList,
-	             GL_STREAM_DRAW);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-}
-
 INTERNAL v4 getTexRectNormaliseDeviceCoords(RenderTex renderTex)
 {
 	/* Convert texture coordinates to normalised texture coordinates */
@@ -445,56 +419,6 @@ createDefaultTexQuad(Renderer *renderer, RenderTex *renderTex)
 
 INTERNAL void renderGLBufferedData(Renderer *renderer, RenderGroup *group)
 {
-	ASSERT(group->mode < rendermode_invalid);
-
-	if (group->flags & renderflag_wireframe)
-	{
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	}
-	else
-	{
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	}
-	GL_CHECK_ERROR();
-
-	if (group->flags & renderflag_no_texture)
-	{
-		renderer->activeShaderId =
-		    renderer->shaderList[shaderlist_default_no_tex];
-		shaderUse(renderer->activeShaderId);
-	}
-	else
-	{
-		renderer->activeShaderId = renderer->shaderList[shaderlist_default];
-		shaderUse(renderer->activeShaderId);
-		Texture *tex = group->tex;
-		if (tex)
-		{
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, tex->id);
-			shaderUniformSet1i(renderer->activeShaderId, "tex", 0);
-			GL_CHECK_ERROR();
-		}
-	}
-
-#if 0
-	glDisable(GL_CULL_FACE);
-#endif
-
-	/* Set color modulation value */
-	shaderUniformSetVec4f(renderer->activeShaderId, "spriteColor",
-	                       group->color);
-
-	glBindVertexArray(renderer->vao[group->mode]);
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
-	GL_CHECK_ERROR();
-	debug_countIncrement(debugcount_drawArrays);
-
-	/* Unbind */
-	glBindVertexArray(0);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	GL_CHECK_ERROR();
-
 }
 
 RenderTex renderer_createNullRenderTex(AssetManager *const assetManager)
@@ -505,8 +429,8 @@ RenderTex renderer_createNullRenderTex(AssetManager *const assetManager)
 }
 
 void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
-                   v2 pivotPoint, Radians rotate, RenderTex *renderTex, v4 color,
-                   RenderFlags flags)
+                   v2 pivotPoint, Radians rotate, RenderTex *renderTex,
+                   v4 color, i32 zDepth, RenderFlags flags)
 {
 	// NOTE(doyle): Bottom left and top right position of quad in world space
 	v2 posInCameraSpace = v2_sub(pos, camera.min);
@@ -522,15 +446,15 @@ void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
 	                                   pivotPoint, rotate, *renderTex);
 
 	beginVertexBatch(renderer);
-	addVertexToRenderGroup_(renderer, renderTex->tex, color, quad.vertexList,
-	                        ARRAY_COUNT(quad.vertexList), rendermode_quad,
-	                        flags);
+	addVertexToRenderGroup_(renderer, renderTex->tex, color, zDepth,
+	                        quad.vertexList, ARRAY_COUNT(quad.vertexList),
+	                        rendermode_quad, flags);
 	endVertexBatch(renderer);
 }
 
 void renderer_polygon(Renderer *const renderer, Rect camera,
                       v2 *polygonPoints, i32 numPoints, v2 pivotPoint,
-                      Radians rotate, RenderTex *renderTex, v4 color,
+                      Radians rotate, RenderTex *renderTex, v4 color, i32 zDepth,
                       RenderFlags flags)
 {
 	ASSERT(numPoints >= 3);
@@ -614,9 +538,9 @@ void renderer_polygon(Renderer *const renderer, Rect camera,
 		triangle[1].pos          = vertexList[1];
 		triangle[2].pos          = vertexList[2];
 
-		addVertexToRenderGroup_(renderer, renderTex->tex, color, triangle,
-		                        ARRAY_COUNT(triangle), rendermode_polygon,
-		                        flags);
+		addVertexToRenderGroup_(renderer, renderTex->tex, color, zDepth,
+		                        triangle, ARRAY_COUNT(triangle),
+		                        rendermode_polygon, flags);
 		endVertexBatch(renderer);
 		triangulationIndex++;
 	}
@@ -624,7 +548,8 @@ void renderer_polygon(Renderer *const renderer, Rect camera,
 
 void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
                      Font *const font, const char *const string, v2 pos,
-                     v2 pivotPoint, Radians rotate, v4 color, RenderFlags flags)
+                     v2 pivotPoint, Radians rotate, v4 color, i32 zDepth,
+                     RenderFlags flags)
 {
 	i32 strLen = common_strlen(string);
 	if (strLen <= 0) return;
@@ -673,7 +598,7 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
 			                                   pivotPoint, rotate, renderTex);
 
 			beginVertexBatch(renderer);
-			addVertexToRenderGroup_(renderer, tex, color, quad.vertexList,
+			addVertexToRenderGroup_(renderer, tex, color, zDepth, quad.vertexList,
 			                        ARRAY_COUNT(quad.vertexList),
 			                        rendermode_quad, flags);
 			endVertexBatch(renderer);
@@ -684,7 +609,7 @@ void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
 
 void renderer_entity(Renderer *renderer, MemoryArena_ *transientArena,
                      Rect camera, Entity *entity, v2 pivotPoint, Degrees rotate,
-                     v4 color, RenderFlags flags)
+                     v4 color, i32 zDepth,  RenderFlags flags)
 {
 	// TODO(doyle): Add early exit on entities out of camera bounds
 	Radians totalRotation = DEGREES_TO_RADIANS((entity->rotation + rotate));
@@ -726,7 +651,7 @@ void renderer_entity(Renderer *renderer, MemoryArena_ *transientArena,
 	{
 		renderer_rect(renderer, camera, entity->pos, entity->size,
 		              v2_add(entity->offset, pivotPoint), totalRotation,
-		              &renderTex, entity->color, flags);
+		              &renderTex, entity->color, zDepth, flags);
 	}
 	else if (entity->renderMode == rendermode_polygon)
 	{
@@ -739,7 +664,7 @@ void renderer_entity(Renderer *renderer, MemoryArena_ *transientArena,
 		renderer_polygon(renderer, camera, offsetVertexPoints,
 		                 entity->numVertexPoints,
 		                 v2_add(entity->offset, pivotPoint), totalRotation,
-		                 &renderTex, renderColor, flags);
+		                 &renderTex, renderColor, zDepth, flags);
 	}
 	else
 	{
@@ -750,21 +675,105 @@ void renderer_entity(Renderer *renderer, MemoryArena_ *transientArena,
 // TODO(doyle): We have no notion of sort order!!
 void renderer_renderGroups(Renderer *renderer)
 {
-	for (i32 i = 0; i < ARRAY_COUNT(renderer->groups); i++)
-	{
-		RenderGroup *currGroup = &renderer->groups[i];
-		if (currGroup->init)
-		{
-			bufferRenderGroupToGL(renderer, currGroup);
-			renderGLBufferedData(renderer, currGroup);
 
-			RenderGroup cleanGroup = {0};
-			cleanGroup.vertexList = currGroup->vertexList;
-			*currGroup = cleanGroup;
-		}
-		else
+	/* Sort the group by zdepth */
+	b32 groupHasSwapped = TRUE;
+	i32 numGroupsToCheck = renderer->groupsInUse - 1;
+	while (groupHasSwapped)
+	{
+		groupHasSwapped = FALSE;
+		for (i32 i = 0; i < numGroupsToCheck; i++)
 		{
-			break;
+			RenderGroup *group      = &renderer->groups[i];
+			RenderGroup *checkGroup = &renderer->groups[i + 1];
+
+			if (checkGroup->zDepth < group->zDepth)
+			{
+				RenderGroup tmp = *group;
+				*group          = *checkGroup;
+				*checkGroup     = tmp;
+
+				groupHasSwapped = TRUE;
+			}
 		}
+
+		numGroupsToCheck--;
 	}
+
+	/* Render groups */
+	for (i32 i = 0; i < renderer->groupsInUse; i++)
+	{
+		RenderGroup *group = &renderer->groups[i];
+		{ // Buffer render group to OpenGL
+			RenderVertex *vertexList = group->vertexList;
+			i32 numVertex            = group->vertexIndex;
+
+			// TODO(doyle): We assume that vbo and vao are assigned
+			renderer->numVertexesInVbo = numVertex;
+			glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo[group->mode]);
+			glBufferData(GL_ARRAY_BUFFER, numVertex * sizeof(RenderVertex),
+			             vertexList, GL_STREAM_DRAW);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+		}
+
+		{ // Render buffered data in OpenGl
+
+			ASSERT(group->mode < rendermode_invalid);
+
+			if (group->flags & renderflag_wireframe)
+			{
+				glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			}
+			else
+			{
+				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+			}
+			GL_CHECK_ERROR();
+
+			if (group->flags & renderflag_no_texture)
+			{
+				renderer->activeShaderId =
+				    renderer->shaderList[shaderlist_default_no_tex];
+				shaderUse(renderer->activeShaderId);
+			}
+			else
+			{
+				renderer->activeShaderId =
+				    renderer->shaderList[shaderlist_default];
+				shaderUse(renderer->activeShaderId);
+				Texture *tex = group->tex;
+				if (tex)
+				{
+					glActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, tex->id);
+					shaderUniformSet1i(renderer->activeShaderId, "tex", 0);
+					GL_CHECK_ERROR();
+				}
+			}
+
+#if 0
+				glDisable(GL_CULL_FACE);
+#endif
+
+			/* Set color modulation value */
+			shaderUniformSetVec4f(renderer->activeShaderId, "spriteColor",
+			                      group->color);
+
+			glBindVertexArray(renderer->vao[group->mode]);
+			glDrawArrays(GL_TRIANGLE_STRIP, 0, renderer->numVertexesInVbo);
+			GL_CHECK_ERROR();
+			debug_countIncrement(debugcount_drawArrays);
+
+			/* Unbind */
+			glBindVertexArray(0);
+			glBindTexture(GL_TEXTURE_2D, 0);
+			GL_CHECK_ERROR();
+		}
+
+		RenderGroup cleanGroup = {0};
+		cleanGroup.vertexList  = group->vertexList;
+		*group                 = cleanGroup;
+	}
+
+	renderer->groupsInUse = 0;
 }

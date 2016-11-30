@@ -225,7 +225,7 @@ INTERNAL void updateAndRenderDebugStack(Renderer *renderer, MemoryArena_ *arena,
 		v4 color   = V4(1, 1, 1, 1);
 		renderer_stringFixed(
 		    renderer, arena, &GLOBAL_debug.font, GLOBAL_debug.debugStrings[i],
-		    GLOBAL_debug.currStringP, V2(0, 0), rotate, color, 0);
+		    GLOBAL_debug.currStringP, V2(0, 0), rotate, color, 0, 0);
 		GLOBAL_debug.currStringP.y -= (0.9f * GLOBAL_debug.stringLineGap);
 	}
 
@@ -257,7 +257,7 @@ INTERNAL void renderConsole(Renderer *renderer, MemoryArena_ *arena)
 		v4 color   = V4(1.0f, 1.0f, 1.0f, 1.0f);
 		renderer_stringFixed(renderer, arena, &GLOBAL_debug.font,
 		                      GLOBAL_debug.console[i], consoleStrP,
-		                      V2(0, 0), rotate, color, 0);
+		                      V2(0, 0), rotate, color, 0, 0);
 		consoleStrP.y -= (0.9f * GLOBAL_debug.stringLineGap);
 	}
 }
@@ -290,6 +290,8 @@ void debug_drawUi(GameState *state, f32 dt)
 		}
 	}
 
+	DEBUG_PUSH_VAR("Num RenderGroups: %d", &state->renderer.groupsInUse,
+	               "i32");
 	DEBUG_PUSH_VAR("Num Vertex: %d",
 	               GLOBAL_debug.callCount[debugcount_numVertex], "i32");
 

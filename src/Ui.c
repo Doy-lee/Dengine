@@ -28,7 +28,7 @@ void ui_endState(UiState *state, InputBuffer *input)
 i32 ui_button(UiState *const uiState, MemoryArena_ *const arena,
               AssetManager *const assetManager, Renderer *const renderer,
               Font *const font, const InputBuffer input, const i32 id,
-              const Rect rect, const char *const label)
+              const Rect rect, const char *const label, i32 zDepth)
 {
 	if (math_rectContainsP(rect, input.mouseP))
 	{
@@ -76,11 +76,12 @@ i32 ui_button(UiState *const uiState, MemoryArena_ *const arena,
 		renderer_rectFixed(renderer,
 		                   v2_add(V2(-2, -2), v2_add(buttonOffset, rect.min)),
 		                   v2_add(V2(4, 4), rectSize), V2(0, 0), 0, NULL,
-		                   buttonColor, renderflag_no_texture);
+		                   buttonColor, zDepth, renderflag_no_texture);
 	}
 
 	renderer_rectFixed(renderer, v2_add(buttonOffset, rect.min), rectSize,
-	                   V2(0, 0), 0, NULL, buttonColor, renderflag_no_texture);
+	                   V2(0, 0), 0, NULL, buttonColor, zDepth,
+	                   renderflag_no_texture);
 
 	if (label)
 	{
@@ -104,7 +105,7 @@ i32 ui_button(UiState *const uiState, MemoryArena_ *const arena,
 		// button text into another render group
 		labelPos = v2_add(labelPos, buttonOffset);
 		renderer_stringFixed(renderer, arena, font, label, labelPos, V2(0, 0),
-		                     0, V4(0.9f, 0.9f, 0.9f, 0.9f), 0);
+		                     0, V4(0.9f, 0.9f, 0.9f, 0.9f), zDepth, 0);
 	}
 
 	// After renderering before click check, see if we need to process keys
@@ -145,7 +146,7 @@ i32 ui_button(UiState *const uiState, MemoryArena_ *const arena,
 i32 ui_scrollbar(UiState *const uiState, AssetManager *const assetManager,
                  Renderer *const renderer, const InputBuffer input,
                  const i32 id, const Rect scrollBarRect, i32 *const value,
-                 const i32 maxValue)
+                 const i32 maxValue, i32 zDepth)
 {
 #ifdef DENGINE_DEBUG
 	ASSERT(*value <= maxValue);
@@ -176,12 +177,12 @@ i32 ui_scrollbar(UiState *const uiState, AssetManager *const assetManager,
 		// Draw outline
 		renderer_rectFixed(renderer, v2_add(V2(-2, -2), scrollBarRect.min),
 		                   v2_add(V2(4, 4), rectSize), V2(0, 0), 0, &renderTex,
-		                   V4(1, 0, 0, 1), 0);
+		                   V4(1, 0, 0, 1), zDepth, 0);
 	}
 
 	// Render scroll bar background
 	renderer_rectFixed(renderer, scrollBarRect.min, rectSize, V2(0, 0), 0,
-	                   &renderTex, V4(0.75f, 0.5f, 0.5f, 1), 0);
+	                   &renderTex, V4(0.75f, 0.5f, 0.5f, 1), zDepth, 0);
 
 	// Render scroll bar slider
 	v2 sliderSize  = V2(16, 16);
@@ -198,7 +199,7 @@ i32 ui_scrollbar(UiState *const uiState, AssetManager *const assetManager,
 		sliderColor = V4(0.0f, 1.0f, 0, 1);
 
 	renderer_rectFixed(renderer, sliderPos, sliderSize, V2(0, 0), 0, &renderTex,
-	                   sliderColor, 0);
+	                   sliderColor, zDepth, 0);
 
 	if (uiState->kbdItem == id)
 	{
@@ -259,7 +260,7 @@ i32 ui_scrollbar(UiState *const uiState, AssetManager *const assetManager,
 i32 ui_textfield(UiState *const uiState, MemoryArena_ *const arena,
                  AssetManager *const assetManager, Renderer *const renderer,
                  Font *const font, InputBuffer input, const i32 id,
-                 const Rect rect, char *const string)
+                 const Rect rect, char *const string, i32 zDepth)
 {
 	i32 strLen  = common_strlen(string);
 	b32 changed = FALSE;
@@ -287,27 +288,27 @@ i32 ui_textfield(UiState *const uiState, MemoryArena_ *const arena,
 		// Draw outline
 		renderer_rectFixed(renderer, v2_add(V2(-2, -2), rect.min),
 		                   v2_add(V2(4, 4), rectSize), V2(0, 0), 0, NULL,
-		                   V4(1.0f, 0, 0, 1), 0);
+		                   V4(1.0f, 0, 0, 1), zDepth, 0);
 	}
 
 	// Render text field
 	renderer_rectFixed(renderer, rect.min, rectSize, V2(0, 0), 0, NULL,
-	                   V4(0.75f, 0.5f, 0.5f, 1), 0);
+	                   V4(0.75f, 0.5f, 0.5f, 1), zDepth, 0);
 
 	if (uiState->activeItem == id || uiState->hotItem == id)
 	{
 		renderer_rectFixed(renderer, rect.min, rectSize, V2(0, 0), 0, NULL,
-		                   V4(0.75f, 0.75f, 0.0f, 1), 0);
+		                   V4(0.75f, 0.75f, 0.0f, 1), zDepth, 0);
 	}
 	else
 	{
 		renderer_rectFixed(renderer, rect.min, rectSize, V2(0, 0), 0, NULL,
-		                   V4(0.5f, 0.5f, 0.5f, 1), 0);
+		                   V4(0.5f, 0.5f, 0.5f, 1), zDepth, 0);
 	}
 
 	v2 strPos = rect.min;
 	renderer_stringFixed(renderer, arena, font, string, strPos, V2(0, 0), 0,
-	                     V4(0, 0, 0, 1), 0);
+	                     V4(0, 0, 0, 1), zDepth, 0);
 
 	if (uiState->kbdItem == id)
 	{
