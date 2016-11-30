@@ -562,13 +562,38 @@ INTERNAL void *getStateData_(GameState *state, MemoryArena_ *persistentArena,
 	return result;
 }
 
+INTERNAL v2 wrapPAroundBounds(v2 p, Rect bounds)
+{
+	v2 result = p;
+
+	if (p.y >= bounds.max.y)
+		result.y = 0;
+	else if (p.y < bounds.min.y)
+		result.y = bounds.max.y;
+
+	if (p.x >= bounds.max.x)
+		result.x = 0;
+	else if (p.x < bounds.min.x)
+		result.x = bounds.max.x;
+
+	return result;
+}
+
 INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 {
 	GameWorldState *world =
 	    GET_STATE_DATA(state, &state->persistentArena, GameWorldState);
 
-	if (!world->init)
+	if (!common_isSet(world->flags, gameworldstateflags_init))
 	{
+
+#ifdef DENGINE_DEBUG
+		{
+			u8 *data = (u8 *)world;
+			for (i32 i = 0; i < sizeof(GameWorldState); i++)
+				ASSERT(data[i] == 0);
+		}
+#endif
 		world->pixelsPerMeter = 70.0f;
 
 		MemoryIndex entityArenaSize =
@@ -628,7 +653,92 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 			world->starPList[i] = V2i(randX, randY);
 		}
 
-		world->init = TRUE;
+		world->flags |= gameworldstateflags_init;
+
+		world->scoreMultiplier                = 5;
+		world->scoreMultiplierBarTimer        = 0.0f;
+		world->scoreMultiplierBarThresholdInS = 2.0f;
+	}
+
+	if (common_isSet(world->flags, gameworldstateflags_level_started))
+	{
+		Font *arial40 = asset_fontGet(&state->assetManager, "Arial", 40);
+
+		Renderer *renderer = &state->renderer;
+
+		/* Render scores onto screen */
+		v2 stringP =
+		    V2((renderer->size.w * 0.5f), renderer->size.h - arial40->size);
+		char gamePointsString[COMMON_ITOA_MAX_BUFFER_32BIT] = {0};
+		common_itoa(world->score, gamePointsString,
+		            ARRAY_COUNT(gamePointsString));
+
+		renderer_stringFixedCentered(renderer, &state->transientArena, arial40,
+		                             gamePointsString, stringP, V2(0, 0), 0,
+		                             V4(1.0f, 1.0f, 1.0f, 1.0f), 1, 0);
+
+		/* Render multiplier accumulator bar onto screen */
+		v2 stringDim = asset_fontStringDimInPixels(arial40, gamePointsString);
+		v2 multiplierOutlineSize =
+		    V2(renderer->size.w * 0.5f, stringDim.h * 0.25f);
+
+		v2 multiplierOutlineP = V2(renderer->size.w * 0.5f, stringP.h);
+		multiplierOutlineP.x -= (multiplierOutlineSize.w * 0.5f);
+		multiplierOutlineP.y -= stringDim.h * 1.5f;
+
+		renderer_rectFixedOutline(
+		    renderer, multiplierOutlineP, multiplierOutlineSize, V2(0, 0), 2, 0,
+		    NULL, V4(0.2f, 0.3f, 0.8f, 1.0f), 2, renderflag_no_texture);
+
+		f32 progressNormalised = world->scoreMultiplierBarTimer /
+		                         world->scoreMultiplierBarThresholdInS;
+		renderer_rectFixed(renderer, multiplierOutlineP,
+		                   V2(multiplierOutlineSize.w * progressNormalised,
+		                      multiplierOutlineSize.h),
+		                   V2(0, 0), 0, NULL, V4(0.2f, 0.3f, 0.8f, 1.0f), 1,
+		                   renderflag_no_texture);
+
+		/* Render multiplier counter hud onto screen */
+		v2 multiplierHudP    = V2(0, 0.05f * renderer->size.h);
+		v2 multiplierHudSize =
+		    V2((arial40->maxSize.w * 3.5f), arial40->fontHeight * 1.2f);
+
+		renderer_rectFixed(renderer, multiplierHudP, multiplierHudSize,
+		                   V2(0, 0), 0, NULL, V4(1, 1, 1, 0.1f), 2,
+		                   renderflag_no_texture);
+
+		/* Render multiplier counter string to hud */
+		char multiplierToString[COMMON_ITOA_MAX_BUFFER_32BIT + 1] = {0};
+		common_itoa(world->scoreMultiplier, multiplierToString + 1,
+		            ARRAY_COUNT(multiplierToString) - 1);
+		multiplierToString[0] = 'x';
+
+		v2 multiplierToStringP = multiplierHudP;
+		multiplierToStringP =
+		    v2_add(multiplierToStringP, v2_scale(multiplierHudSize, 0.5f));
+
+		renderer_stringFixedCentered(
+		    renderer, &state->transientArena, arial40, multiplierToString,
+		    multiplierToStringP, V2(0, 0), 0, V4(1.0f, 1.0f, 1.0f, 1.0f), 3, 0);
+
+		/* Process multiplier bar updates */
+		f32 barTimerPenalty = 1.0f;
+		if (world->timeSinceLastShot < 1.5f)
+		{
+			barTimerPenalty = 0.1f;
+		}
+
+		world->scoreMultiplierBarTimer += (barTimerPenalty * dt);
+		world->timeSinceLastShot += dt;
+
+		if (world->scoreMultiplierBarTimer >
+		    world->scoreMultiplierBarThresholdInS)
+		{
+			world->scoreMultiplierBarTimer = 0;
+			world->scoreMultiplier++;
+
+			if (world->scoreMultiplier > 9999) world->scoreMultiplier = 9999;
+		}
 	}
 
 	for (u32 i = world->asteroidCounter; i < world->numAsteroids; i++)
@@ -660,10 +770,14 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 
 	for (i32 i = 0; i < world->numStarP; i++)
 	{
+		world->starPList[i] = v2_add(world->starPList[i], V2(4.0f * dt, 0));
+		world->starPList[i] = wrapPAroundBounds(
+		    world->starPList[i], math_rectCreate(V2(0, 0), world->size));
+
 		renderer_rect(&state->renderer, world->camera, world->starPList[i],
 		              starSize, V2(0, 0), starRotation, NULL,
-		              V4(0.8f, 0.8f, 0.8f, world->starOpacity),
-		              0, renderflag_no_texture | renderflag_wireframe);
+		              V4(0.8f, 0.8f, 0.8f, world->starOpacity), 0,
+		              renderflag_no_texture | renderflag_wireframe);
 	}
 
 	if (platform_queryKey(&state->input.keys[keycode_left_square_bracket],
@@ -700,6 +814,14 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 			{
 				addBullet(world, entity);
 
+				if (world->timeSinceLastShot >= 0)
+				{
+					world->timeSinceLastShot = 0;
+
+					f32 multiplierPenalty    = -2.0f;
+					world->timeSinceLastShot += multiplierPenalty;
+				}
+
 				AudioVorbis *fire =
 				    asset_vorbisGet(&state->assetManager, "fire");
 				AudioRenderer *audioRenderer =
@@ -732,6 +854,9 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 			DEBUG_PUSH_VAR("Pos: %5.2f, %5.2f", entity->pos, "v2");
 			DEBUG_PUSH_VAR("Velocity: %5.2f, %5.2f", entity->dP, "v2");
 			DEBUG_PUSH_VAR("Rotation: %5.2f", entity->rotation, "f32");
+
+			DEBUG_PUSH_VAR("TimeSinceLastShot: %5.2f", world->timeSinceLastShot,
+			               "f32");
 
 			renderer_rect(&state->renderer, world->camera, entity->pos,
 			              V2(5, 5), V2(0, 0),
@@ -850,17 +975,10 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 			entity->color.a = maxDp / divisor;
 		}
 
+		entity->pos = wrapPAroundBounds(entity->pos,
+		                                math_rectCreate(V2(0, 0), world->size));
+
 		/* Loop entity around world */
-		if (entity->pos.y >= world->size.h)
-			entity->pos.y = 0;
-		else if (entity->pos.y < 0)
-			entity->pos.y = world->size.h;
-
-		if (entity->pos.x >= world->size.w)
-			entity->pos.x = 0;
-		else if (entity->pos.x < 0)
-			entity->pos.x = world->size.w;
-
 		i32 collisionIndex = moveEntity(world, &state->transientArena, entity,
 		                                i, ddP, dt, ddPSpeedInMs);
 
@@ -888,7 +1006,6 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 			if (colliderA->type >= entitytype_asteroid_small &&
 			    colliderA->type <= entitytype_asteroid_large)
 			{
-
 				f32 numParticles = 4;
 				if (colliderA->type == entitytype_asteroid_medium)
 				{
@@ -898,6 +1015,7 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 					addAsteroidWithSpec(world, asteroidsize_small, &spec);
 
 					numParticles = 8;
+					world->score += (10 * world->scoreMultiplier);
 				}
 				else if (colliderA->type == entitytype_asteroid_large)
 				{
@@ -913,6 +1031,11 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 					addAsteroidWithSpec(world, asteroidsize_small, &spec);
 
 					numParticles = 16;
+					world->score += (20 * world->scoreMultiplier);
+				}
+				else
+				{
+					world->score += (5 * world->scoreMultiplier);
 				}
 
 				for (i32 i = 0; i < numParticles; i++)
@@ -1070,7 +1193,7 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 
 	Font *arial15 = asset_fontGetOrCreateOnDemand(
 	    assetManager, &state->persistentArena, transientArena, "Arial", 15);
-	Font *arial25 = asset_fontGetOrCreateOnDemand(
+	Font *arial40 = asset_fontGetOrCreateOnDemand(
 	    assetManager, &state->persistentArena, transientArena, "Arial", 40);
 
 	v2 screenCenter = v2_scale(renderer->size, 0.5f);
@@ -1132,12 +1255,12 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 				}
 			}
 
-			f32 textYOffset = arial25->size * 1.5f;
+			f32 textYOffset = arial40->size * 1.5f;
 			{ // Options Title String Display
 				const char *const title = "Options";
 
 				v2 p = v2_add(screenCenter, V2(0, textYOffset));
-				renderer_stringFixedCentered(renderer, transientArena, arial25,
+				renderer_stringFixedCentered(renderer, transientArena, arial40,
 				                             title, p, V2(0, 0), 0,
 				                             V4(1, 1, 1, 1), uiZDepth, 0);
 			}
@@ -1148,7 +1271,7 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 				const char *const resolutionLabel = "Resolution";
 
 				v2 p = v2_add(screenCenter, V2(0, 0));
-				renderer_stringFixedCentered(renderer, transientArena, arial25,
+				renderer_stringFixedCentered(renderer, transientArena, arial40,
 				                             resolutionLabel, p, V2(0, 0), 0,
 				                             V4(1, 1, 1, 1), uiZDepth, 0);
 
@@ -1157,22 +1280,18 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 				    menuState->resStrings[menuState->resStringDisplayIndex];
 
 				p = v2_add(screenCenter, V2(0, -textYOffset));
-				renderer_stringFixedCentered(renderer, transientArena, arial25,
+				renderer_stringFixedCentered(renderer, transientArena, arial40,
 				                             resStringToDisplay, p, V2(0, 0), 0,
 				                             V4(1, 1, 1, 1), uiZDepth, 0);
 			}
 		}
-
-		renderer_rectFixed(renderer, V2(100, 100), V2(1000, 500), V2(0, 0), 0,
-		                   NULL, V4(1.0f, 0.5f, 0.8f, 0.5f), uiZDepth - 1,
-		                   renderflag_no_texture);
 	}
 	else
 	{
 		/* Draw title text */
 		const char *const title = "Asteroids";
 		v2 p                    = v2_add(screenCenter, V2(0, 40));
-		renderer_stringFixedCentered(renderer, transientArena, arial25, title,
+		renderer_stringFixedCentered(renderer, transientArena, arial40, title,
 		                             p, V2(0, 0), 0, V4(1, 1, 1, 1), uiZDepth,
 		                             0);
 
@@ -1189,7 +1308,7 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 		{
 			const char *const gameStart = "Press enter to start";
 			v2 p                        = v2_add(screenCenter, V2(0, -40));
-			renderer_stringFixedCentered(renderer, transientArena, arial25,
+			renderer_stringFixedCentered(renderer, transientArena, arial40,
 			                             gameStart, p, V2(0, 0), 0,
 			                             V4(1, 1, 1, 1), uiZDepth, 0);
 		}
@@ -1197,7 +1316,7 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 		{ // Draw show options prompt
 			const char *const optionPrompt = "Press [o] for options ";
 			v2 p                           = v2_add(screenCenter, V2(0, -120));
-			renderer_stringFixedCentered(renderer, transientArena, arial25,
+			renderer_stringFixedCentered(renderer, transientArena, arial40,
 			                             optionPrompt, p, V2(0, 0), 0,
 			                             V4(1, 1, 1, 1), uiZDepth,  0);
 		}
@@ -1211,6 +1330,7 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 			addPlayer(world);
 
 			state->currState = appstate_GameWorldState;
+			world->flags |= gameworldstateflags_level_started;
 		}
 		else if (platform_queryKey(&inputBuffer->keys[keycode_o],
 		                           readkeytype_one_shot, KEY_DELAY_NONE))

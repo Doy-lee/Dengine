@@ -79,9 +79,11 @@ i32 common_strlen(const char *const string);
 i32 common_strcmp(const char *a, const char *b);
 void common_strncat(char *dest, const char *src, i32 numChars);
 char *common_strncpy(char *dest, const char *src, i32 numChars);
+
 u8 *common_memset(u8 *const ptr, const i32 value, const i32 numBytes);
 
 // Max buffer size should be 11 for 32 bit integers
+#define COMMON_ITOA_MAX_BUFFER_32BIT 11
 void common_itoa(i32 value, char *buf, i32 bufSize);
 i32 common_atoi(const char *string, const i32 len);
 
@@ -91,6 +93,42 @@ inline b32 common_isSet(u32 bitfield, u32 flags)
 	if ((bitfield & flags) == flags) result = TRUE;
 
 	return result;
+}
+
+inline void common_unitTest()
+{
+	{
+		char itoa[COMMON_ITOA_MAX_BUFFER_32BIT] = {0};
+		common_itoa(0, itoa, ARRAY_COUNT(itoa));
+		ASSERT(itoa[0] == '0');
+		ASSERT(itoa[1] == 0);
+
+		common_memset(itoa, 1, ARRAY_COUNT(itoa));
+		for (i32 i = 0; i < ARRAY_COUNT(itoa); i++) ASSERT(itoa[i] == 1);
+
+		common_memset(itoa, 0, ARRAY_COUNT(itoa));
+		for (i32 i = 0; i < ARRAY_COUNT(itoa); i++) ASSERT(itoa[i] == 0);
+
+		common_itoa(-123, itoa, ARRAY_COUNT(itoa));
+		ASSERT(itoa[0] == '-');
+		ASSERT(itoa[1] == '1');
+		ASSERT(itoa[2] == '2');
+		ASSERT(itoa[3] == '3');
+		ASSERT(itoa[4] == 0);
+
+		common_memset(itoa, 0, ARRAY_COUNT(itoa));
+		for (i32 i = 0; i < ARRAY_COUNT(itoa); i++) ASSERT(itoa[i] == 0);
+		common_itoa(93, itoa, ARRAY_COUNT(itoa));
+		ASSERT(itoa[0] == '9');
+		ASSERT(itoa[1] == '3');
+		ASSERT(itoa[2] == 0);
+
+		common_memset(itoa, 0, ARRAY_COUNT(itoa));
+		for (i32 i = 0; i < ARRAY_COUNT(itoa); i++) ASSERT(itoa[i] == 0);
+		common_itoa(-0, itoa, ARRAY_COUNT(itoa));
+		ASSERT(itoa[0] == '0');
+		ASSERT(itoa[1] == 0);
+	}
 }
 
 //-----------------------------------------------------------------------------

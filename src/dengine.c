@@ -107,6 +107,11 @@ INTERNAL void setGlfwWindowHints()
 
 i32 main(void)
 {
+
+#ifdef DENGINE_DEBUG
+	common_unitTest();
+#endif
+
 	/*
 	 **************************
 	 * INIT APPLICATION WINDOW

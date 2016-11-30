@@ -17,9 +17,15 @@ enum AppState
 	appstate_count,
 };
 
+enum GameWorldStateFlags
+{
+	gameworldstateflags_init = (1 << 0),
+	gameworldstateflags_level_started = (1 << 1),
+};
+
 typedef struct GameWorldState
 {
-	b32 init;
+	enum GameWorldStateFlags flags;
 
 	MemoryArena_ entityArena;
 
@@ -54,6 +60,14 @@ typedef struct GameWorldState
 
 	// TODO(doyle): Ensure we change this if it gets too big
 	b32 collisionTable[entitytype_count][entitytype_count];
+
+	i32 score;
+	i32 scoreMultiplier;
+	f32 scoreMultiplierBarTimer;
+	f32 scoreMultiplierBarThresholdInS;
+
+	f32 timeSinceLastShot;
+
 } GameWorldState;
 
 typedef struct StartMenuState

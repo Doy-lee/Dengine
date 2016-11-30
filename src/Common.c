@@ -226,9 +226,14 @@ void common_itoa(i32 value, char *buf, i32 bufSize)
 {
 	if (!buf || bufSize == 0) return;
 
+	if (value == 0)
+	{
+		buf[0] = '0';
+		return;
+	}
+	
 	// NOTE(doyle): Max 32bit integer (+-)2147483647
 	i32 charIndex = 0;
-
 	b32 negative            = FALSE;
 	if (value < 0) negative = TRUE;
 
@@ -242,8 +247,16 @@ void common_itoa(i32 value, char *buf, i32 bufSize)
 		val /= 10;
 	}
 
-	// NOTE(doyle): The actual string length may differ from the bufSize
-	reverseString(buf, common_strlen(buf));
+	// NOTE(doyle): If string is negative, we only want to reverse starting
+	// from the second character, so we don't put the negative sign at the end
+	if (negative)
+	{
+		reverseString(buf + 1, charIndex - 1);
+	}
+	else
+	{
+		reverseString(buf, charIndex);
+	}
 }
 
 // TODO(doyle): Consider if we should trash ptrs in string operations in general

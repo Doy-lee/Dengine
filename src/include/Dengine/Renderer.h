@@ -92,16 +92,38 @@ void renderer_init(Renderer *renderer, AssetManager *assetManager,
 
 RenderTex renderer_createNullRenderTex(AssetManager *const assetManager);
 
-// TODO(doyle): Clean up lines
-// Renderer::~Renderer() { glDeleteVertexArrays(1, &this->quadVAO); }
+// TODO(doyle): Rectangles with gradient alphas/gradient colours
 void renderer_rect(Renderer *const renderer, Rect camera, v2 pos, v2 size,
                    v2 pivotPoint, Radians rotate, RenderTex *renderTex,
                    v4 color, i32 zDepth, RenderFlags flags);
 
-void renderer_polygon(Renderer *const renderer, Rect camera, v2 *polygonPoints,
-                      i32 numPoints, v2 pivotPoint, Radians rotate,
-                      RenderTex *renderTex, v4 color, i32 zDepth,
-                      RenderFlags flags);
+inline void renderer_rectOutline(Renderer *const renderer, Rect camera, v2 pos,
+                                 v2 size, f32 thickness, v2 pivotPoint,
+                                 Radians rotate, RenderTex *renderTex, v4 color,
+                                 i32 zDepth, RenderFlags flags)
+{
+	// TODO(doyle): Pivot point is probably not correct!
+	// TODO(doyle): Rotation doesn't work!
+	ASSERT(rotate == 0);
+
+	/* Bottom line */
+	renderer_rect(renderer, camera, pos, V2(size.w, thickness), pivotPoint,
+	              rotate, renderTex, color, zDepth, flags);
+
+	/* Top line */
+	v2 topP = v2_add(pos, V2(0, size.h - thickness));
+	renderer_rect(renderer, camera, topP, V2(size.w, thickness), pivotPoint,
+	              rotate, renderTex, color, zDepth, flags);
+
+	/* Left line */
+	renderer_rect(renderer, camera, pos, V2(thickness, size.h), pivotPoint,
+	              rotate, renderTex, color, zDepth, flags);
+
+	/* Right line */
+	v2 rightP = v2_add(pos, V2(size.w - thickness, 0));
+	renderer_rect(renderer, camera, rightP, V2(thickness, size.h), pivotPoint,
+	              rotate, renderTex, color, zDepth, flags);
+}
 
 inline void renderer_rectFixed(Renderer *const renderer, v2 pos, v2 size,
                                v2 pivotPoint, Radians rotate,
@@ -112,6 +134,23 @@ inline void renderer_rectFixed(Renderer *const renderer, v2 pos, v2 size,
 	renderer_rect(renderer, staticCamera, pos, size, pivotPoint, rotate,
 	              renderTex, color, zDepth, flags);
 }
+
+inline void renderer_rectFixedOutline(Renderer *const renderer, v2 pos, v2 size,
+                                      v2 pivotPoint, f32 thickness,
+                                      Radians rotate, RenderTex *renderTex,
+                                      v4 color, i32 zDepth, RenderFlags flags)
+{
+	Rect staticCamera = {V2(0, 0), renderer->size};
+	renderer_rectOutline(renderer, staticCamera, pos, size, thickness,
+	                     pivotPoint, rotate, renderTex, color, zDepth, flags);
+}
+
+
+void renderer_polygon(Renderer *const renderer, Rect camera, v2 *polygonPoints,
+                      i32 numPoints, v2 pivotPoint, Radians rotate,
+                      RenderTex *renderTex, v4 color, i32 zDepth,
+                      RenderFlags flags);
+
 
 void renderer_string(Renderer *const renderer, MemoryArena_ *arena, Rect camera,
                      Font *const font, const char *const string, v2 pos,

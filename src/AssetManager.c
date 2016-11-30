@@ -1484,7 +1484,7 @@ const i32 asset_fontLoadTTF(AssetManager *assetManager,
 }
 
 const v2 asset_fontStringDimInPixels(const Font *const font,
-                                 const char *const string)
+                                     const char *const string)
 {
 	v2 stringDim = V2(0, 0);
 	for (i32 i = 0; i < common_strlen(string); i++)
