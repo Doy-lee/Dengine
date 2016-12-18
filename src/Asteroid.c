@@ -722,22 +722,67 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 		    multiplierToStringP, V2(0, 0), 0, V4(1.0f, 1.0f, 1.0f, 1.0f), 3, 0);
 
 		/* Process multiplier bar updates */
-		f32 barTimerPenalty = 1.0f;
-		if (world->timeSinceLastShot < 1.5f)
+		if (!common_isSet(world->flags, gameworldstateflags_player_lost))
 		{
-			barTimerPenalty = 0.1f;
+			f32 barTimerPenalty = 1.0f;
+			if (world->timeSinceLastShot < 1.5f)
+			{
+				barTimerPenalty = 0.1f;
+			}
+
+			world->scoreMultiplierBarTimer += (barTimerPenalty * dt);
+			world->timeSinceLastShot += dt;
+
+			if (world->scoreMultiplierBarTimer >
+			    world->scoreMultiplierBarThresholdInS)
+			{
+				world->scoreMultiplierBarTimer = 0;
+				world->scoreMultiplier++;
+
+				if (world->scoreMultiplier > 9999)
+					world->scoreMultiplier = 9999;
+			}
 		}
+	}
 
-		world->scoreMultiplierBarTimer += (barTimerPenalty * dt);
-		world->timeSinceLastShot += dt;
+	if (common_isSet(world->flags, gameworldstateflags_player_lost))
+	{
+		Font *arial40 = asset_fontGet(&state->assetManager, "Arial", 40);
 
-		if (world->scoreMultiplierBarTimer >
-		    world->scoreMultiplierBarThresholdInS)
+		char *gameOver = "Game Over";
+		v2 gameOverP = v2_scale(state->renderer.size, 0.5f);
+		renderer_stringFixedCentered(
+		    &state->renderer, &state->transientArena, arial40, "Game Over",
+		    gameOverP, V2(0, 0), 0, V4(1, 1, 1, 1), 0, 0);
+
+		v2 gameOverSize = asset_fontStringDimInPixels(arial40, gameOver);
+		v2 replayP = V2(gameOverP.x, gameOverP.y - (gameOverSize.h * 1.2f));
+
+		renderer_stringFixedCentered(
+		    &state->renderer, &state->transientArena, arial40,
+		    "Press enter to play again or backspace to return to menu", replayP,
+		    V2(0, 0), 0, V4(1, 1, 1, 1), 0, 0);
+
+		if (platform_queryKey(&state->input.keys[keycode_enter],
+		                      readkeytype_one_shot, 0.0f))
 		{
-			world->scoreMultiplierBarTimer = 0;
-			world->scoreMultiplier++;
+			// TODO(doyle): Extract score init default values to some game
+			// definitions file
+			world->score                          = 0;
+			world->scoreMultiplier                = 5;
+			world->scoreMultiplierBarTimer        = 0.0f;
+			world->scoreMultiplierBarThresholdInS = 2.0f;
 
-			if (world->scoreMultiplier > 9999) world->scoreMultiplier = 9999;
+			addPlayer(world);
+
+			world->flags ^= gameworldstateflags_player_lost;
+		}
+		else if (platform_queryKey(&state->input.keys[keycode_backspace],
+		                           readkeytype_one_shot, 0.0f))
+		{
+			common_memset((u8 *)world, 0, sizeof(*world));
+			state->currState = appstate_StartMenuState;
+			return;
 		}
 	}
 
@@ -780,11 +825,13 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 		              renderflag_no_texture | renderflag_wireframe);
 	}
 
+#ifdef DENGINE_DEBUG
 	if (platform_queryKey(&state->input.keys[keycode_left_square_bracket],
 	                      readkeytype_repeat, 0.2f))
 	{
 		addAsteroid(world, (rand() % asteroidsize_count));
 	}
+#endif
 
 	ASSERT(world->entityList[0].id == NULL_ENTITY_ID);
 	for (i32 i = 1; i < world->entityIndex; i++)
@@ -807,6 +854,17 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 				    DEGREES_TO_RADIANS((entity->rotation + 90.0f));
 				v2 direction = V2(math_cosf(rotation), math_sinf(rotation));
 				ddP          = direction;
+
+				AudioVorbis *thrust =
+				    asset_vorbisGet(&state->assetManager, "thrust");
+				AudioRenderer *audioRenderer =
+				    getFreeAudioRenderer(world, thrust, 3);
+				if (audioRenderer)
+				{
+					audio_vorbisPlay(&state->transientArena,
+					                 &state->audioManager, audioRenderer,
+					                 thrust, 1);
+				}
 			}
 
 			if (platform_queryKey(&state->input.keys[keycode_space],
@@ -1003,6 +1061,14 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 				colliderB = collideEntity;
 			}
 
+			// Assumptions made that the collision detect system relies on
+			ASSERT(entitytype_ship            < entitytype_asteroid_small);
+			ASSERT(entitytype_asteroid_small  < entitytype_asteroid_medium);
+			ASSERT(entitytype_asteroid_medium < entitytype_asteroid_large);
+			ASSERT(entitytype_asteroid_large  < entitytype_bullet);
+			ASSERT(entitytype_asteroid_small + 1 == entitytype_asteroid_medium);
+			ASSERT(entitytype_asteroid_medium + 1 == entitytype_asteroid_large);
+
 			if (colliderA->type >= entitytype_asteroid_small &&
 			    colliderA->type <= entitytype_asteroid_large)
 			{
@@ -1092,7 +1158,6 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 				ASSERT(colliderB->type == entitytype_bullet);
 
 				deleteEntity(world, collisionIndex);
-
 				deleteEntity(world, i--);
 				world->asteroidCounter--;
 
@@ -1125,6 +1190,36 @@ INTERNAL void gameUpdate(GameState *state, Memory *memory, f32 dt)
 				}
 
 				continue;
+			}
+			else if (colliderA->type == entitytype_ship)
+			{
+				if (colliderB->type >= entitytype_asteroid_small &&
+				    colliderB->type <= entitytype_asteroid_large)
+				{
+					world->flags |= gameworldstateflags_player_lost;
+
+					if (collideEntity->type == entitytype_ship)
+					{
+						deleteEntity(world, collisionIndex);
+					}
+					else
+					{
+						deleteEntity(world, i--);
+					}
+
+					AudioVorbis *explode =
+					    asset_vorbisGet(&state->assetManager, "bang_large");
+					AudioRenderer *audioRenderer =
+					    getFreeAudioRenderer(world, explode, 3);
+					if (audioRenderer)
+					{
+						audio_vorbisPlay(&state->transientArena,
+						                 &state->audioManager, audioRenderer,
+						                 explode, 1);
+					}
+
+					continue;
+				}
 			}
 		}
 
@@ -1219,13 +1314,11 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 				menuState->newResolutionRequest = TRUE;
 				v2 newSize =
 				    resolutionArray->ptr[menuState->resStringDisplayIndex];
-
-				GameWorldState *world = GET_STATE_DATA(
-				    state, &state->persistentArena, GameWorldState);
-
 				renderer_updateSize(renderer, &state->assetManager, newSize);
 
 				// TODO(doyle): reset world arena instead of zeroing out struct
+				GameWorldState *world = GET_STATE_DATA(
+				    state, &state->persistentArena, GameWorldState);
 				common_memset((u8 *)world, 0, sizeof(GameWorldState));
 				debug_init(newSize, *arial15);
 			}
@@ -1327,10 +1420,9 @@ INTERNAL void startMenuUpdate(GameState *state, Memory *memory, f32 dt)
 
 			GameWorldState *world =
 			    GET_STATE_DATA(state, &state->persistentArena, GameWorldState);
-			addPlayer(world);
-
 			state->currState = appstate_GameWorldState;
 			world->flags |= gameworldstateflags_level_started;
+			addPlayer(world);
 		}
 		else if (platform_queryKey(&inputBuffer->keys[keycode_o],
 		                           readkeytype_one_shot, KEY_DELAY_NONE))

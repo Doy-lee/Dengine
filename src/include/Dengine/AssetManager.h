@@ -26,11 +26,9 @@ typedef struct AssetManager
 
 void asset_init(AssetManager *assetManager, MemoryArena_ *arena);
 
-/*
- *********************************
- * Texture Operations
- *********************************
- */
+////////////////////////////////////////////////////////////////////////////////
+// Texture Managing
+////////////////////////////////////////////////////////////////////////////////
 const SubTexture asset_atlasGetSubTex(TexAtlas *const atlas,
                                       const char *const key);
 Texture *asset_texGet(AssetManager *const assetManager, const char *const key);
@@ -49,11 +47,9 @@ u8 *asset_imageLoad(i32 *width, i32 *height, i32 *bpp, const char *const path,
 
 void asset_imageFree(u8 *image);
 
-/*
- *********************************
- * Animation Asset Managing
- *********************************
- */
+////////////////////////////////////////////////////////////////////////////////
+// Animation Asset Managing
+////////////////////////////////////////////////////////////////////////////////
 void asset_animAdd(AssetManager *const assetManager, MemoryArena_ *const arena,
                    const char *const animName, TexAtlas *const atlas,
                    char **const subTextureNames, const i32 numSubTextures,
@@ -61,21 +57,17 @@ void asset_animAdd(AssetManager *const assetManager, MemoryArena_ *const arena,
 Animation *asset_animGet(AssetManager *const assetManager,
                          const char *const key);
 
-/*
- *********************************
- * Audio
- *********************************
- */
+////////////////////////////////////////////////////////////////////////////////
+// Audio
+////////////////////////////////////////////////////////////////////////////////
 AudioVorbis *const asset_vorbisGet(AssetManager *const assetManager,
                                    const char *const key);
 const i32 asset_vorbisLoad(AssetManager *assetManager, MemoryArena_ *arena,
                            const char *const path, const char *const key);
 
-/*
- *********************************
- * Everything else
- *********************************
- */
+////////////////////////////////////////////////////////////////////////////////
+// Everything else
+////////////////////////////////////////////////////////////////////////////////
 const i32 asset_xmlLoad(AssetManager *const assetManager,
                         MemoryArena_ *const arena,
                         const PlatformFileRead *const fileRead);

@@ -35,6 +35,10 @@ INTERNAL void shaderUse(u32 shaderId) { glUseProgram(shaderId); }
 void renderer_updateSize(Renderer *renderer, AssetManager *assetManager, v2 windowSize)
 {
 	renderer->size = windowSize;
+	// renderer->displayScale =
+	//     V2(windowSize.x * 1.0f / renderer->referenceScale.x,
+	//        windowSize.y * 1.0f / renderer->referenceScale.y);
+
 	// NOTE(doyle): Value to map a screen coordinate to NDC coordinate
 	renderer->vertexNdcFactor =
 	    V2(1.0f / renderer->size.w, 1.0f / renderer->size.h);
@@ -48,7 +52,7 @@ void renderer_updateSize(Renderer *renderer, AssetManager *assetManager, v2 wind
 		renderer->shaderList[i] = asset_shaderGet(assetManager, i);
 		shaderUse(renderer->shaderList[i]);
 		shaderUniformSetMat4fv(renderer->shaderList[i], "projection",
-		                        projection);
+		                       projection);
 		GL_CHECK_ERROR();
 	}
 
@@ -59,6 +63,7 @@ void renderer_updateSize(Renderer *renderer, AssetManager *assetManager, v2 wind
 void renderer_init(Renderer *renderer, AssetManager *assetManager,
                    MemoryArena_ *persistentArena, v2 windowSize)
 {
+	renderer->referenceScale = V2(1280, 720);
 	renderer_updateSize(renderer, assetManager, windowSize);
 
 	/* Create buffers */

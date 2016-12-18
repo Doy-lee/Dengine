@@ -68,6 +68,7 @@ enum VertexBatchState {
 
 typedef struct Renderer
 {
+	// rendererf
 	u32 shaderList[shaderlist_count];
 	u32 activeShaderId;
 
@@ -80,6 +81,13 @@ typedef struct Renderer
 	i32 numVertexesInVbo;
 	v2 vertexNdcFactor;
 	v2 size;
+
+	// NOTE(doyle): Reference scale is the size chosen to have the best
+	// playability based on the sizes of the entity given to the system. Any
+	// other resoluions will be scaled through the renderer so that objects
+	// remain the same size in different resolutions.
+	f32 displayScale;
+	v2 referenceScale;
 
 	RenderGroup groups[128];
 	i32 groupsInUse;

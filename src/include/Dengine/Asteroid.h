@@ -19,8 +19,10 @@ enum AppState
 
 enum GameWorldStateFlags
 {
-	gameworldstateflags_init = (1 << 0),
+	gameworldstateflags_init          = (1 << 0),
 	gameworldstateflags_level_started = (1 << 1),
+	gameworldstateflags_player_lost   = (1 << 2),
+	gameworldstateflags_create_player = (1 << 3),
 };
 
 typedef struct GameWorldState
